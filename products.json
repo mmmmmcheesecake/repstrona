@@ -4,7 +4,7 @@
       "title": "Nike Air Jordan 1 Retro High",
       "category": "Buty",
       "price": "~$45",
-      "link": "usfans.com/product/3/7547810481?ref=MGRSBE",
+      "link": "https://usfans.com/product/3/7547810481?ref=MGRSBE",
       "image": "https://via.placeholder.com/400x300/1a1a2e/6c63ff?text=Jordan+1",
       "description": "Kultowe buty w świetnej jakości wykonania.",
       "badge": "hot",
@@ -29,16 +29,6 @@
       "description": "Redukcja hałasu, 40h baterii.",
       "badge": "top",
       "trending": true
-    },
-    {
-      "title": "Plecak miejski Premium",
-      "category": "Torby",
-      "price": "~$40",
-      "link": "#",
-      "image": "https://via.placeholder.com/400x300/2e2a1a/ffcc63?text=Plecak",
-      "description": "Wodoodporny, duża pojemność.",
-      "badge": "",
-      "trending": false
     }
   ]
 }
