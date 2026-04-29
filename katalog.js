@@ -55,53 +55,13 @@ function parseCSV(text) {
     });
 }
 
-// Pobieranie z Google Sheets
+// Pobieranie z Google Sheets przez własną funkcję Netlify
 async function fetchProducts() {
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
-    const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
-
-    const methods = [
-        // Metoda 1: allorigins (CSV)
-        async () => {
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(csvUrl)}`);
-            if (!res.ok) throw new Error('allorigins failed');
-            const j = await res.json();
-            if (!j.contents || j.contents.trim().startsWith('<')) throw new Error('HTML response');
-            return parseCSV(j.contents);
-        },
-        // Metoda 2: allorigins z gviz
-        async () => {
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gvizUrl)}`);
-            if (!res.ok) throw new Error('allorigins gviz failed');
-            const j = await res.json();
-            if (!j.contents || j.contents.trim().startsWith('<')) throw new Error('HTML response');
-            return parseCSV(j.contents);
-        },
-        // Metoda 3: corsproxy (gviz CSV)
-        async () => {
-            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(gvizUrl)}`);
-            if (!res.ok) throw new Error('corsproxy failed');
-            const text = await res.text();
-            if (!text || text.trim().startsWith('<')) throw new Error('HTML response');
-            return parseCSV(text);
-        },
-        // Metoda 4: bezpośrednio gviz (działa na niektórych przeglądarkach)
-        async () => {
-            const res = await fetch(gvizUrl);
-            if (!res.ok) throw new Error('direct failed');
-            const text = await res.text();
-            if (!text || text.trim().startsWith('<')) throw new Error('HTML response');
-            return parseCSV(text);
-        }
-    ];
-
-    for (const method of methods) {
-        try {
-            const rows = await method();
-            if (rows && rows.length > 1) return rows;
-        } catch (e) { continue; }
-    }
-    throw new Error('Nie udało się załadować arkusza.');
+    const res = await fetch('/api/sheet');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if (!text || text.trim().startsWith('<')) throw new Error('Błędna odpowiedź');
+    return parseCSV(text);
 }
 
 function rowToProduct(row) {
