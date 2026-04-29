@@ -19,7 +19,7 @@
                 <li><a href="katalog.html">Katalog</a></li>
                 <li><a href="#kategorie">Kategorie</a></li>
                 <li><a href="#poradniki">Poradniki</a></li>
-                <li><a href="#" class="nav-discord">Discord</a></li>
+                <li><a id="nav-discord-link" href="#" class="nav-discord">Discord</a></li>
             </ul>
             <div class="nav-right">
                 <button class="theme-toggle" id="themeToggle">
@@ -33,25 +33,25 @@
     <section class="hero">
         <div class="hero-bg"></div>
         <div class="hero-content">
-            <div class="hero-badge">✦ Ponad 2000 produktów w katalogu</div>
-            <h1>Znajdź najlepsze produkty<br><span>i naucz się kupować taniej</span></h1>
-            <p>Przeglądaj sprawdzone oferty z azjatyckich platform, porównuj ceny i korzystaj z poradników zakupowych.</p>
+            <div class="hero-badge" id="hero-badge">✦ Ponad 2000 produktów w katalogu</div>
+            <h1 id="hero-heading">Znajdź najlepsze produkty<br><span id="hero-heading2">i naucz się kupować taniej</span></h1>
+            <p id="hero-description">Przeglądaj sprawdzone oferty z azjatyckich platform, porównuj ceny i korzystaj z poradników zakupowych.</p>
             <div class="hero-ctas">
                 <a href="katalog.html" class="btn-primary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    Przeglądaj katalog
+                    <span id="hero-cta1">Przeglądaj katalog</span>
                 </a>
-                <a href="https://discord.gg/" target="_blank" class="btn-discord">
+                <a id="hero-discord-btn" href="#" target="_blank" class="btn-discord">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
-                    Dołącz do Discorda
+                    <span id="hero-cta2">Dołącz do Discorda</span>
                 </a>
             </div>
             <div class="hero-stats">
-                <div class="stat"><strong>2000+</strong><span>Produktów</span></div>
+                <div class="stat"><strong id="stat1-num">2000+</strong><span id="stat1-label">Produktów</span></div>
                 <div class="stat-divider"></div>
-                <div class="stat"><strong>15+</strong><span>Kategorii</span></div>
+                <div class="stat"><strong id="stat2-num">15+</strong><span id="stat2-label">Kategorii</span></div>
                 <div class="stat-divider"></div>
-                <div class="stat"><strong>100%</strong><span>Zweryfikowanych</span></div>
+                <div class="stat"><strong id="stat3-num">100%</strong><span id="stat3-label">Zweryfikowanych</span></div>
             </div>
         </div>
     </section>
@@ -63,50 +63,7 @@
                 <h2>Kategorie</h2>
                 <a href="katalog.html" class="see-all">Zobacz wszystkie →</a>
             </div>
-            <div class="categories-grid">
-                <a href="katalog.html?kategoria=buty" class="category-card cat-buty">
-                    <div class="cat-icon">👟</div>
-                    <div class="cat-info">
-                        <h3>Buty</h3>
-                        <span>Sneakers, Jordan, Nike i więcej</span>
-                    </div>
-                </a>
-                <a href="katalog.html?kategoria=odziez" class="category-card cat-odziez">
-                    <div class="cat-icon">👕</div>
-                    <div class="cat-info">
-                        <h3>Odzież</h3>
-                        <span>Bluzy, kurtki, spodnie</span>
-                    </div>
-                </a>
-                <a href="katalog.html?kategoria=akcesoria" class="category-card cat-akcesoria">
-                    <div class="cat-icon">⌚</div>
-                    <div class="cat-info">
-                        <h3>Akcesoria</h3>
-                        <span>Zegarki, biżuteria, torebki</span>
-                    </div>
-                </a>
-                <a href="katalog.html?kategoria=elektronika" class="category-card cat-elektronika">
-                    <div class="cat-icon">🎧</div>
-                    <div class="cat-info">
-                        <h3>Elektronika</h3>
-                        <span>Słuchawki, gadżety, kable</span>
-                    </div>
-                </a>
-                <a href="katalog.html?kategoria=sport" class="category-card cat-sport">
-                    <div class="cat-icon">🏋️</div>
-                    <div class="cat-info">
-                        <h3>Sport</h3>
-                        <span>Sprzęt i odzież sportowa</span>
-                    </div>
-                </a>
-                <a href="katalog.html?kategoria=torby" class="category-card cat-torby">
-                    <div class="cat-icon">👜</div>
-                    <div class="cat-info">
-                        <h3>Torby</h3>
-                        <span>Plecaki, torby, walizki</span>
-                    </div>
-                </a>
-            </div>
+            <div class="categories-grid" id="categoriesGrid"></div>
         </div>
     </section>
 
@@ -117,103 +74,21 @@
                 <h2>🔥 Trending — Popularne teraz</h2>
                 <a href="katalog.html" class="see-all">Zobacz wszystkie →</a>
             </div>
-            <div class="trending-grid" id="trendingGrid">
-
-                <div class="product-card large">
-                    <div class="product-img">
-                        <img src="https://via.placeholder.com/600x400/1a1a2e/6c63ff?text=Produkt+1" alt="Produkt 1">
-                        <div class="product-badge hot">🔥 Hot</div>
-                        <div class="product-category">Buty</div>
-                    </div>
-                    <div class="product-info">
-                        <h3>Nike Air Jordan 1 Retro High</h3>
-                        <p class="product-desc">Kultowe buty w świetnej jakości wykonania.</p>
-                        <div class="product-footer">
-                            <span class="product-price">~$45</span>
-                            <a href="#" class="btn-card">Zobacz ofertę →</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card large">
-                    <div class="product-img">
-                        <img src="https://via.placeholder.com/600x400/1a2e1a/63ff6c?text=Produkt+2" alt="Produkt 2">
-                        <div class="product-badge new">Nowy</div>
-                        <div class="product-category">Odzież</div>
-                    </div>
-                    <div class="product-info">
-                        <h3>Essentials Oversized Hoodie</h3>
-                        <p class="product-desc">Popularna bluza dostępna w wielu kolorach.</p>
-                        <div class="product-footer">
-                            <span class="product-price">~$28</span>
-                            <a href="#" class="btn-card">Zobacz ofertę →</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-img">
-                        <img src="https://via.placeholder.com/400x300/2e1a1a/ff6c63?text=Produkt+3" alt="Produkt 3">
-                        <div class="product-category">Akcesoria</div>
-                    </div>
-                    <div class="product-info">
-                        <h3>Rolex Submariner Homage</h3>
-                        <p class="product-desc">Zegarek inspirowany klasykiem.</p>
-                        <div class="product-footer">
-                            <span class="product-price">~$60</span>
-                            <a href="#" class="btn-card">Zobacz ofertę →</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-img">
-                        <img src="https://via.placeholder.com/400x300/1a1a2e/6c63ff?text=Produkt+4" alt="Produkt 4">
-                        <div class="product-badge top">Top Pick</div>
-                        <div class="product-category">Elektronika</div>
-                    </div>
-                    <div class="product-info">
-                        <h3>Słuchawki bezprzewodowe ANC</h3>
-                        <p class="product-desc">Redukcja hałasu, 40h baterii.</p>
-                        <div class="product-footer">
-                            <span class="product-price">~$35</span>
-                            <a href="#" class="btn-card">Zobacz ofertę →</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-img">
-                        <img src="https://via.placeholder.com/400x300/2e2a1a/ffcc63?text=Produkt+5" alt="Produkt 5">
-                        <div class="product-category">Torby</div>
-                    </div>
-                    <div class="product-info">
-                        <h3>Plecak miejski Premium</h3>
-                        <p class="product-desc">Wodoodporny, duża pojemność.</p>
-                        <div class="product-footer">
-                            <span class="product-price">~$40</span>
-                            <a href="#" class="btn-card">Zobacz ofertę →</a>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+            <div class="trending-grid" id="trendingGrid"></div>
         </div>
     </section>
 
     <!-- BANNER DISCORD -->
     <section class="discord-banner">
-        <div class="container">
-            <div class="discord-content">
-                <div class="discord-text">
-                    <h2>Dołącz do społeczności</h2>
-                    <p>Ponad 5000 osób dzieli się opiniami, recenzjami i poradami zakupowymi.</p>
-                </div>
-                <a href="https://discord.gg/" target="_blank" class="btn-discord large">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
-                    Dołącz do Discorda
-                </a>
+        <div class="discord-content">
+            <div class="discord-text">
+                <h2 id="discord-title">Dołącz do społeczności</h2>
+                <p id="discord-desc">Ponad 5000 osób dzieli się opiniami, recenzjami i poradami zakupowymi.</p>
             </div>
+            <a id="discord-banner-btn" href="#" target="_blank" class="btn-discord large">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                <span id="discord-btn-text">Dołącz do Discorda</span>
+            </a>
         </div>
     </section>
 
@@ -241,7 +116,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>© 2026 RePluG. Wszelkie znaki towarowe należą do ich właścicieli. Strona ma charakter informacyjny.</p>
+                <p id="footer-text">© 2026 RePluG. Wszelkie znaki towarowe należą do ich właścicieli. Strona ma charakter informacyjny.</p>
             </div>
         </div>
     </footer>

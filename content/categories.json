@@ -1,0 +1,10 @@
+{
+  "items": [
+    {"name": "Buty", "icon": "👟", "description": "Sneakers, Jordan, Nike i więcej", "slug": "buty"},
+    {"name": "Odzież", "icon": "👕", "description": "Bluzy, kurtki, spodnie", "slug": "odziez"},
+    {"name": "Akcesoria", "icon": "⌚", "description": "Zegarki, biżuteria, torebki", "slug": "akcesoria"},
+    {"name": "Elektronika", "icon": "🎧", "description": "Słuchawki, gadżety, kable", "slug": "elektronika"},
+    {"name": "Sport", "icon": "🏋️", "description": "Sprzęt i odzież sportowa", "slug": "sport"},
+    {"name": "Torby", "icon": "👜", "description": "Plecaki, torby, walizki", "slug": "torby"}
+  ]
+}

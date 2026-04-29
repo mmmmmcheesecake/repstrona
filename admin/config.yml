@@ -8,8 +8,55 @@ public_folder: "/images"
 locale: pl
 
 collections:
+  - name: "settings"
+    label: "⚙️ Ustawienia strony"
+    files:
+      - label: "Ustawienia globalne"
+        name: "global"
+        file: "content/settings.json"
+        fields:
+          - {label: "Nazwa strony", name: "siteName", widget: "string"}
+          - {label: "Link do Discorda", name: "discordUrl", widget: "string"}
+          - {label: "Tekst w stopce", name: "footerText", widget: "string"}
+          - {label: "Statystyka 1 — liczba", name: "stat1Num", widget: "string"}
+          - {label: "Statystyka 1 — opis", name: "stat1Label", widget: "string"}
+          - {label: "Statystyka 2 — liczba", name: "stat2Num", widget: "string"}
+          - {label: "Statystyka 2 — opis", name: "stat2Label", widget: "string"}
+          - {label: "Statystyka 3 — liczba", name: "stat3Num", widget: "string"}
+          - {label: "Statystyka 3 — opis", name: "stat3Label", widget: "string"}
+
+  - name: "hero"
+    label: "🦸 Sekcja Hero"
+    files:
+      - label: "Hero"
+        name: "hero"
+        file: "content/hero.json"
+        fields:
+          - {label: "Badge (tekst nad tytułem)", name: "badge", widget: "string"}
+          - {label: "Nagłówek — linia 1", name: "heading1", widget: "string"}
+          - {label: "Nagłówek — linia 2 (fioletowa)", name: "heading2", widget: "string"}
+          - {label: "Opis pod nagłówkiem", name: "description", widget: "text"}
+          - {label: "Przycisk 1 — tekst", name: "cta1Text", widget: "string"}
+          - {label: "Przycisk 2 — tekst (Discord)", name: "cta2Text", widget: "string"}
+
+  - name: "categories"
+    label: "📁 Kategorie"
+    files:
+      - label: "Lista kategorii"
+        name: "categories_list"
+        file: "content/categories.json"
+        fields:
+          - label: "Kategorie"
+            name: "items"
+            widget: "list"
+            fields:
+              - {label: "Nazwa", name: "name", widget: "string"}
+              - {label: "Ikona (emoji)", name: "icon", widget: "string"}
+              - {label: "Opis", name: "description", widget: "string"}
+              - {label: "Slug (np. buty)", name: "slug", widget: "string"}
+
   - name: "products"
-    label: "Produkty"
+    label: "🛍️ Produkty"
     files:
       - label: "Katalog produktów"
         name: "products_list"
@@ -34,3 +81,36 @@ collections:
                 options: ["", "hot", "new", "top"]
                 required: false
               - {label: "Pokaż w Trending", name: "trending", widget: "boolean", default: false}
+
+  - name: "discord_banner"
+    label: "💬 Banner Discord"
+    files:
+      - label: "Banner Discord"
+        name: "discord_banner"
+        file: "content/discord.json"
+        fields:
+          - {label: "Tytuł", name: "title", widget: "string"}
+          - {label: "Opis", name: "description", widget: "string"}
+          - {label: "Tekst przycisku", name: "btnText", widget: "string"}
+
+  - name: "pages"
+    label: "📄 Strony tekstowe"
+    files:
+      - label: "O nas"
+        name: "about"
+        file: "content/about.json"
+        fields:
+          - {label: "Tytuł", name: "title", widget: "string"}
+          - {label: "Treść", name: "content", widget: "markdown"}
+      - label: "Regulamin"
+        name: "terms"
+        file: "content/terms.json"
+        fields:
+          - {label: "Tytuł", name: "title", widget: "string"}
+          - {label: "Treść", name: "content", widget: "markdown"}
+      - label: "Polityka prywatności"
+        name: "privacy"
+        file: "content/privacy.json"
+        fields:
+          - {label: "Tytuł", name: "title", widget: "string"}
+          - {label: "Treść", name: "content", widget: "markdown"}
