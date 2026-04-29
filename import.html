@@ -97,12 +97,17 @@
 
         <div class="sep-row">
             <span>Separator:</span>
-            <button class="sep-btn active" onclick="setSep('tab')">Tab (domyślny z Google Sheets)</button>
-            <button class="sep-btn" onclick="setSep(',')">Przecinek</button>
-            <button class="sep-btn" onclick="setSep(';')">Średnik</button>
+            <button class="sep-btn active" data-sep="tab" onclick="setSep('tab')">Tab</button>
+            <button class="sep-btn" data-sep="," onclick="setSep(',')">Przecinek</button>
+            <button class="sep-btn" data-sep=";" onclick="setSep(';')">Średnik</button>
         </div>
 
-        <button class="btn btn-purple" onclick="parseData()" style="margin-top:8px;">Wczytaj dane →</button>
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:0.85rem;color:#888;">
+            <input type="checkbox" id="hasHeadersCheck" checked style="cursor:pointer;">
+            <label for="hasHeadersCheck" style="cursor:pointer;">Pierwsza linia to nagłówki kolumn</label>
+        </div>
+
+        <button class="btn btn-purple" onclick="parseData()" style="margin-top:4px;">Wczytaj dane →</button>
     </div>
 
     <!-- KROK 2 — PODGLĄD TABELI -->
@@ -163,12 +168,13 @@ let sep = '\t';
 let headers = [];
 let rows = [];
 let products = [];
+let hasHeaders = true;
 
 function setSep(s) {
     sep = s === 'tab' ? '\t' : s;
     document.querySelectorAll('.sep-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
-    if (rows.length) parseData();
+    if (rows.length || headers.length) parseData();
 }
 
 function addRef(url) {
@@ -178,33 +184,85 @@ function addRef(url) {
     return url.includes('?') ? url + '&ref=MGRSBE' : url + '?ref=MGRSBE';
 }
 
+// Przechwytuj wklejanie bezpośrednio ze schowka
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('rawInput').addEventListener('paste', function(e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        this.value = text;
+        // Auto-wykryj separator
+        const first = text.split('\n')[0] || '';
+        const counts = {
+            '\t': (first.match(/\t/g) || []).length,
+            ',':  (first.match(/,/g)  || []).length,
+            ';':  (first.match(/;/g)  || []).length,
+        };
+        const best = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+        if (best[1] > 0) {
+            sep = best[0];
+            const labels = {'\t':'tab',',':',',';':';'};
+            document.querySelectorAll('.sep-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.sep-btn').forEach(b => {
+                if (b.dataset.sep === labels[sep]) b.classList.add('active');
+            });
+        }
+        setTimeout(parseData, 50);
+    });
+});
+
+function parseLine(line) {
+    const cells = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i], nx = line[i+1];
+        if (inQ) {
+            if (ch === '"' && nx === '"') { cur += '"'; i++; }
+            else if (ch === '"') inQ = false;
+            else cur += ch;
+        } else {
+            if (ch === '"') inQ = true;
+            else if (ch === sep) { cells.push(cur.trim()); cur = ''; }
+            else cur += ch;
+        }
+    }
+    cells.push(cur.trim());
+    return cells;
+}
+
 function parseData() {
     const raw = document.getElementById('rawInput').value;
     if (!raw.trim()) {
-        showMsg('alertPaste', 'error', 'Najpierw wklej dane w pole powyżej!');
+        showMsg('alertPaste', 'error', 'Wklej dane w pole powyżej!');
         return;
     }
 
     const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
         .split('\n').filter(l => l.trim());
 
-    if (!lines.length) {
-        showMsg('alertPaste', 'error', 'Pole jest puste.');
+    if (!lines.length) { showMsg('alertPaste', 'error', 'Pole jest puste.'); return; }
+
+    // Auto-wykryj separator jeśli jeszcze nie ustawiony
+    const first = lines[0];
+    const counts = {'\t': (first.match(/\t/g)||[]).length, ',': (first.match(/,/g)||[]).length, ';': (first.match(/;/g)||[]).length};
+    const bestSep = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    if (bestSep[1] > 0 && counts[sep] === 0) sep = bestSep[0];
+
+    const allRows = lines.map(l => parseLine(l));
+    const colCount = Math.max(...allRows.map(r => r.length));
+
+    if (colCount < 2) {
+        showMsg('alertPaste', 'error', `Wykryto tylko 1 kolumnę. Spróbuj innego separatora lub sprawdź czy dane są poprawnie zaznaczone w arkuszu.`);
         return;
     }
 
-    headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim());
-    rows = lines.slice(1).map(l => l.split(sep).map(c => c.replace(/^"|"$/g, '').trim()))
-        .filter(r => r.some(c => c));
-
-    // Jeśli tylko 1 kolumna - prawdopodobnie zły separator
-    if (headers.length < 2) {
-        const tabCount = lines[0].split('\t').length;
-        const commaCount = lines[0].split(',').length;
-        const semiCount = lines[0].split(';').length;
-        const hint = tabCount > 1 ? 'Tab' : commaCount > 1 ? 'Przecinek' : semiCount > 1 ? 'Średnik' : 'nieznany';
-        showMsg('alertPaste', 'error', `Wykryto ${headers.length} kolumnę — prawdopodobnie zły separator. Dane wyglądają na: ${hint}. Zmień separator powyżej.`);
-        return;
+    // Sprawdź czy pierwsza linia to nagłówki
+    hasHeaders = document.getElementById('hasHeadersCheck').checked;
+    if (hasHeaders) {
+        headers = allRows[0].map((h,i) => h || `Kolumna ${i+1}`);
+        rows = allRows.slice(1).filter(r => r.some(c => c));
+    } else {
+        headers = allRows[0].map((_,i) => `Kolumna ${i+1}`);
+        rows = allRows.filter(r => r.some(c => c));
     }
 
     clearMsg('alertPaste');
