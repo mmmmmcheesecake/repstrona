@@ -244,14 +244,33 @@ async function fetchSheets() {
     const exportUrl = `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv&gid=${parsed.gid}`;
 
     try {
-        const res = await fetch(exportUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        if (!text.trim()) throw new Error('Arkusz pusty lub niedostępny.');
+        let text = null;
+
+        // Próba 1: bezpośrednio
+        try {
+            const res = await fetch(exportUrl);
+            const content = await res.text();
+            if (content.trim() && !content.trim().startsWith('<')) {
+                text = content;
+            }
+        } catch(e) {}
+
+        // Próba 2: przez CORS proxy
+        if (!text) {
+            showAlert('info', 'Używam proxy CORS...');
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(exportUrl)}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const content = await res.text();
+            if (content.trim().startsWith('<')) throw new Error('Arkusz niepubliczny lub niedostępny.');
+            text = content;
+        }
+
         hideAlerts();
         processCSV(text);
     } catch (e) {
-        showAlert('error', 'Nie udało się pobrać. Upewnij się że arkusz jest publiczny (Udostępnij → Każdy z linkiem → Przeglądający).');
+        showAlert('error', 'Nie udało się pobrać danych. Upewnij się że arkusz jest publiczny: Udostępnij → Każdy z linkiem → Przeglądający.');
+        console.error(e);
     } finally {
         setFetchLoading(false);
     }
