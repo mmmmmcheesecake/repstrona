@@ -9,107 +9,57 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { padding: 40px 0 80px; }
-        .import-wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+        .import-wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
         h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
         .subtitle { color: var(--text-muted); margin-bottom: 32px; }
-
         .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
         .step-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
         .step-num { background: var(--accent); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0; }
-
         .instructions { background: var(--bg-hover); border-radius: 10px; padding: 16px; margin-bottom: 16px; font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
         .instructions strong { color: var(--text); }
-        .instructions code { background: var(--border); padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--accent); }
-
         .url-row { display: flex; gap: 10px; }
-        .url-row input {
-            flex: 1;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 16px;
-            color: var(--text);
-            font-size: 0.9rem;
-            font-family: 'Inter', sans-serif;
-            outline: none;
-            transition: border-color 0.2s;
-        }
+        .url-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text); font-size: 0.9rem; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
         .url-row input:focus { border-color: var(--accent); }
         .url-row input::placeholder { color: var(--text-subtle); }
-
-        .btn-fetch {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            padding: 12px 24px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            transition: background 0.2s;
-            white-space: nowrap;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .btn-fetch { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 24px; font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
         .btn-fetch:hover { background: var(--accent-hover); }
         .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
-
         .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text-subtle); font-size: 0.82rem; }
         .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-        textarea {
-            width: 100%;
-            min-height: 140px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            color: var(--text);
-            font-size: 0.85rem;
-            font-family: monospace;
-            resize: vertical;
-            outline: none;
-            transition: border-color 0.2s;
-        }
+        textarea { width: 100%; min-height: 140px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; color: var(--text); font-size: 0.85rem; font-family: monospace; resize: vertical; outline: none; transition: border-color 0.2s; }
         textarea:focus { border-color: var(--accent); }
         textarea::placeholder { color: var(--text-subtle); }
 
-        .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+        /* Detected columns debug */
+        .detected-cols { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .col-chip { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; color: var(--text-muted); }
+        .col-chip strong { color: var(--text); }
+
+        .mapping-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
         .mapping-item label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .mapping-item select {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 12px;
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
-            outline: none;
-            cursor: pointer;
-        }
+        .mapping-item select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.82rem; outline: none; cursor: pointer; }
+        .mapping-item select:focus { border-color: var(--accent); }
 
         .btn-parse { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-weight: 700; font-size: 0.95rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; margin-top: 16px; }
         .btn-parse:hover { background: var(--accent-hover); }
 
-        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; max-height: 500px; overflow-y: auto; padding-right: 4px; }
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
         .preview-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 0.82rem; }
-        .preview-card img { width: 100%; height: 140px; object-fit: cover; background: var(--bg-hover); }
+        .preview-card .pc-img { width: 100%; height: 140px; object-fit: cover; background: var(--bg-hover); display: block; }
+        .preview-card .pc-no-img { height: 140px; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; color: var(--text-subtle); font-size: 0.78rem; }
         .preview-card .pc-info { padding: 10px 12px; }
+        .preview-card .pc-cat { color: var(--accent); font-size: 0.74rem; font-weight: 600; margin-bottom: 2px; }
         .preview-card .pc-name { font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
-        .preview-card .pc-cat { color: var(--accent); font-size: 0.76rem; margin-bottom: 4px; }
-        .preview-card .pc-price { color: var(--text-muted); }
+        .preview-card .pc-batch { color: var(--text-muted); font-size: 0.74rem; margin-bottom: 2px; }
+        .preview-card .pc-price { color: var(--text-muted); font-size: 0.82rem; }
         .preview-count { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px; }
 
         .download-section { text-align: center; padding: 20px; }
         .btn-download { background: #2ed573; color: #000; border: none; border-radius: 10px; padding: 14px 36px; font-weight: 800; font-size: 1rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
         .btn-download:hover { opacity: 0.85; }
-        .download-hint { color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; line-height: 1.6; }
+        .download-hint { color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; line-height: 1.8; }
 
         .alert { border-radius: 10px; padding: 12px 16px; font-size: 0.88rem; margin-bottom: 16px; display: none; }
         .alert.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: #ff6b7a; }
@@ -122,38 +72,44 @@
     <a href="index.html" style="color:var(--accent);font-size:0.88rem;font-weight:600;">← Wróć na stronę</a>
     <br><br>
     <h1>Import produktów</h1>
-    <p class="subtitle">Wklej link z Google Sheets albo skopiuj dane ręcznie — produkty zostaną dodane do katalogu.</p>
+    <p class="subtitle">Wklej link z Google Sheets lub skopiuj dane ręcznie.</p>
 
-    <!-- KROK 1 — URL -->
+    <!-- KROK 1 -->
     <div class="step">
-        <div class="step-title"><div class="step-num">1</div> Wklej link z Google Sheets</div>
+        <div class="step-title"><div class="step-num">1</div> Źródło danych</div>
         <div class="instructions">
-            <strong>Wymagania:</strong> Arkusz musi być publiczny (udostępniony jako "każdy z linkiem może wyświetlić").<br>
-            Aby to zrobić w Google Sheets: <strong>Udostępnij → Każdy z linkiem → Przeglądający → Gotowe</strong>
+            <strong>Opcja A — link Google Sheets:</strong> Arkusz musi być publiczny:<br>
+            Udostępnij → Każdy z linkiem → Przeglądający → Gotowe<br><br>
+            <strong>Opcja B — ręcznie:</strong> Zaznacz dane w arkuszu (z nagłówkami) → Ctrl+C → wklej poniżej
         </div>
+
         <div class="alert info" id="alertInfo"></div>
         <div class="alert error" id="alertError"></div>
-        <div class="url-row">
+        <div class="alert success" id="alertSuccess"></div>
+
+        <label style="font-size:0.82rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:8px;">LINK GOOGLE SHEETS</label>
+        <div class="url-row" style="margin-bottom:20px;">
             <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
             <button class="btn-fetch" id="fetchBtn" onclick="fetchSheets()">
                 <span class="spinner" id="spinner"></span>
-                <span id="fetchBtnText">Pobierz dane</span>
+                <span id="fetchBtnText">Pobierz</span>
             </button>
         </div>
 
         <div class="divider">lub wklej dane ręcznie</div>
 
         <textarea id="csvInput" placeholder="Zaznacz dane w arkuszu (z nagłówkami) → Ctrl+C → Ctrl+V tutaj..."></textarea>
-        <button class="btn-parse" onclick="parseManual()">Wczytaj wklejone dane →</button>
+        <button class="btn-parse" onclick="parseManual()">Wczytaj dane →</button>
     </div>
 
     <!-- KROK 2 — MAPOWANIE -->
     <div class="step" id="mappingStep" style="display:none">
         <div class="step-title"><div class="step-num">2</div> Dopasuj kolumny</div>
-        <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:12px;">Wskaż które kolumny odpowiadają którym polom:</p>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Wykryte kolumny w arkuszu:</p>
+        <div class="detected-cols" id="detectedCols"></div>
         <div class="mapping-grid">
             <div class="mapping-item">
-                <label>Nazwa produktu *</label>
+                <label>Nazwa *</label>
                 <select id="map-title"><option value="">— wybierz —</option></select>
             </div>
             <div class="mapping-item">
@@ -165,7 +121,7 @@
                 <select id="map-price"><option value="">— brak —</option></select>
             </div>
             <div class="mapping-item">
-                <label>Link do sklepu</label>
+                <label>Link</label>
                 <select id="map-link"><option value="">— brak —</option></select>
             </div>
             <div class="mapping-item">
@@ -176,35 +132,37 @@
                 <label>Opis</label>
                 <select id="map-description"><option value="">— brak —</option></select>
             </div>
+            <div class="mapping-item">
+                <label>Batch</label>
+                <select id="map-batch"><option value="">— brak —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>Domyślna kategoria</label>
+                <select id="default-category">
+                    <option>Buty</option><option>Odzież</option><option>Akcesoria</option>
+                    <option>Elektronika</option><option>Sport</option><option>Torby</option>
+                </select>
+            </div>
         </div>
-        <div style="margin-top:16px;">
-            <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">Domyślna kategoria</label>
-            <select id="default-category" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:0.85rem;outline:none;">
-                <option>Buty</option><option>Odzież</option><option>Akcesoria</option>
-                <option>Elektronika</option><option>Sport</option><option>Torby</option>
-            </select>
-        </div>
-        <button class="btn-parse" onclick="buildPreview()">Podgląd produktów →</button>
+        <button class="btn-parse" onclick="buildPreview()">Podgląd →</button>
     </div>
 
     <!-- KROK 3 — PODGLĄD -->
     <div class="step" id="previewStep" style="display:none">
-        <div class="step-title"><div class="step-num">3</div> Podgląd zaimportowanych produktów</div>
-        <div class="alert success" id="alertSuccess"></div>
+        <div class="step-title"><div class="step-num">3</div> Podgląd</div>
         <div class="preview-count" id="previewCount"></div>
         <div class="preview-grid" id="previewGrid"></div>
     </div>
 
     <!-- KROK 4 — POBIERZ -->
     <div class="step" id="downloadStep" style="display:none">
-        <div class="step-title"><div class="step-num">4</div> Pobierz i wgraj na stronę</div>
+        <div class="step-title"><div class="step-num">4</div> Pobierz i wgraj</div>
         <div class="download-section">
             <button class="btn-download" onclick="downloadJSON()">⬇ Pobierz products.json</button>
             <div class="download-hint">
-                Po pobraniu:<br>
                 1. Zastąp plik <strong>products.json</strong> w folderze <strong>strona</strong> na pulpicie<br>
                 2. W terminalu VS Code wpisz: <strong>.\push.bat</strong><br>
-                3. Produkty pojawią się na stronie po 1-2 minutach ✓
+                3. Produkty pojawią się na stronie po ~2 minutach ✓
             </div>
         </div>
     </div>
@@ -215,161 +173,173 @@
 let parsedProducts = [];
 let csvHeaders = [];
 let csvRows = [];
-const REF = '?ref=MGRSBE';
 
 function addRef(url) {
-    if (!url || url.trim() === '' || url === '#') return '#';
+    if (!url || !url.trim() || url === '#') return '#';
     url = url.trim();
     if (url.includes('ref=MGRSBE')) return url;
-    return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
+    return url.includes('?') ? url + '&ref=MGRSBE' : url + '?ref=MGRSBE';
 }
 
-// Wyciąga ID i GID z URL Google Sheets
+// ===== SOLIDNY PARSER CSV =====
+function parseCSV(raw) {
+    // Normalizuj line endings
+    const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    const lines = text.split('\n').filter(l => l.trim());
+    if (!lines.length) return { headers: [], rows: [] };
+
+    // Wykryj separator na podstawie pierwszej linii
+    const first = lines[0];
+    const tabCount = (first.match(/\t/g) || []).length;
+    const commaCount = (first.match(/,/g) || []).length;
+    const sep = tabCount >= commaCount ? '\t' : ',';
+
+    function parseLine(line) {
+        const cells = [];
+        let cur = '';
+        let inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            const next = line[i + 1];
+            if (inQuote) {
+                if (ch === '"' && next === '"') { cur += '"'; i++; }
+                else if (ch === '"') { inQuote = false; }
+                else { cur += ch; }
+            } else {
+                if (ch === '"') { inQuote = true; }
+                else if (ch === sep) { cells.push(cur.trim()); cur = ''; }
+                else { cur += ch; }
+            }
+        }
+        cells.push(cur.trim());
+        return cells;
+    }
+
+    const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
+    const rows = lines.slice(1)
+        .map(l => parseLine(l))
+        .filter(r => r.some(c => c.trim()));
+
+    return { headers, rows };
+}
+
+// ===== POBIERANIE Z GOOGLE SHEETS =====
 function parseGSheetsUrl(url) {
     const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
     const gidMatch = url.match(/[#&?]gid=(\d+)/);
     if (!idMatch) return null;
-    return {
-        id: idMatch[1],
-        gid: gidMatch ? gidMatch[1] : '0'
-    };
-}
-
-function buildExportUrl(id, gid) {
-    return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+    return { id: idMatch[1], gid: gidMatch ? gidMatch[1] : '0' };
 }
 
 async function fetchSheets() {
     const url = document.getElementById('sheetsUrl').value.trim();
-    if (!url) { showError('Wklej link do Google Sheets.'); return; }
+    if (!url) { showAlert('error', 'Wklej link do Google Sheets.'); return; }
 
     const parsed = parseGSheetsUrl(url);
-    if (!parsed) { showError('Nieprawidłowy link Google Sheets. Upewnij się że kopiujesz pełny adres.'); return; }
+    if (!parsed) { showAlert('error', 'Nieprawidłowy link. Skopiuj pełny adres z paska przeglądarki.'); return; }
 
-    const btn = document.getElementById('fetchBtn');
-    const spinner = document.getElementById('spinner');
-    const btnText = document.getElementById('fetchBtnText');
+    setFetchLoading(true);
+    showAlert('info', 'Pobieranie danych...');
 
-    btn.disabled = true;
-    spinner.style.display = 'block';
-    btnText.textContent = 'Pobieranie...';
-    showInfo('Pobieranie danych z Google Sheets...');
-
-    const exportUrl = buildExportUrl(parsed.id, parsed.gid);
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv&gid=${parsed.gid}`;
 
     try {
         const res = await fetch(exportUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        if (!text.trim()) throw new Error('Arkusz jest pusty lub niedostępny.');
-
+        if (!text.trim()) throw new Error('Arkusz pusty lub niedostępny.');
+        hideAlerts();
         processCSV(text);
-        showInfo('');
     } catch (e) {
-        showError('Nie udało się pobrać danych. Sprawdź czy arkusz jest publiczny (Udostępnij → Każdy z linkiem → Przeglądający).');
-        console.error(e);
+        showAlert('error', 'Nie udało się pobrać. Upewnij się że arkusz jest publiczny (Udostępnij → Każdy z linkiem → Przeglądający).');
     } finally {
-        btn.disabled = false;
-        spinner.style.display = 'none';
-        btnText.textContent = 'Pobierz dane';
+        setFetchLoading(false);
     }
 }
 
 function parseManual() {
     const raw = document.getElementById('csvInput').value.trim();
-    if (!raw) { showError('Wklej najpierw dane!'); return; }
+    if (!raw) { showAlert('error', 'Wklej najpierw dane!'); return; }
     processCSV(raw);
-}
-
-function parseCSV(text) {
-    const lines = text.trim().split('\n').filter(l => l.trim());
-    if (!lines.length) return { headers: [], rows: [] };
-    const sep = lines[0].includes('\t') ? '\t' : ',';
-
-    function parseLine(line) {
-        const result = [];
-        let cur = '', inQuote = false;
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            if (ch === '"') { inQuote = !inQuote; }
-            else if (ch === sep && !inQuote) { result.push(cur.trim()); cur = ''; }
-            else { cur += ch; }
-        }
-        result.push(cur.trim());
-        return result;
-    }
-
-    const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, ''));
-    const rows = lines.slice(1).map(parseLine).filter(r => r.some(c => c.trim()));
-    return { headers, rows };
 }
 
 function processCSV(text) {
     const { headers, rows } = parseCSV(text);
-    if (!headers.length) { showError('Nie udało się odczytać danych.'); return; }
+    if (headers.length < 2) { showAlert('error', `Wykryto tylko ${headers.length} kolumnę. Sprawdź czy dane są poprawnie skopiowane.`); return; }
 
     csvHeaders = headers;
     csvRows = rows;
-    fillSelects(headers);
 
+    // Pokaż wykryte kolumny
+    document.getElementById('detectedCols').innerHTML =
+        headers.map((h, i) => `<span class="col-chip"><strong>${i + 1}.</strong> ${h || '(pusta)'}</span>`).join('');
+
+    fillSelects(headers);
     document.getElementById('mappingStep').style.display = 'block';
     document.getElementById('mappingStep').scrollIntoView({ behavior: 'smooth' });
-    showSuccess(`Wczytano ${rows.length} wierszy z ${headers.length} kolumnami.`);
+    showAlert('success', `Wczytano ${rows.length} wierszy, ${headers.length} kolumn.`);
 }
 
+// ===== AUTOMAPOWANIE KOLUMN =====
 function fillSelects(headers) {
     const guesses = {
-        'map-title':       ['nazwa', 'name', 'title', 'produkt', 'product', 'item'],
-        'map-category':    ['kategoria', 'category', 'typ', 'type', 'dział'],
-        'map-price':       ['cena', 'price', 'kwota', 'koszt', 'cost', 'rmb', 'usd'],
-        'map-link':        ['link', 'url', 'href', 'sklep', 'store', 'weidian', 'taobao'],
-        'map-image':       ['zdjęcie', 'zdjecie', 'image', 'img', 'foto', 'photo', 'pic'],
-        'map-description': ['opis', 'description', 'desc', 'szczegóły', 'info']
+        'map-title':       ['nazwa', 'name', 'title', 'produkt', 'product', 'item', 'model'],
+        'map-category':    ['kategoria', 'category', 'typ', 'type', 'dział', 'sekcja'],
+        'map-price':       ['cena', 'price', 'kwota', 'koszt', 'cost', 'rmb', 'usd', 'eur', 'pln'],
+        'map-link':        ['link', 'url', 'href', 'sklep', 'store', 'weidian', 'taobao', '1688', 'tmall'],
+        'map-image':       ['zdjęcie', 'zdjecie', 'image', 'img', 'foto', 'photo', 'pic', 'thumbnail'],
+        'map-description': ['opis', 'description', 'desc', 'szczegóły', 'info', 'notatka', 'notes'],
+        'map-batch':       ['batch', 'wersja', 'version', 'quality', 'jakość', 'seria']
     };
 
-    ['map-title','map-category','map-price','map-link','map-image','map-description'].forEach(id => {
+    ['map-title','map-category','map-price','map-link','map-image','map-description','map-batch'].forEach(id => {
         const sel = document.getElementById(id);
         const isRequired = id === 'map-title';
         sel.innerHTML = `<option value="">${isRequired ? '— wybierz —' : '— brak —'}</option>`;
-        headers.forEach((h, i) => sel.innerHTML += `<option value="${i}">${h}</option>`);
-
+        headers.forEach((h, i) => {
+            sel.innerHTML += `<option value="${i}">${h || `Kolumna ${i+1}`}</option>`;
+        });
         const keywords = guesses[id] || [];
-        const matchIdx = headers.findIndex(h => keywords.some(k => h.toLowerCase().includes(k)));
-        if (matchIdx >= 0) sel.value = String(matchIdx);
+        const idx = headers.findIndex(h => keywords.some(k => h.toLowerCase().includes(k)));
+        if (idx >= 0) sel.value = String(idx);
     });
 }
 
 function getVal(row, id) {
     const idx = document.getElementById(id).value;
-    return idx === '' ? '' : (row[parseInt(idx)] || '').trim();
+    if (idx === '') return '';
+    return (row[parseInt(idx)] || '').trim();
 }
 
+// ===== PODGLĄD =====
 function buildPreview() {
-    if (!csvRows.length) { showError('Brak danych do wczytania.'); return; }
-    if (document.getElementById('map-title').value === '') { showError('Wybierz kolumnę z nazwą produktu!'); return; }
+    if (!csvRows.length) { showAlert('error', 'Brak danych.'); return; }
+    if (document.getElementById('map-title').value === '') { showAlert('error', 'Wybierz kolumnę z nazwą produktu!'); return; }
 
     const defaultCat = document.getElementById('default-category').value;
 
     parsedProducts = csvRows.map(row => ({
-        title: getVal(row, 'map-title'),
-        category: getVal(row, 'map-category') || defaultCat,
-        price: getVal(row, 'map-price'),
-        link: addRef(getVal(row, 'map-link')),
-        image: getVal(row, 'map-image'),
+        title:       getVal(row, 'map-title'),
+        category:    getVal(row, 'map-category') || defaultCat,
+        price:       getVal(row, 'map-price'),
+        link:        addRef(getVal(row, 'map-link')),
+        image:       getVal(row, 'map-image'),
         description: getVal(row, 'map-description'),
-        badge: '',
-        trending: false
+        batch:       getVal(row, 'map-batch'),
+        badge:       '',
+        trending:    false
     })).filter(p => p.title);
 
     document.getElementById('previewCount').textContent = `${parsedProducts.length} produktów gotowych do importu`;
     document.getElementById('previewGrid').innerHTML = parsedProducts.map(p => `
         <div class="preview-card">
             ${p.image
-                ? `<img src="${p.image}" alt="${p.title}" onerror="this.style.display='none'">`
-                : `<div style="height:140px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:0.8rem;">Brak zdjęcia</div>`}
+                ? `<img class="pc-img" src="${p.image}" alt="${p.title}" onerror="this.parentNode.innerHTML='<div class=pc-no-img>Brak zdjęcia</div>'">`
+                : `<div class="pc-no-img">Brak zdjęcia</div>`}
             <div class="pc-info">
                 <div class="pc-cat">${p.category}</div>
                 <div class="pc-name">${p.title}</div>
+                ${p.batch ? `<div class="pc-batch">Batch: ${p.batch}</div>` : ''}
                 <div class="pc-price">${p.price}</div>
             </div>
         </div>
@@ -378,9 +348,9 @@ function buildPreview() {
     document.getElementById('previewStep').style.display = 'block';
     document.getElementById('downloadStep').style.display = 'block';
     document.getElementById('previewStep').scrollIntoView({ behavior: 'smooth' });
-    showSuccess(`Gotowe! ${parsedProducts.length} produktów załadowanych.`);
 }
 
+// ===== POBIERZ JSON =====
 function downloadJSON() {
     if (!parsedProducts.length) { buildPreview(); return; }
     const json = JSON.stringify({ items: parsedProducts }, null, 2);
@@ -391,22 +361,31 @@ function downloadJSON() {
     URL.revokeObjectURL(url);
 }
 
-function showError(msg) { showAlert('alertError', msg); }
-function showSuccess(msg) { showAlert('alertSuccess', msg); }
-function showInfo(msg) {
-    const el = document.getElementById('alertInfo');
-    el.textContent = msg;
-    el.style.display = msg ? 'block' : 'none';
+// ===== HELPERS =====
+function setFetchLoading(on) {
+    document.getElementById('fetchBtn').disabled = on;
+    document.getElementById('spinner').style.display = on ? 'block' : 'none';
+    document.getElementById('fetchBtnText').textContent = on ? 'Pobieranie...' : 'Pobierz';
 }
-function showAlert(id, msg) {
-    const el = document.getElementById(id);
+
+function showAlert(type, msg) {
+    hideAlerts();
+    const el = document.getElementById('alert' + type.charAt(0).toUpperCase() + type.slice(1));
+    if (!el) return;
     el.textContent = msg;
     el.style.display = 'block';
-    setTimeout(() => el.style.display = 'none', 5000);
+    if (type !== 'info') setTimeout(() => el.style.display = 'none', 6000);
+}
+
+function hideAlerts() {
+    ['alertInfo','alertError','alertSuccess'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 }
 
 document.querySelectorAll('[id^="map-"]').forEach(sel => {
-    sel.addEventListener('change', () => { if (csvRows.length) buildPreview(); });
+    sel.addEventListener('change', () => { if (csvRows.length && document.getElementById('previewStep').style.display !== 'none') buildPreview(); });
 });
 </script>
 </body>

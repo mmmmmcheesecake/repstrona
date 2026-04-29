@@ -66,12 +66,13 @@ function renderGrid() {
             <div class="product-img">
                 <img src="${p.image || 'https://via.placeholder.com/300x300/1a1a1a/666?text=Brak+zdjęcia'}"
                      alt="${p.title}" loading="lazy"
-                     onerror="this.src='https://via.placeholder.com/300x300/1a1a1a/666?text=Brak+zdjęcia'">
+                     onerror="this.src='https://via.placeholder.com/300x300/1a1a1a/666?text=Brak+zdjecia'">
                 ${badgeHTML(p.badge)}
                 <div class="product-category">${p.category || ''}</div>
             </div>
             <div class="product-info">
                 <h3>${p.title}</h3>
+                ${p.batch ? `<span class="product-batch">Batch: ${p.batch}</span>` : ''}
                 <p class="product-desc">${p.description || ''}</p>
                 <div class="product-footer">
                     <span class="product-price">${p.price || ''}</span>
