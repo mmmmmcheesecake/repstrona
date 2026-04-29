@@ -4,7 +4,66 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RePluG — Panel admina</title>
+  <script>window.CMS_MANUAL_INIT = true;</script>
   <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
 </head>
-<body></body>
+<body>
+<script>
+CMS.init({
+  config: {
+    backend: {
+      name: 'github',
+      repo: 'mmmmmcheesecake/repstrona',
+      branch: 'main',
+      auth_type: 'implicit',
+      app_id: 'Ov23li7rVwetGudKapWC'
+    },
+    media_folder: 'images',
+    public_folder: '/repstrona/images',
+    locale: 'pl',
+    collections: [
+      {
+        name: 'products',
+        label: 'Produkty',
+        files: [
+          {
+            label: 'Katalog produktów',
+            name: 'products_list',
+            file: 'products.json',
+            fields: [
+              {
+                label: 'Produkty',
+                name: 'items',
+                widget: 'list',
+                fields: [
+                  { label: 'Nazwa', name: 'title', widget: 'string' },
+                  {
+                    label: 'Kategoria',
+                    name: 'category',
+                    widget: 'select',
+                    options: ['Buty', 'Odzież', 'Akcesoria', 'Elektronika', 'Sport', 'Torby']
+                  },
+                  { label: 'Cena (np. ~$45)', name: 'price', widget: 'string' },
+                  { label: 'Link do sklepu', name: 'link', widget: 'string' },
+                  { label: 'URL zdjęcia', name: 'image', widget: 'string' },
+                  { label: 'Opis', name: 'description', widget: 'text' },
+                  {
+                    label: 'Badge',
+                    name: 'badge',
+                    widget: 'select',
+                    options: ['', 'hot', 'new', 'top'],
+                    required: false
+                  },
+                  { label: 'Pokaż w Trending', name: 'trending', widget: 'boolean', default: false }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+});
+</script>
+</body>
 </html>
