@@ -1,164 +1,154 @@
 <!DOCTYPE html>
-<html lang="pl" data-theme="dark">
+<html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Import produktów — RePluG</title>
-    <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body { padding: 40px 0 80px; }
-        .import-wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #f0f0f0; padding: 40px 0 80px; line-height: 1.6; }
+        a { color: #6c63ff; text-decoration: none; }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
         h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
-        .subtitle { color: var(--text-muted); margin-bottom: 32px; }
-        .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
-        .step-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
-        .step-num { background: var(--accent); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0; }
-        .instructions { background: var(--bg-hover); border-radius: 10px; padding: 16px; margin-bottom: 16px; font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
-        .instructions strong { color: var(--text); }
-        .url-row { display: flex; gap: 10px; }
-        .url-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text); font-size: 0.9rem; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
-        .url-row input:focus { border-color: var(--accent); }
-        .url-row input::placeholder { color: var(--text-subtle); }
-        .btn-fetch { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 24px; font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-        .btn-fetch:hover { background: var(--accent-hover); }
-        .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
-        .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text-subtle); font-size: 0.82rem; }
-        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-        textarea { width: 100%; min-height: 140px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; color: var(--text); font-size: 0.85rem; font-family: monospace; resize: vertical; outline: none; transition: border-color 0.2s; }
-        textarea:focus { border-color: var(--accent); }
-        textarea::placeholder { color: var(--text-subtle); }
+        .sub { color: #888; margin-bottom: 32px; }
 
-        /* Detected columns debug */
-        .detected-cols { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-        .col-chip { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; color: var(--text-muted); }
-        .col-chip strong { color: var(--text); }
+        .step { background: #161616; border: 1px solid #1f1f1f; border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+        .step-title { font-size: 1rem; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .num { background: #6c63ff; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; flex-shrink: 0; }
 
-        .mapping-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
-        .mapping-item label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .mapping-item select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.82rem; outline: none; cursor: pointer; }
-        .mapping-item select:focus { border-color: var(--accent); }
+        .info-box { background: #1e1e1e; border-radius: 10px; padding: 14px 16px; font-size: 0.85rem; color: #888; line-height: 1.7; margin-bottom: 16px; }
+        .info-box strong { color: #f0f0f0; }
 
-        .btn-parse { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-weight: 700; font-size: 0.95rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; margin-top: 16px; }
-        .btn-parse:hover { background: var(--accent-hover); }
+        textarea { width: 100%; min-height: 160px; background: #111; border: 1px solid #2a2a2a; border-radius: 10px; padding: 14px; color: #f0f0f0; font-size: 0.85rem; font-family: monospace; resize: vertical; outline: none; transition: border-color 0.2s; }
+        textarea:focus { border-color: #6c63ff; }
+        textarea::placeholder { color: #444; }
 
-        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
-        .preview-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 0.82rem; }
-        .preview-card .pc-img { width: 100%; height: 140px; object-fit: cover; background: var(--bg-hover); display: block; }
-        .preview-card .pc-no-img { height: 140px; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; color: var(--text-subtle); font-size: 0.78rem; }
-        .preview-card .pc-info { padding: 10px 12px; }
-        .preview-card .pc-cat { color: var(--accent); font-size: 0.74rem; font-weight: 600; margin-bottom: 2px; }
-        .preview-card .pc-name { font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
-        .preview-card .pc-batch { color: var(--text-muted); font-size: 0.74rem; margin-bottom: 2px; }
-        .preview-card .pc-price { color: var(--text-muted); font-size: 0.82rem; }
-        .preview-count { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px; }
+        .sep-row { display: flex; align-items: center; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+        .sep-row span { font-size: 0.82rem; color: #888; }
+        .sep-btn { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 6px; padding: 6px 14px; color: #888; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+        .sep-btn.active { background: #6c63ff; border-color: #6c63ff; color: #fff; }
+        .sep-btn:hover { border-color: #6c63ff; color: #6c63ff; }
 
-        .download-section { text-align: center; padding: 20px; }
-        .btn-download { background: #2ed573; color: #000; border: none; border-radius: 10px; padding: 14px 36px; font-weight: 800; font-size: 1rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
-        .btn-download:hover { opacity: 0.85; }
-        .download-hint { color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; line-height: 1.8; }
+        .btn { border: none; border-radius: 10px; padding: 12px 24px; font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
+        .btn-purple { background: #6c63ff; color: #fff; }
+        .btn-purple:hover { opacity: 0.85; }
+        .btn-green { background: #2ed573; color: #000; font-size: 1rem; padding: 14px 36px; }
+        .btn-green:hover { opacity: 0.85; }
 
-        .alert { border-radius: 10px; padding: 12px 16px; font-size: 0.88rem; margin-bottom: 16px; display: none; }
-        .alert.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: #ff6b7a; }
-        .alert.success { background: rgba(46,213,115,0.1); border: 1px solid rgba(46,213,115,0.3); color: #2ed573; }
-        .alert.info { background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.3); color: var(--accent); }
+        .alert { border-radius: 10px; padding: 12px 16px; font-size: 0.88rem; margin-bottom: 16px; }
+        .alert-error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.4); color: #ff6b7a; }
+        .alert-success { background: rgba(46,213,115,0.1); border: 1px solid rgba(46,213,115,0.4); color: #2ed573; }
+
+        /* Podgląd tabeli */
+        .table-wrap { overflow-x: auto; margin-top: 16px; border-radius: 10px; border: 1px solid #2a2a2a; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        thead th { background: #1e1e1e; padding: 10px 14px; text-align: left; font-weight: 700; color: #888; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+        tbody td { padding: 8px 14px; border-bottom: 1px solid #1a1a1a; color: #ccc; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: #1e1e1e; }
+        .row-count { color: #888; font-size: 0.82rem; margin-top: 10px; }
+
+        /* Mapowanie */
+        .map-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .map-item label { display: block; font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .map-item select { width: 100%; background: #111; border: 1px solid #2a2a2a; border-radius: 8px; padding: 9px 10px; color: #f0f0f0; font-family: 'Inter', sans-serif; font-size: 0.83rem; outline: none; cursor: pointer; }
+        .map-item select:focus { border-color: #6c63ff; }
+
+        /* Podgląd kart */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-top: 16px; max-height: 480px; overflow-y: auto; }
+        .card { background: #111; border: 1px solid #1f1f1f; border-radius: 12px; overflow: hidden; }
+        .card-img { width: 100%; height: 130px; object-fit: cover; background: #1e1e1e; display: block; }
+        .card-no-img { height: 130px; background: #1e1e1e; display: flex; align-items: center; justify-content: center; color: #444; font-size: 0.75rem; }
+        .card-body { padding: 10px 12px; }
+        .card-cat { color: #6c63ff; font-size: 0.72rem; font-weight: 700; margin-bottom: 2px; }
+        .card-name { font-weight: 700; font-size: 0.82rem; line-height: 1.3; margin-bottom: 4px; }
+        .card-batch { color: #888; font-size: 0.72rem; margin-bottom: 2px; }
+        .card-price { color: #888; font-size: 0.8rem; }
+
+        .download-box { text-align: center; padding: 24px; }
+        .download-hint { color: #888; font-size: 0.85rem; margin-top: 14px; line-height: 1.8; }
+        .download-hint strong { color: #f0f0f0; }
     </style>
 </head>
 <body>
-<div class="import-wrap">
-    <a href="index.html" style="color:var(--accent);font-size:0.88rem;font-weight:600;">← Wróć na stronę</a>
+<div class="wrap">
+    <a href="index.html" style="font-size:0.88rem;font-weight:600;">← Wróć na stronę</a>
     <br><br>
     <h1>Import produktów</h1>
-    <p class="subtitle">Wklej link z Google Sheets lub skopiuj dane ręcznie.</p>
+    <p class="sub">Wklej dane ze spreadsheetów i pobierz gotowy plik products.json</p>
 
-    <!-- KROK 1 -->
+    <!-- KROK 1 — WKLEJANIE -->
     <div class="step">
-        <div class="step-title"><div class="step-num">1</div> Źródło danych</div>
-        <div class="instructions">
-            <strong>Opcja A — link Google Sheets:</strong> Arkusz musi być publiczny:<br>
-            Udostępnij → Każdy z linkiem → Przeglądający → Gotowe<br><br>
-            <strong>Opcja B — ręcznie:</strong> Zaznacz dane w arkuszu (z nagłówkami) → Ctrl+C → wklej poniżej
+        <div class="step-title"><div class="num">1</div> Wklej dane ze spreadsheetów</div>
+        <div class="info-box">
+            <strong>Jak to zrobić:</strong><br>
+            1. Otwórz Google Sheets / Excel<br>
+            2. Kliknij na numer pierwszej kolumny z nagłówkiem, przeciągnij do ostatniej kolumny<br>
+            3. Zaznacz wszystkie wiersze z danymi (Ctrl+Shift+End)<br>
+            4. Kopiuj <strong>Ctrl+C</strong><br>
+            5. Kliknij w pole poniżej i wklej <strong>Ctrl+V</strong>
         </div>
 
-        <div class="alert info" id="alertInfo"></div>
-        <div class="alert error" id="alertError"></div>
-        <div class="alert success" id="alertSuccess"></div>
+        <div id="alertPaste"></div>
 
-        <label style="font-size:0.82rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:8px;">LINK GOOGLE SHEETS</label>
-        <div class="url-row" style="margin-bottom:20px;">
-            <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-            <button class="btn-fetch" id="fetchBtn" onclick="fetchSheets()">
-                <span class="spinner" id="spinner"></span>
-                <span id="fetchBtnText">Pobierz</span>
-            </button>
+        <textarea id="rawInput" placeholder="Wklej tutaj dane (Ctrl+V)..."></textarea>
+
+        <div class="sep-row">
+            <span>Separator:</span>
+            <button class="sep-btn active" onclick="setSep('tab')">Tab (domyślny z Google Sheets)</button>
+            <button class="sep-btn" onclick="setSep(',')">Przecinek</button>
+            <button class="sep-btn" onclick="setSep(';')">Średnik</button>
         </div>
 
-        <div class="divider">lub wklej dane ręcznie</div>
-
-        <textarea id="csvInput" placeholder="Zaznacz dane w arkuszu (z nagłówkami) → Ctrl+C → Ctrl+V tutaj..."></textarea>
-        <button class="btn-parse" onclick="parseManual()">Wczytaj dane →</button>
+        <button class="btn btn-purple" onclick="parseData()" style="margin-top:8px;">Wczytaj dane →</button>
     </div>
 
-    <!-- KROK 2 — MAPOWANIE -->
-    <div class="step" id="mappingStep" style="display:none">
-        <div class="step-title"><div class="step-num">2</div> Dopasuj kolumny</div>
-        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">Wykryte kolumny w arkuszu:</p>
-        <div class="detected-cols" id="detectedCols"></div>
-        <div class="mapping-grid">
-            <div class="mapping-item">
-                <label>Nazwa *</label>
-                <select id="map-title"><option value="">— wybierz —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>Kategoria</label>
-                <select id="map-category"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>Cena</label>
-                <select id="map-price"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>Link</label>
-                <select id="map-link"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>URL zdjęcia</label>
-                <select id="map-image"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>Opis</label>
-                <select id="map-description"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
-                <label>Batch</label>
-                <select id="map-batch"><option value="">— brak —</option></select>
-            </div>
-            <div class="mapping-item">
+    <!-- KROK 2 — PODGLĄD TABELI -->
+    <div class="step" id="step2" style="display:none">
+        <div class="step-title"><div class="num">2</div> Podgląd wczytanych danych</div>
+        <div id="tableAlert"></div>
+        <div class="table-wrap">
+            <table id="dataTable"></table>
+        </div>
+        <div class="row-count" id="rowCount"></div>
+    </div>
+
+    <!-- KROK 3 — MAPOWANIE -->
+    <div class="step" id="step3" style="display:none">
+        <div class="step-title"><div class="num">3</div> Dopasuj kolumny do pól produktu</div>
+        <div class="map-grid">
+            <div class="map-item"><label>Nazwa *</label><select id="map-title"></select></div>
+            <div class="map-item"><label>Kategoria</label><select id="map-category"></select></div>
+            <div class="map-item"><label>Cena</label><select id="map-price"></select></div>
+            <div class="map-item"><label>Link</label><select id="map-link"></select></div>
+            <div class="map-item"><label>URL zdjęcia</label><select id="map-image"></select></div>
+            <div class="map-item"><label>Opis</label><select id="map-description"></select></div>
+            <div class="map-item"><label>Batch</label><select id="map-batch"></select></div>
+            <div class="map-item">
                 <label>Domyślna kategoria</label>
-                <select id="default-category">
+                <select id="default-cat">
                     <option>Buty</option><option>Odzież</option><option>Akcesoria</option>
                     <option>Elektronika</option><option>Sport</option><option>Torby</option>
                 </select>
             </div>
         </div>
-        <button class="btn-parse" onclick="buildPreview()">Podgląd →</button>
+        <button class="btn btn-purple" onclick="buildPreview()" style="margin-top:16px;">Podgląd kart →</button>
     </div>
 
-    <!-- KROK 3 — PODGLĄD -->
-    <div class="step" id="previewStep" style="display:none">
-        <div class="step-title"><div class="step-num">3</div> Podgląd</div>
-        <div class="preview-count" id="previewCount"></div>
-        <div class="preview-grid" id="previewGrid"></div>
+    <!-- KROK 4 — PODGLĄD KART -->
+    <div class="step" id="step4" style="display:none">
+        <div class="step-title"><div class="num">4</div> Podgląd produktów</div>
+        <div id="previewCount" style="color:#888;font-size:0.85rem;margin-bottom:12px;"></div>
+        <div class="cards-grid" id="cardsGrid"></div>
     </div>
 
-    <!-- KROK 4 — POBIERZ -->
-    <div class="step" id="downloadStep" style="display:none">
-        <div class="step-title"><div class="step-num">4</div> Pobierz i wgraj</div>
-        <div class="download-section">
-            <button class="btn-download" onclick="downloadJSON()">⬇ Pobierz products.json</button>
+    <!-- KROK 5 — POBIERZ -->
+    <div class="step" id="step5" style="display:none">
+        <div class="step-title"><div class="num">5</div> Pobierz i wgraj na stronę</div>
+        <div class="download-box">
+            <button class="btn btn-green" onclick="downloadJSON()">⬇ Pobierz products.json</button>
             <div class="download-hint">
                 1. Zastąp plik <strong>products.json</strong> w folderze <strong>strona</strong> na pulpicie<br>
                 2. W terminalu VS Code wpisz: <strong>.\push.bat</strong><br>
@@ -168,11 +158,18 @@
     </div>
 </div>
 
-<script src="script.js"></script>
 <script>
-let parsedProducts = [];
-let csvHeaders = [];
-let csvRows = [];
+let sep = '\t';
+let headers = [];
+let rows = [];
+let products = [];
+
+function setSep(s) {
+    sep = s === 'tab' ? '\t' : s;
+    document.querySelectorAll('.sep-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (rows.length) parseData();
+}
 
 function addRef(url) {
     if (!url || !url.trim() || url === '#') return '#';
@@ -181,176 +178,90 @@ function addRef(url) {
     return url.includes('?') ? url + '&ref=MGRSBE' : url + '?ref=MGRSBE';
 }
 
-// ===== SOLIDNY PARSER CSV =====
-function parseCSV(raw) {
-    // Normalizuj line endings
-    const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-    const lines = text.split('\n').filter(l => l.trim());
-    if (!lines.length) return { headers: [], rows: [] };
-
-    // Wykryj separator na podstawie pierwszej linii
-    const first = lines[0];
-    const tabCount = (first.match(/\t/g) || []).length;
-    const commaCount = (first.match(/,/g) || []).length;
-    const sep = tabCount >= commaCount ? '\t' : ',';
-
-    function parseLine(line) {
-        const cells = [];
-        let cur = '';
-        let inQuote = false;
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            const next = line[i + 1];
-            if (inQuote) {
-                if (ch === '"' && next === '"') { cur += '"'; i++; }
-                else if (ch === '"') { inQuote = false; }
-                else { cur += ch; }
-            } else {
-                if (ch === '"') { inQuote = true; }
-                else if (ch === sep) { cells.push(cur.trim()); cur = ''; }
-                else { cur += ch; }
-            }
-        }
-        cells.push(cur.trim());
-        return cells;
-    }
-
-    const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
-    const rows = lines.slice(1)
-        .map(l => parseLine(l))
-        .filter(r => r.some(c => c.trim()));
-
-    return { headers, rows };
-}
-
-// ===== POBIERANIE Z GOOGLE SHEETS =====
-function parseGSheetsUrl(url) {
-    const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-    const gidMatch = url.match(/[#&?]gid=(\d+)/);
-    if (!idMatch) return null;
-    return { id: idMatch[1], gid: gidMatch ? gidMatch[1] : '0' };
-}
-
-async function fetchSheets() {
-    const url = document.getElementById('sheetsUrl').value.trim();
-    if (!url) { showAlert('error', 'Wklej link do Google Sheets.'); return; }
-
-    const parsed = parseGSheetsUrl(url);
-    if (!parsed) { showAlert('error', 'Nieprawidłowy link. Skopiuj pełny adres z paska przeglądarki.'); return; }
-
-    setFetchLoading(true);
-
-    const id = parsed.id;
-    const gid = parsed.gid;
-
-    // Trzy metody pobierania — próbujemy po kolei
-    const methods = [
-        {
-            label: 'Metoda 1...',
-            url: `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`,
-            parse: r => r.text()
-        },
-        {
-            label: 'Metoda 2...',
-            url: `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`)}`,
-            parse: async r => { const j = await r.json(); return j.contents; }
-        },
-        {
-            label: 'Metoda 3...',
-            url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`)}`,
-            parse: r => r.text()
-        }
-    ];
-
-    let text = null;
-
-    for (const method of methods) {
-        showAlert('info', method.label);
-        try {
-            const res = await fetch(method.url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) continue;
-            const content = await method.parse(res);
-            if (!content || content.trim().startsWith('<')) continue;
-            text = content;
-            break;
-        } catch(e) { continue; }
-    }
-
-    setFetchLoading(false);
-    hideAlerts();
-
-    if (!text) {
-        showAlert('error', 'Nie udało się pobrać przez żadną metodę. Skorzystaj z opcji ręcznej: zaznacz dane w arkuszu → Ctrl+C → wklej w pole tekstowe poniżej.');
+function parseData() {
+    const raw = document.getElementById('rawInput').value;
+    if (!raw.trim()) {
+        showMsg('alertPaste', 'error', 'Najpierw wklej dane w pole powyżej!');
         return;
     }
 
-    processCSV(text);
+    const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+        .split('\n').filter(l => l.trim());
+
+    if (!lines.length) {
+        showMsg('alertPaste', 'error', 'Pole jest puste.');
+        return;
+    }
+
+    headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim());
+    rows = lines.slice(1).map(l => l.split(sep).map(c => c.replace(/^"|"$/g, '').trim()))
+        .filter(r => r.some(c => c));
+
+    // Jeśli tylko 1 kolumna - prawdopodobnie zły separator
+    if (headers.length < 2) {
+        const tabCount = lines[0].split('\t').length;
+        const commaCount = lines[0].split(',').length;
+        const semiCount = lines[0].split(';').length;
+        const hint = tabCount > 1 ? 'Tab' : commaCount > 1 ? 'Przecinek' : semiCount > 1 ? 'Średnik' : 'nieznany';
+        showMsg('alertPaste', 'error', `Wykryto ${headers.length} kolumnę — prawdopodobnie zły separator. Dane wyglądają na: ${hint}. Zmień separator powyżej.`);
+        return;
+    }
+
+    clearMsg('alertPaste');
+    renderTable();
+    fillSelects();
+
+    document.getElementById('step2').style.display = 'block';
+    document.getElementById('step3').style.display = 'block';
+    document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
 }
 
-function parseManual() {
-    const raw = document.getElementById('csvInput').value.trim();
-    if (!raw) { showAlert('error', 'Wklej najpierw dane!'); return; }
-    processCSV(raw);
+function renderTable() {
+    const preview = rows.slice(0, 5);
+    let html = '<thead><tr>' + headers.map(h => `<th>${h || '?'}</th>`).join('') + '</tr></thead>';
+    html += '<tbody>' + preview.map(row =>
+        '<tr>' + headers.map((_, i) => `<td title="${row[i] || ''}">${row[i] || ''}</td>`).join('') + '</tr>'
+    ).join('') + '</tbody>';
+    document.getElementById('dataTable').innerHTML = html;
+    document.getElementById('rowCount').textContent = `Pokazuję 5 z ${rows.length} wierszy • ${headers.length} kolumn`;
 }
 
-function processCSV(text) {
-    const { headers, rows } = parseCSV(text);
-    if (headers.length < 2) { showAlert('error', `Wykryto tylko ${headers.length} kolumnę. Sprawdź czy dane są poprawnie skopiowane.`); return; }
-
-    csvHeaders = headers;
-    csvRows = rows;
-
-    // Pokaż wykryte kolumny
-    document.getElementById('detectedCols').innerHTML =
-        headers.map((h, i) => `<span class="col-chip"><strong>${i + 1}.</strong> ${h || '(pusta)'}</span>`).join('');
-
-    fillSelects(headers);
-    document.getElementById('mappingStep').style.display = 'block';
-    document.getElementById('mappingStep').scrollIntoView({ behavior: 'smooth' });
-    showAlert('success', `Wczytano ${rows.length} wierszy, ${headers.length} kolumn.`);
-}
-
-// ===== AUTOMAPOWANIE KOLUMN =====
-function fillSelects(headers) {
+function fillSelects() {
     const guesses = {
         'map-title':       ['nazwa', 'name', 'title', 'produkt', 'product', 'item', 'model'],
-        'map-category':    ['kategoria', 'category', 'typ', 'type', 'dział', 'sekcja'],
-        'map-price':       ['cena', 'price', 'kwota', 'koszt', 'cost', 'rmb', 'usd', 'eur', 'pln'],
-        'map-link':        ['link', 'url', 'href', 'sklep', 'store', 'weidian', 'taobao', '1688', 'tmall'],
-        'map-image':       ['zdjęcie', 'zdjecie', 'image', 'img', 'foto', 'photo', 'pic', 'thumbnail'],
-        'map-description': ['opis', 'description', 'desc', 'szczegóły', 'info', 'notatka', 'notes'],
-        'map-batch':       ['batch', 'wersja', 'version', 'quality', 'jakość', 'seria']
+        'map-category':    ['kategoria', 'category', 'typ', 'cat', 'type'],
+        'map-price':       ['cena', 'price', 'kwota', 'rmb', 'usd', 'eur', 'pln', 'koszt'],
+        'map-link':        ['link', 'url', 'href', 'weidian', 'taobao', '1688', 'tmall', 'sklep'],
+        'map-image':       ['zdj', 'image', 'img', 'foto', 'photo', 'pic', 'thumb'],
+        'map-description': ['opis', 'desc', 'info', 'note', 'uwag'],
+        'map-batch':       ['batch', 'wersja', 'version', 'quality', 'seria']
     };
 
     ['map-title','map-category','map-price','map-link','map-image','map-description','map-batch'].forEach(id => {
         const sel = document.getElementById(id);
-        const isRequired = id === 'map-title';
-        sel.innerHTML = `<option value="">${isRequired ? '— wybierz —' : '— brak —'}</option>`;
-        headers.forEach((h, i) => {
-            sel.innerHTML += `<option value="${i}">${h || `Kolumna ${i+1}`}</option>`;
-        });
-        const keywords = guesses[id] || [];
-        const idx = headers.findIndex(h => keywords.some(k => h.toLowerCase().includes(k)));
+        const req = id === 'map-title';
+        sel.innerHTML = `<option value="">${req ? '— wybierz —' : '— brak —'}</option>`;
+        headers.forEach((h, i) => sel.innerHTML += `<option value="${i}">${h || 'Kolumna ' + (i+1)}</option>`);
+        const kw = guesses[id] || [];
+        const idx = headers.findIndex(h => kw.some(k => h.toLowerCase().includes(k)));
         if (idx >= 0) sel.value = String(idx);
     });
 }
 
 function getVal(row, id) {
-    const idx = document.getElementById(id).value;
-    if (idx === '') return '';
-    return (row[parseInt(idx)] || '').trim();
+    const v = document.getElementById(id).value;
+    return v === '' ? '' : (row[parseInt(v)] || '').trim();
 }
 
-// ===== PODGLĄD =====
 function buildPreview() {
-    if (!csvRows.length) { showAlert('error', 'Brak danych.'); return; }
-    if (document.getElementById('map-title').value === '') { showAlert('error', 'Wybierz kolumnę z nazwą produktu!'); return; }
-
-    const defaultCat = document.getElementById('default-category').value;
-
-    parsedProducts = csvRows.map(row => ({
+    if (document.getElementById('map-title').value === '') {
+        alert('Wybierz kolumnę z nazwą produktu!');
+        return;
+    }
+    const defCat = document.getElementById('default-cat').value;
+    products = rows.map(row => ({
         title:       getVal(row, 'map-title'),
-        category:    getVal(row, 'map-category') || defaultCat,
+        category:    getVal(row, 'map-category') || defCat,
         price:       getVal(row, 'map-price'),
         link:        addRef(getVal(row, 'map-link')),
         image:       getVal(row, 'map-image'),
@@ -360,62 +271,49 @@ function buildPreview() {
         trending:    false
     })).filter(p => p.title);
 
-    document.getElementById('previewCount').textContent = `${parsedProducts.length} produktów gotowych do importu`;
-    document.getElementById('previewGrid').innerHTML = parsedProducts.map(p => `
-        <div class="preview-card">
+    document.getElementById('previewCount').textContent = `${products.length} produktów`;
+    document.getElementById('cardsGrid').innerHTML = products.map(p => `
+        <div class="card">
             ${p.image
-                ? `<img class="pc-img" src="${p.image}" alt="${p.title}" onerror="this.parentNode.innerHTML='<div class=pc-no-img>Brak zdjęcia</div>'">`
-                : `<div class="pc-no-img">Brak zdjęcia</div>`}
-            <div class="pc-info">
-                <div class="pc-cat">${p.category}</div>
-                <div class="pc-name">${p.title}</div>
-                ${p.batch ? `<div class="pc-batch">Batch: ${p.batch}</div>` : ''}
-                <div class="pc-price">${p.price}</div>
+                ? `<img class="card-img" src="${p.image}" alt="" onerror="this.outerHTML='<div class=card-no-img>Brak zdjęcia</div>'">`
+                : `<div class="card-no-img">Brak zdjęcia</div>`}
+            <div class="card-body">
+                <div class="card-cat">${p.category}</div>
+                <div class="card-name">${p.title}</div>
+                ${p.batch ? `<div class="card-batch">Batch: ${p.batch}</div>` : ''}
+                <div class="card-price">${p.price}</div>
             </div>
         </div>
     `).join('');
 
-    document.getElementById('previewStep').style.display = 'block';
-    document.getElementById('downloadStep').style.display = 'block';
-    document.getElementById('previewStep').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('step4').style.display = 'block';
+    document.getElementById('step5').style.display = 'block';
+    document.getElementById('step4').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ===== POBIERZ JSON =====
 function downloadJSON() {
-    if (!parsedProducts.length) { buildPreview(); return; }
-    const json = JSON.stringify({ items: parsedProducts }, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+    if (!products.length) { buildPreview(); return; }
+    const blob = new Blob([JSON.stringify({ items: products }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'products.json'; a.click();
     URL.revokeObjectURL(url);
 }
 
-// ===== HELPERS =====
-function setFetchLoading(on) {
-    document.getElementById('fetchBtn').disabled = on;
-    document.getElementById('spinner').style.display = on ? 'block' : 'none';
-    document.getElementById('fetchBtnText').textContent = on ? 'Pobieranie...' : 'Pobierz';
-}
-
-function showAlert(type, msg) {
-    hideAlerts();
-    const el = document.getElementById('alert' + type.charAt(0).toUpperCase() + type.slice(1));
-    if (!el) return;
+function showMsg(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = `alert alert-${type}`;
     el.textContent = msg;
     el.style.display = 'block';
-    if (type !== 'info') setTimeout(() => el.style.display = 'none', 6000);
+}
+function clearMsg(id) {
+    const el = document.getElementById(id);
+    el.style.display = 'none';
 }
 
-function hideAlerts() {
-    ['alertInfo','alertError','alertSuccess'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-}
-
-document.querySelectorAll('[id^="map-"]').forEach(sel => {
-    sel.addEventListener('change', () => { if (csvRows.length && document.getElementById('previewStep').style.display !== 'none') buildPreview(); });
+// Mapowanie aktualizuje podgląd na żywo
+document.querySelectorAll('[id^="map-"]').forEach(s => {
+    s.addEventListener('change', () => { if (products.length) buildPreview(); });
 });
 </script>
 </body>
