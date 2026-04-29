@@ -135,3 +135,47 @@ function applyDiscord(d, url) {
 
 // ===== START =====
 loadAll().catch(err => console.warn('Błąd ładowania danych:', err));
+
+// ===== TRYB EDYCJI =====
+function initEditMode() {
+    // Dodaj overlaye do sekcji
+    document.querySelectorAll('[data-edit]').forEach(section => {
+        const overlay = document.createElement('div');
+        overlay.className = 'edit-overlay';
+        overlay.innerHTML = `<a href="${section.dataset.editUrl}" target="_blank">✏️ Edytuj: ${section.dataset.editLabel}</a>`;
+        section.appendChild(overlay);
+    });
+
+    // Przycisk FAB
+    const fab = document.createElement('button');
+    fab.id = 'edit-fab';
+    fab.innerHTML = '✏️ Tryb edycji';
+    document.body.appendChild(fab);
+
+    // Pasek admina
+    const bar = document.createElement('div');
+    bar.id = 'admin-bar';
+    bar.textContent = '✏️ Jesteś zalogowany jako admin — kliknij sekcję żeby ją edytować';
+    document.body.prepend(bar);
+
+    let editMode = false;
+    fab.addEventListener('click', () => {
+        editMode = !editMode;
+        document.body.classList.toggle('edit-mode', editMode);
+        fab.textContent = editMode ? '✕ Zamknij edycję' : '✏️ Tryb edycji';
+        fab.classList.toggle('active', editMode);
+    });
+
+    fab.style.display = 'flex';
+}
+
+// Netlify Identity — pokaż tryb edycji tylko dla zalogowanych
+if (window.netlifyIdentity) {
+    window.netlifyIdentity.on('init', user => { if (user) initEditMode(); });
+    window.netlifyIdentity.on('login', () => initEditMode());
+    window.netlifyIdentity.on('logout', () => {
+        document.getElementById('edit-fab')?.remove();
+        document.getElementById('admin-bar')?.remove();
+        document.body.classList.remove('edit-mode');
+    });
+}
