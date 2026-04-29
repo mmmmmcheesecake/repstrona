@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Katalog — RePluG</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="katalog.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -13,77 +12,61 @@
 <body>
 
     <nav class="navbar">
-        <div class="nav-container">
+        <div class="nav-inner">
             <a href="index.html" class="logo">Re<span>PluG</span></a>
-            <ul class="nav-links">
-                <li><a href="katalog.html" class="active">Katalog</a></li>
-                <li><a href="index.html#kategorie">Kategorie</a></li>
-                <li><a href="index.html#poradniki">Poradniki</a></li>
-                <li><a id="nav-discord" href="#" class="nav-discord">Discord</a></li>
-            </ul>
             <div class="nav-right">
+                <a id="nav-discord" href="#" class="discord-link">Discord</a>
                 <button class="theme-toggle" id="themeToggle"><span class="icon">🌙</span></button>
             </div>
         </div>
     </nav>
 
-    <div class="katalog-header">
+    <div class="filter-bar">
         <div class="container">
-            <h1>Katalog produktów</h1>
-            <p id="productCount">Ładowanie...</p>
-        </div>
-    </div>
-
-    <div class="filters-bar">
-        <div class="container">
-            <div class="filters-top">
-                <div class="search-wrap">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <div class="filter-inner">
+                <div class="search-box">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                     <input type="text" id="searchInput" placeholder="Szukaj produktu, batcha..." autocomplete="off">
                 </div>
-                <div class="sort-wrap">
-                    <select id="sortSelect">
-                        <option value="default">Sortuj: Domyślnie</option>
-                        <option value="price-asc">Cena: rosnąco</option>
-                        <option value="price-desc">Cena: malejąco</option>
-                        <option value="name-asc">Nazwa: A–Z</option>
-                    </select>
-                </div>
-            </div>
-            <div class="category-tabs" id="categoryTabs">
-                <button class="cat-tab active" data-cat="all">Wszystkie</button>
+                <select id="sortSelect" class="sort-select">
+                    <option value="default">Domyślnie</option>
+                    <option value="price-asc">Cena: rosnąco</option>
+                    <option value="price-desc">Cena: malejąco</option>
+                    <option value="name-asc">Nazwa: A–Z</option>
+                </select>
             </div>
         </div>
     </div>
 
-    <div class="katalog-body">
+    <div class="cat-bar">
+        <div class="container">
+            <div class="cat-scroll" id="categoryTabs">
+                <button class="cat-pill active" data-cat="all">Wszystkie</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="shop-main">
         <div class="container">
             <div class="loading-state" id="loadingState">
-                <div class="spinner-big"></div>
-                <p>Ładowanie produktów...</p>
+                <div class="spinner"></div>
             </div>
             <div class="error-state" id="errorState" style="display:none">
-                <div style="font-size:2.5rem;margin-bottom:12px;">⚠️</div>
-                <h3>Nie udało się załadować produktów</h3>
-                <p id="errorMsg">Sprawdź połączenie z internetem i odśwież stronę.</p>
+                <p>⚠️ Nie udało się załadować produktów. Spróbuj odświeżyć stronę.</p>
             </div>
-            <div id="resultsInfo" style="display:none" class="results-info">
+            <div class="results-bar" id="resultsInfo" style="display:none">
                 <span id="resultsCount"></span>
             </div>
             <div class="products-grid" id="productsGrid" style="display:none"></div>
             <div class="empty-state" id="emptyState" style="display:none">
-                <div class="empty-icon">🔍</div>
-                <h3>Brak wyników</h3>
-                <p>Spróbuj innej frazy lub zmień kategorię</p>
+                <p>🔍 Brak wyników. Spróbuj innej frazy lub zmień kategorię.</p>
             </div>
         </div>
-    </div>
+    </main>
 
     <footer class="footer">
         <div class="container">
-            <div class="footer-bottom">
-                <p>© 2026 RePluG. Strona ma charakter informacyjny.</p>
-            </div>
+            <p class="footer-text">© 2026 RePluG. Strona ma charakter informacyjny.</p>
         </div>
     </footer>
 

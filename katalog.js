@@ -1,13 +1,19 @@
 const SHEET_ID = '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk';
 const REF = '?ref=MGRSBE';
 
-// Kolumny arkusza (0-indexed)
 const COL = { name: 0, batch: 1, link: 2, price: 3, image: 4, description: 5, budgetLink: 6 };
 
 let allProducts = [];
 let activeCategory = 'all';
 let searchQuery = '';
 let sortMode = 'default';
+
+const KNOWN_BATCHES = ['LJR', 'BD', 'DG', 'PK', 'UA', 'OG'];
+
+function batchClass(b) {
+    const u = (b || '').trim().toUpperCase();
+    return KNOWN_BATCHES.includes(u) ? `batch-${u}` : 'batch-other';
+}
 
 function addRef(url) {
     if (!url || !url.trim() || url === '#' || url.toLowerCase() === 'link' || url.toLowerCase() === 'budget link') return null;
@@ -16,7 +22,6 @@ function addRef(url) {
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
 
-// Auto-wykrywanie kategorii z nazwy produktu
 function detectCategory(name) {
     const n = name.toLowerCase();
     if (n.includes('jordan 1')) return 'Jordan 1';
@@ -28,11 +33,9 @@ function detectCategory(name) {
     if (n.includes('yeezy') || n.includes('adidas')) return 'Adidas';
     if (n.includes('dunk') || n.includes('air force') || n.includes('air max') || n.includes('nike')) return 'Nike';
     if (n.includes('new balance') || n.includes('nb ')) return 'New Balance';
-    if (n.includes('panda') || n.includes('panda')) return 'Inne';
     return 'Inne';
 }
 
-// Parser CSV
 function parseCSV(text) {
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter(l => l.trim());
     return lines.map(line => {
@@ -55,7 +58,6 @@ function parseCSV(text) {
     });
 }
 
-// Pobieranie z Google Sheets przez własną funkcję Netlify
 async function fetchProducts() {
     const res = await fetch('/api/sheet');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -105,11 +107,11 @@ function buildCategoryTabs() {
     const tabs = document.getElementById('categoryTabs');
     cats.forEach(cat => {
         const btn = document.createElement('button');
-        btn.className = 'cat-tab';
+        btn.className = 'cat-pill';
         btn.dataset.cat = cat;
         btn.textContent = cat;
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.cat-pill').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             activeCategory = cat;
             renderGrid();
@@ -124,28 +126,23 @@ function cardHTML(p) {
         : '';
 
     const mainBtn = p.link
-        ? `<a href="${p.link}" target="_blank" rel="noopener" class="btn-link main-link">Kup →</a>`
-        : `<span class="btn-link disabled">Brak linku</span>`;
+        ? `<a href="${p.link}" target="_blank" rel="noopener" class="card-btn primary">Kup →</a>`
+        : `<span class="card-btn disabled">Brak</span>`;
 
     const budgetBtn = p.budgetLink
-        ? `<a href="${p.budgetLink}" target="_blank" rel="noopener" class="btn-link budget-link">Budget</a>`
+        ? `<a href="${p.budgetLink}" target="_blank" rel="noopener" class="card-btn">Budget</a>`
         : '';
 
     return `
     <div class="product-card">
-        <div class="product-img ${!p.image ? 'no-img' : ''}">${img}
-            <div class="product-category">${p.category}</div>
-            ${p.batch ? `<div class="batch-badge">${p.batch}</div>` : ''}
+        <div class="card-img ${!p.image ? 'no-img' : ''}">${img}
+            ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
         </div>
-        <div class="product-info">
-            <h3 class="product-title">${p.name}</h3>
-            ${p.description ? `<p class="product-desc">${p.description}</p>` : ''}
-            <div class="product-footer">
-                <span class="product-price">${p.price}</span>
-                <div class="product-btns">
-                    ${mainBtn}
-                    ${budgetBtn}
-                </div>
+        <div class="card-body">
+            <p class="card-name">${p.name}</p>
+            <div class="card-foot">
+                <span class="card-price">${p.price}</span>
+                <div class="card-actions">${mainBtn}${budgetBtn}</div>
             </div>
         </div>
     </div>`;
@@ -175,7 +172,8 @@ function renderGrid() {
 function showError(msg) {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('errorState').style.display = 'block';
-    document.getElementById('errorMsg').textContent = msg;
+    const msgEl = document.getElementById('errorMsg');
+    if (msgEl) msgEl.textContent = msg;
 }
 
 async function init() {
@@ -184,24 +182,22 @@ async function init() {
         allProducts = rows.map(rowToProduct).filter(Boolean);
 
         document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('productCount').textContent = `${allProducts.length} produktów w katalogu`;
 
         buildCategoryTabs();
         renderGrid();
 
-        // URL param ?kategoria=
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
         if (kat) {
             const match = [...new Set(allProducts.map(p => p.category))].find(c => c.toLowerCase() === kat.toLowerCase());
             if (match) {
                 activeCategory = match;
-                document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === match));
+                document.querySelectorAll('.cat-pill').forEach(t => t.classList.toggle('active', t.dataset.cat === match));
                 renderGrid();
             }
         }
     } catch (e) {
-        showError('Nie udało się załadować produktów. Upewnij się że arkusz jest publiczny.');
+        showError('Nie udało się załadować produktów.');
     }
 }
 
@@ -216,13 +212,12 @@ document.getElementById('sortSelect').addEventListener('change', e => {
 });
 
 document.querySelector('[data-cat="all"]').addEventListener('click', () => {
-    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cat-pill').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-cat="all"]').classList.add('active');
     activeCategory = 'all';
     renderGrid();
 });
 
-// Discord z settings
 fetch('/content/settings.json').then(r => r.json()).then(s => {
     const el = document.getElementById('nav-discord');
     if (el && s.discordUrl) el.href = s.discordUrl;

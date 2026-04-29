@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RePluG — Znajdź najlepsze produkty</title>
+    <title>RePluG — Katalog produktów</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -11,116 +11,66 @@
 </head>
 <body>
 
-    <!-- NAVBAR -->
     <nav class="navbar">
-        <div class="nav-container">
+        <div class="nav-inner">
             <a href="index.html" class="logo">Re<span>PluG</span></a>
-            <ul class="nav-links">
-                <li><a href="katalog.html">Katalog</a></li>
-                <li><a href="#kategorie">Kategorie</a></li>
-                <li><a href="#poradniki">Poradniki</a></li>
-                <li><a id="nav-discord-link" href="#" class="nav-discord">Discord</a></li>
-            </ul>
             <div class="nav-right">
-                <button class="theme-toggle" id="themeToggle">
-                    <span class="icon">🌙</span>
-                </button>
+                <a id="nav-discord" href="#" class="discord-link">Discord</a>
+                <button class="theme-toggle" id="themeToggle"><span class="icon">🌙</span></button>
             </div>
         </div>
     </nav>
 
-    <!-- HERO -->
-    <section class="hero" data-edit="hero" data-edit-label="Sekcja Hero" data-edit-url="/admin/#/collections/hero/entries/hero">
-        <div class="hero-bg"></div>
-        <div class="hero-content">
-            <div class="hero-badge" id="hero-badge">✦ Ponad 2000 produktów w katalogu</div>
-            <h1 id="hero-heading">Znajdź najlepsze produkty<br><span id="hero-heading2">i naucz się kupować taniej</span></h1>
-            <p id="hero-description">Przeglądaj sprawdzone oferty z azjatyckich platform, porównuj ceny i korzystaj z poradników zakupowych.</p>
-            <div class="hero-ctas">
-                <a href="katalog.html" class="btn-primary">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <span id="hero-cta1">Przeglądaj katalog</span>
-                </a>
-                <a id="hero-discord-btn" href="#" target="_blank" class="btn-discord">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
-                    <span id="hero-cta2">Dołącz do Discorda</span>
-                </a>
-            </div>
-            <div class="hero-stats">
-                <div class="stat"><strong id="stat1-num">2000+</strong><span id="stat1-label">Produktów</span></div>
-                <div class="stat-divider"></div>
-                <div class="stat"><strong id="stat2-num">15+</strong><span id="stat2-label">Kategorii</span></div>
-                <div class="stat-divider"></div>
-                <div class="stat"><strong id="stat3-num">100%</strong><span id="stat3-label">Zweryfikowanych</span></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- KATEGORIE -->
-    <section class="section" id="kategorie" data-edit="categories" data-edit-label="Kategorie" data-edit-url="/admin/#/collections/categories/entries/categories_list">
+    <div class="filter-bar">
         <div class="container">
-            <div class="section-header">
-                <h2>Kategorie</h2>
-                <a href="katalog.html" class="see-all">Zobacz wszystkie →</a>
+            <div class="filter-inner">
+                <div class="search-box">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" id="searchInput" placeholder="Szukaj produktu, batcha..." autocomplete="off">
+                </div>
+                <select id="sortSelect" class="sort-select">
+                    <option value="default">Domyślnie</option>
+                    <option value="price-asc">Cena: rosnąco</option>
+                    <option value="price-desc">Cena: malejąco</option>
+                    <option value="name-asc">Nazwa: A–Z</option>
+                </select>
             </div>
-            <div class="categories-grid" id="categoriesGrid"></div>
         </div>
-    </section>
+    </div>
 
-    <!-- TRENDING -->
-    <section class="section" id="trending" data-edit="products" data-edit-label="Produkty / Trending" data-edit-url="/admin/#/collections/products/entries/products_list">
+    <div class="cat-bar">
         <div class="container">
-            <div class="section-header">
-                <h2>🔥 Trending — Popularne teraz</h2>
-                <a href="katalog.html" class="see-all">Zobacz wszystkie →</a>
+            <div class="cat-scroll" id="categoryTabs">
+                <button class="cat-pill active" data-cat="all">Wszystkie</button>
             </div>
-            <div class="trending-grid" id="trendingGrid"></div>
         </div>
-    </section>
+    </div>
 
-    <!-- BANNER DISCORD -->
-    <section class="discord-banner" data-edit="discord" data-edit-label="Banner Discord" data-edit-url="/admin/#/collections/discord_banner/entries/discord_banner">
-        <div class="discord-content">
-            <div class="discord-text">
-                <h2 id="discord-title">Dołącz do społeczności</h2>
-                <p id="discord-desc">Ponad 5000 osób dzieli się opiniami, recenzjami i poradami zakupowymi.</p>
+    <main class="shop-main">
+        <div class="container">
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
             </div>
-            <a id="discord-banner-btn" href="#" target="_blank" class="btn-discord large">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
-                <span id="discord-btn-text">Dołącz do Discorda</span>
-            </a>
+            <div class="error-state" id="errorState" style="display:none">
+                <p>⚠️ Nie udało się załadować produktów. Spróbuj odświeżyć stronę.</p>
+            </div>
+            <div class="results-bar" id="resultsInfo" style="display:none">
+                <span id="resultsCount"></span>
+            </div>
+            <div class="products-grid" id="productsGrid" style="display:none"></div>
+            <div class="empty-state" id="emptyState" style="display:none">
+                <p>🔍 Brak wyników. Spróbuj innej frazy lub zmień kategorię.</p>
+            </div>
         </div>
-    </section>
+    </main>
 
-    <!-- FOOTER -->
     <footer class="footer">
         <div class="container">
-            <div class="footer-top">
-                <div class="footer-brand">
-                    <a href="index.html" class="logo">Re<span>PluG</span></a>
-                    <p>Katalog produktów z azjatyckich platform zakupowych. Charakter wyłącznie informacyjny.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-col">
-                        <h4>Nawigacja</h4>
-                        <a href="katalog.html">Katalog</a>
-                        <a href="#kategorie">Kategorie</a>
-                        <a href="#poradniki">Poradniki</a>
-                    </div>
-                    <div class="footer-col">
-                        <h4>Informacje</h4>
-                        <a href="#">Regulamin</a>
-                        <a href="#">Polityka prywatności</a>
-                        <a href="#">Zgłoś naruszenie</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p id="footer-text">© 2026 RePluG. Wszelkie znaki towarowe należą do ich właścicieli. Strona ma charakter informacyjny.</p>
-            </div>
+            <p class="footer-text">© 2026 RePluG. Strona ma charakter informacyjny.</p>
         </div>
     </footer>
 
     <script src="script.js"></script>
+    <script src="katalog.js"></script>
 </body>
 </html>
