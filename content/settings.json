@@ -1,11 +1,11 @@
 {
-  "siteName": "RePluG",
-  "discordUrl": "https://discord.gg/",
-  "footerText": "© 2026 RePluG. Wszelkie znaki towarowe należą do ich właścicieli. Strona ma charakter informacyjny.",
-  "stat1Num": "2000+",
-  "stat1Label": "Produktów",
-  "stat2Num": "15+",
-  "stat2Label": "Kategorii",
+  "discordUrl": "https://discord.gg/zc3m3VjZ",
   "stat3Num": "100%",
-  "stat3Label": "Zweryfikowanych"
+  "footerText": "© 2026 RePluG. Wszelkie znaki towarowe należą do ich właścicieli. Strona ma charakter informacyjny.",
+  "stat2Num": "15+",
+  "stat1Num": "2000+",
+  "siteName": "RePluG",
+  "stat3Label": "Zweryfikowanych",
+  "stat2Label": "Kategorii",
+  "stat1Label": "Produktów"
 }
