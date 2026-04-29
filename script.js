@@ -153,12 +153,6 @@ function initEditMode() {
     fab.innerHTML = '✏️ Tryb edycji';
     document.body.appendChild(fab);
 
-    // Pasek admina
-    const bar = document.createElement('div');
-    bar.id = 'admin-bar';
-    bar.textContent = '✏️ Jesteś zalogowany jako admin — kliknij sekcję żeby ją edytować';
-    document.body.prepend(bar);
-
     let editMode = false;
     fab.addEventListener('click', () => {
         editMode = !editMode;
@@ -176,7 +170,6 @@ if (window.netlifyIdentity) {
     window.netlifyIdentity.on('login', () => initEditMode());
     window.netlifyIdentity.on('logout', () => {
         document.getElementById('edit-fab')?.remove();
-        document.getElementById('admin-bar')?.remove();
         document.body.classList.remove('edit-mode');
     });
 }
