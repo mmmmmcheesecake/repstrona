@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "title": "Nike Air Jordan 1 Retro High",
+      "category": "Buty",
+      "price": "~$45",
+      "link": "#",
+      "image": "https://via.placeholder.com/400x300/1a1a2e/6c63ff?text=Jordan+1",
+      "description": "Kultowe buty w świetnej jakości wykonania.",
+      "badge": "hot",
+      "trending": true
+    },
+    {
+      "title": "Essentials Oversized Hoodie",
+      "category": "Odzież",
+      "price": "~$28",
+      "link": "#",
+      "image": "https://via.placeholder.com/400x300/1a2e1a/63ff6c?text=Hoodie",
+      "description": "Popularna bluza dostępna w wielu kolorach.",
+      "badge": "new",
+      "trending": true
+    },
+    {
+      "title": "Słuchawki bezprzewodowe ANC",
+      "category": "Elektronika",
+      "price": "~$35",
+      "link": "#",
+      "image": "https://via.placeholder.com/400x300/1a1a2e/6c63ff?text=Słuchawki",
+      "description": "Redukcja hałasu, 40h baterii.",
+      "badge": "top",
+      "trending": true
+    },
+    {
+      "title": "Plecak miejski Premium",
+      "category": "Torby",
+      "price": "~$40",
+      "link": "#",
+      "image": "https://via.placeholder.com/400x300/2e2a1a/ffcc63?text=Plecak",
+      "description": "Wodoodporny, duża pojemność.",
+      "badge": "",
+      "trending": false
+    }
+  ]
+}
