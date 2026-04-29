@@ -27,50 +27,50 @@
         </div>
     </nav>
 
-    <!-- NAGŁÓWEK KATALOGU -->
     <div class="katalog-header">
         <div class="container">
             <h1>Katalog produktów</h1>
-            <p>Znajdź produkt który szukasz</p>
+            <p id="productCount">Ładowanie...</p>
         </div>
     </div>
 
-    <!-- FILTRY -->
-    <div class="filters-bar" id="filtersBar">
+    <div class="filters-bar">
         <div class="container">
             <div class="filters-top">
                 <div class="search-wrap">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="searchInput" placeholder="Szukaj produktu..." autocomplete="off">
+                    <input type="text" id="searchInput" placeholder="Szukaj produktu, batcha..." autocomplete="off">
                 </div>
                 <div class="sort-wrap">
                     <select id="sortSelect">
                         <option value="default">Sortuj: Domyślnie</option>
                         <option value="price-asc">Cena: rosnąco</option>
                         <option value="price-desc">Cena: malejąco</option>
-                        <option value="name-asc">Nazwa: A-Z</option>
+                        <option value="name-asc">Nazwa: A–Z</option>
                     </select>
                 </div>
             </div>
             <div class="category-tabs" id="categoryTabs">
                 <button class="cat-tab active" data-cat="all">Wszystkie</button>
-                <button class="cat-tab" data-cat="Buty">👟 Buty</button>
-                <button class="cat-tab" data-cat="Odzież">👕 Odzież</button>
-                <button class="cat-tab" data-cat="Akcesoria">⌚ Akcesoria</button>
-                <button class="cat-tab" data-cat="Elektronika">🎧 Elektronika</button>
-                <button class="cat-tab" data-cat="Sport">🏋️ Sport</button>
-                <button class="cat-tab" data-cat="Torby">👜 Torby</button>
             </div>
         </div>
     </div>
 
-    <!-- WYNIKI -->
     <div class="katalog-body">
         <div class="container">
-            <div class="results-info">
-                <span id="resultsCount">Ładowanie...</span>
+            <div class="loading-state" id="loadingState">
+                <div class="spinner-big"></div>
+                <p>Ładowanie produktów...</p>
             </div>
-            <div class="products-grid" id="productsGrid"></div>
+            <div class="error-state" id="errorState" style="display:none">
+                <div style="font-size:2.5rem;margin-bottom:12px;">⚠️</div>
+                <h3>Nie udało się załadować produktów</h3>
+                <p id="errorMsg">Sprawdź połączenie z internetem i odśwież stronę.</p>
+            </div>
+            <div id="resultsInfo" style="display:none" class="results-info">
+                <span id="resultsCount"></span>
+            </div>
+            <div class="products-grid" id="productsGrid" style="display:none"></div>
             <div class="empty-state" id="emptyState" style="display:none">
                 <div class="empty-icon">🔍</div>
                 <h3>Brak wyników</h3>
@@ -82,7 +82,7 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-bottom">
-                <p id="footer-copy">© 2026 RePluG. Strona ma charakter informacyjny.</p>
+                <p>© 2026 RePluG. Strona ma charakter informacyjny.</p>
             </div>
         </div>
     </footer>
