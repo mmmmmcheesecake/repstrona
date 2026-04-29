@@ -239,41 +239,52 @@ async function fetchSheets() {
     if (!parsed) { showAlert('error', 'Nieprawidłowy link. Skopiuj pełny adres z paska przeglądarki.'); return; }
 
     setFetchLoading(true);
-    showAlert('info', 'Pobieranie danych...');
 
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv&gid=${parsed.gid}`;
+    const id = parsed.id;
+    const gid = parsed.gid;
 
-    try {
-        let text = null;
-
-        // Próba 1: bezpośrednio
-        try {
-            const res = await fetch(exportUrl);
-            const content = await res.text();
-            if (content.trim() && !content.trim().startsWith('<')) {
-                text = content;
-            }
-        } catch(e) {}
-
-        // Próba 2: przez CORS proxy
-        if (!text) {
-            showAlert('info', 'Używam proxy CORS...');
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(exportUrl)}`;
-            const res = await fetch(proxyUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const content = await res.text();
-            if (content.trim().startsWith('<')) throw new Error('Arkusz niepubliczny lub niedostępny.');
-            text = content;
+    // Trzy metody pobierania — próbujemy po kolei
+    const methods = [
+        {
+            label: 'Metoda 1...',
+            url: `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`,
+            parse: r => r.text()
+        },
+        {
+            label: 'Metoda 2...',
+            url: `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`)}`,
+            parse: async r => { const j = await r.json(); return j.contents; }
+        },
+        {
+            label: 'Metoda 3...',
+            url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`)}`,
+            parse: r => r.text()
         }
+    ];
 
-        hideAlerts();
-        processCSV(text);
-    } catch (e) {
-        showAlert('error', 'Nie udało się pobrać danych. Upewnij się że arkusz jest publiczny: Udostępnij → Każdy z linkiem → Przeglądający.');
-        console.error(e);
-    } finally {
-        setFetchLoading(false);
+    let text = null;
+
+    for (const method of methods) {
+        showAlert('info', method.label);
+        try {
+            const res = await fetch(method.url, { signal: AbortSignal.timeout(8000) });
+            if (!res.ok) continue;
+            const content = await method.parse(res);
+            if (!content || content.trim().startsWith('<')) continue;
+            text = content;
+            break;
+        } catch(e) { continue; }
     }
+
+    setFetchLoading(false);
+    hideAlerts();
+
+    if (!text) {
+        showAlert('error', 'Nie udało się pobrać przez żadną metodę. Skorzystaj z opcji ręcznej: zaznacz dane w arkuszu → Ctrl+C → wklej w pole tekstowe poniżej.');
+        return;
+    }
+
+    processCSV(text);
 }
 
 function parseManual() {
