@@ -57,24 +57,48 @@ function parseCSV(text) {
 
 // Pobieranie z Google Sheets
 async function fetchProducts() {
-    const urls = [
-        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`,
-        `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`)}`
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+    const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+
+    const methods = [
+        // Metoda 1: allorigins (CSV)
+        async () => {
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(csvUrl)}`);
+            if (!res.ok) throw new Error('allorigins failed');
+            const j = await res.json();
+            if (!j.contents || j.contents.trim().startsWith('<')) throw new Error('HTML response');
+            return parseCSV(j.contents);
+        },
+        // Metoda 2: allorigins z gviz
+        async () => {
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(gvizUrl)}`);
+            if (!res.ok) throw new Error('allorigins gviz failed');
+            const j = await res.json();
+            if (!j.contents || j.contents.trim().startsWith('<')) throw new Error('HTML response');
+            return parseCSV(j.contents);
+        },
+        // Metoda 3: corsproxy (gviz CSV)
+        async () => {
+            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(gvizUrl)}`);
+            if (!res.ok) throw new Error('corsproxy failed');
+            const text = await res.text();
+            if (!text || text.trim().startsWith('<')) throw new Error('HTML response');
+            return parseCSV(text);
+        },
+        // Metoda 4: bezpośrednio gviz (działa na niektórych przeglądarkach)
+        async () => {
+            const res = await fetch(gvizUrl);
+            if (!res.ok) throw new Error('direct failed');
+            const text = await res.text();
+            if (!text || text.trim().startsWith('<')) throw new Error('HTML response');
+            return parseCSV(text);
+        }
     ];
 
-    for (const url of urls) {
+    for (const method of methods) {
         try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-            if (!res.ok) continue;
-            let text;
-            if (url.includes('allorigins')) {
-                const j = await res.json();
-                text = j.contents;
-            } else {
-                text = await res.text();
-            }
-            if (!text || text.trim().startsWith('<')) continue;
-            return parseCSV(text);
+            const rows = await method();
+            if (rows && rows.length > 1) return rows;
         } catch (e) { continue; }
     }
     throw new Error('Nie udało się załadować arkusza.');
