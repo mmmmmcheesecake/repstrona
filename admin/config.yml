@@ -1,0 +1,36 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "images"
+public_folder: "/images"
+
+locale: pl
+
+collections:
+  - name: "products"
+    label: "Produkty"
+    files:
+      - label: "Katalog produktów"
+        name: "products_list"
+        file: "products.json"
+        fields:
+          - label: "Produkty"
+            name: "items"
+            widget: "list"
+            fields:
+              - {label: "Nazwa", name: "title", widget: "string"}
+              - label: "Kategoria"
+                name: "category"
+                widget: "select"
+                options: ["Buty", "Odzież", "Akcesoria", "Elektronika", "Sport", "Torby"]
+              - {label: "Cena (np. ~$45)", name: "price", widget: "string"}
+              - {label: "Link do sklepu", name: "link", widget: "string"}
+              - {label: "URL zdjęcia", name: "image", widget: "string"}
+              - {label: "Opis", name: "description", widget: "text"}
+              - label: "Badge"
+                name: "badge"
+                widget: "select"
+                options: ["", "hot", "new", "top"]
+                required: false
+              - {label: "Pokaż w Trending", name: "trending", widget: "boolean", default: false}

@@ -17,7 +17,7 @@ toggle.addEventListener('click', () => {
 // Ładowanie produktów z products.json
 async function loadProducts() {
     try {
-        const res = await fetch('/repstrona/products.json');
+        const res = await fetch('/products.json');
         const data = await res.json();
         renderTrending(data.items);
     } catch (e) {
