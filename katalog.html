@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katalog — RePluG</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="katalog.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">Re<span>PluG</span></a>
+            <ul class="nav-links">
+                <li><a href="katalog.html" class="active">Katalog</a></li>
+                <li><a href="index.html#kategorie">Kategorie</a></li>
+                <li><a href="index.html#poradniki">Poradniki</a></li>
+                <li><a id="nav-discord" href="#" class="nav-discord">Discord</a></li>
+            </ul>
+            <div class="nav-right">
+                <button class="theme-toggle" id="themeToggle"><span class="icon">🌙</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- NAGŁÓWEK KATALOGU -->
+    <div class="katalog-header">
+        <div class="container">
+            <h1>Katalog produktów</h1>
+            <p>Znajdź produkt który szukasz</p>
+        </div>
+    </div>
+
+    <!-- FILTRY -->
+    <div class="filters-bar" id="filtersBar">
+        <div class="container">
+            <div class="filters-top">
+                <div class="search-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" id="searchInput" placeholder="Szukaj produktu..." autocomplete="off">
+                </div>
+                <div class="sort-wrap">
+                    <select id="sortSelect">
+                        <option value="default">Sortuj: Domyślnie</option>
+                        <option value="price-asc">Cena: rosnąco</option>
+                        <option value="price-desc">Cena: malejąco</option>
+                        <option value="name-asc">Nazwa: A-Z</option>
+                    </select>
+                </div>
+            </div>
+            <div class="category-tabs" id="categoryTabs">
+                <button class="cat-tab active" data-cat="all">Wszystkie</button>
+                <button class="cat-tab" data-cat="Buty">👟 Buty</button>
+                <button class="cat-tab" data-cat="Odzież">👕 Odzież</button>
+                <button class="cat-tab" data-cat="Akcesoria">⌚ Akcesoria</button>
+                <button class="cat-tab" data-cat="Elektronika">🎧 Elektronika</button>
+                <button class="cat-tab" data-cat="Sport">🏋️ Sport</button>
+                <button class="cat-tab" data-cat="Torby">👜 Torby</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WYNIKI -->
+    <div class="katalog-body">
+        <div class="container">
+            <div class="results-info">
+                <span id="resultsCount">Ładowanie...</span>
+            </div>
+            <div class="products-grid" id="productsGrid"></div>
+            <div class="empty-state" id="emptyState" style="display:none">
+                <div class="empty-icon">🔍</div>
+                <h3>Brak wyników</h3>
+                <p>Spróbuj innej frazy lub zmień kategorię</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p id="footer-copy">© 2026 RePluG. Strona ma charakter informacyjny.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="katalog.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+@echo off
+echo Pobieranie zmian z GitHub...
+git pull --rebase origin main
+echo Wysylanie zmian na GitHub...
+git push
+echo Gotowe!

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import produktów — RePluG</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { padding: 40px 0 80px; }
+        .import-wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+        h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); margin-bottom: 32px; }
+
+        .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+        .step-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .step-num { background: var(--accent); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0; }
+
+        .instructions { background: var(--bg-hover); border-radius: 10px; padding: 16px; margin-bottom: 16px; font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
+        .instructions strong { color: var(--text); }
+        .instructions code { background: var(--border); padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--accent); }
+
+        textarea {
+            width: 100%;
+            min-height: 180px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            color: var(--text);
+            font-size: 0.85rem;
+            font-family: monospace;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { border-color: var(--accent); }
+        textarea::placeholder { color: var(--text-subtle); }
+
+        .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+        .mapping-item label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .mapping-item select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; }
+
+        .btn-parse { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-weight: 700; font-size: 0.95rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; margin-top: 16px; }
+        .btn-parse:hover { background: var(--accent-hover); }
+
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; max-height: 500px; overflow-y: auto; padding-right: 4px; }
+        .preview-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 0.82rem; }
+        .preview-card img { width: 100%; height: 140px; object-fit: cover; background: var(--bg-hover); }
+        .preview-card .pc-info { padding: 10px 12px; }
+        .preview-card .pc-name { font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+        .preview-card .pc-cat { color: var(--accent); font-size: 0.76rem; margin-bottom: 4px; }
+        .preview-card .pc-price { color: var(--text-muted); }
+
+        .preview-count { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px; }
+
+        .download-section { text-align: center; padding: 20px; }
+        .btn-download { background: #2ed573; color: #000; border: none; border-radius: 10px; padding: 14px 36px; font-weight: 800; font-size: 1rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
+        .btn-download:hover { opacity: 0.85; }
+        .download-hint { color: var(--text-muted); font-size: 0.85rem; margin-top: 12px; line-height: 1.6; }
+
+        .alert { border-radius: 10px; padding: 12px 16px; font-size: 0.88rem; margin-bottom: 16px; display: none; }
+        .alert.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: #ff6b7a; }
+        .alert.success { background: rgba(46,213,115,0.1); border: 1px solid rgba(46,213,115,0.3); color: #2ed573; }
+    </style>
+</head>
+<body>
+<div class="import-wrap">
+    <a href="index.html" style="color:var(--accent);font-size:0.88rem;font-weight:600;">← Wróć na stronę</a>
+    <br><br>
+    <h1>Import produktów</h1>
+    <p class="subtitle">Wklej dane ze spreadsheetów Google Sheets, Excel lub CSV — produkty zostaną dodane do katalogu.</p>
+
+    <!-- KROK 1 -->
+    <div class="step">
+        <div class="step-title"><div class="step-num">1</div> Skopiuj dane ze spreadsheetów</div>
+        <div class="instructions">
+            <strong>Jak to zrobić:</strong><br>
+            1. Otwórz swój Google Sheets / Excel<br>
+            2. Zaznacz wszystkie komórki z produktami (włącznie z nagłówkami)<br>
+            3. Skopiuj <strong>Ctrl+C</strong><br>
+            4. Wklej poniżej <strong>Ctrl+V</strong><br><br>
+            <strong>Oczekiwany format:</strong> kolumny oddzielone tabulatorami lub przecinkami.<br>
+            Przykład kolumn: <code>Nazwa</code> <code>Kategoria</code> <code>Cena</code> <code>Link</code> <code>Zdjęcie</code> <code>Opis</code>
+        </div>
+        <textarea id="csvInput" placeholder="Wklej tutaj dane ze spreadsheetów (Ctrl+V)..."></textarea>
+    </div>
+
+    <!-- KROK 2 -->
+    <div class="step">
+        <div class="step-title"><div class="step-num">2</div> Dopasuj kolumny</div>
+        <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:12px;">Wskaż które kolumny odpowiadają którym polom produktu:</p>
+        <div class="mapping-grid">
+            <div class="mapping-item">
+                <label>Nazwa produktu *</label>
+                <select id="map-title"><option value="">— wybierz —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>Kategoria</label>
+                <select id="map-category"><option value="">— brak —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>Cena</label>
+                <select id="map-price"><option value="">— brak —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>Link do sklepu</label>
+                <select id="map-link"><option value="">— brak —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>URL zdjęcia</label>
+                <select id="map-image"><option value="">— brak —</option></select>
+            </div>
+            <div class="mapping-item">
+                <label>Opis</label>
+                <select id="map-description"><option value="">— brak —</option></select>
+            </div>
+        </div>
+        <div style="margin-top:16px;">
+            <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px;">Domyślna kategoria (jeśli brak w danych)</label>
+            <select id="default-category" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:0.85rem;outline:none;">
+                <option value="Buty">Buty</option>
+                <option value="Odzież">Odzież</option>
+                <option value="Akcesoria">Akcesoria</option>
+                <option value="Elektronika">Elektronika</option>
+                <option value="Sport">Sport</option>
+                <option value="Torby">Torby</option>
+            </select>
+        </div>
+        <button class="btn-parse" onclick="parseAndPreview()">Podgląd produktów →</button>
+    </div>
+
+    <!-- KROK 3 -->
+    <div class="step" id="previewStep" style="display:none">
+        <div class="step-title"><div class="step-num">3</div> Podgląd zaimportowanych produktów</div>
+        <div class="alert error" id="alertError"></div>
+        <div class="alert success" id="alertSuccess"></div>
+        <div class="preview-count" id="previewCount"></div>
+        <div class="preview-grid" id="previewGrid"></div>
+    </div>
+
+    <!-- KROK 4 -->
+    <div class="step" id="downloadStep" style="display:none">
+        <div class="step-title"><div class="step-num">4</div> Pobierz i wgraj na stronę</div>
+        <div class="download-section">
+            <button class="btn-download" onclick="downloadJSON()">⬇ Pobierz products.json</button>
+            <div class="download-hint">
+                Po pobraniu pliku:<br>
+                1. Zastąp nim plik <strong>products.json</strong> w folderze <strong>strona</strong> na pulpicie<br>
+                2. W terminalu VS Code wpisz: <strong>.\push.bat</strong><br>
+                3. Produkty pojawią się na stronie automatycznie ✓
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+let parsedProducts = [];
+let csvHeaders = [];
+let csvRows = [];
+
+const REF = '?ref=MGRSBE';
+
+function addRef(url) {
+    if (!url || url.trim() === '' || url === '#') return '#';
+    url = url.trim();
+    if (url.includes('ref=MGRSBE')) return url;
+    if (url.includes('?')) return url + '&ref=MGRSBE';
+    return url + REF;
+}
+
+// Parsowanie CSV/TSV
+function parseCSV(text) {
+    const lines = text.trim().split('\n').filter(l => l.trim());
+    if (!lines.length) return { headers: [], rows: [] };
+
+    // Wykryj separator: tab lub przecinek
+    const firstLine = lines[0];
+    const sep = firstLine.includes('\t') ? '\t' : ',';
+
+    const headers = firstLine.split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+    const rows = lines.slice(1).map(line =>
+        line.split(sep).map(cell => cell.trim().replace(/^"|"$/g, ''))
+    ).filter(row => row.some(c => c.trim()));
+
+    return { headers, rows };
+}
+
+// Wypełnij selecty kolumnami
+function fillSelects(headers) {
+    const selects = ['map-title', 'map-category', 'map-price', 'map-link', 'map-image', 'map-description'];
+    const guesses = {
+        'map-title': ['nazwa', 'name', 'title', 'produkt', 'product'],
+        'map-category': ['kategoria', 'category', 'typ', 'type'],
+        'map-price': ['cena', 'price', 'kwota', 'koszt', 'cost'],
+        'map-link': ['link', 'url', 'href', 'sklep', 'store'],
+        'map-image': ['zdjęcie', 'zdjecie', 'image', 'img', 'foto', 'photo', 'obrazek'],
+        'map-description': ['opis', 'description', 'desc', 'szczegóły']
+    };
+
+    selects.forEach(id => {
+        const sel = document.getElementById(id);
+        const isTitle = id === 'map-title';
+        sel.innerHTML = `<option value="">${isTitle ? '— wybierz —' : '— brak —'}</option>`;
+        headers.forEach((h, i) => {
+            sel.innerHTML += `<option value="${i}">${h}</option>`;
+        });
+
+        // Auto-guess
+        const keywords = guesses[id] || [];
+        const matchIdx = headers.findIndex(h =>
+            keywords.some(k => h.toLowerCase().includes(k))
+        );
+        if (matchIdx >= 0) sel.value = String(matchIdx);
+    });
+}
+
+// Odczytaj wartość z wiersza
+function getVal(row, selectId) {
+    const idx = document.getElementById(selectId).value;
+    if (idx === '') return '';
+    return (row[parseInt(idx)] || '').trim();
+}
+
+function parseAndPreview() {
+    const raw = document.getElementById('csvInput').value.trim();
+    if (!raw) { showError('Wklej najpierw dane ze spreadsheetów!'); return; }
+
+    const { headers, rows } = parseCSV(raw);
+    if (!headers.length) { showError('Nie udało się odczytać danych. Sprawdź format.'); return; }
+
+    csvHeaders = headers;
+    csvRows = rows;
+    fillSelects(headers);
+
+    // Pierwszy podgląd
+    buildPreview();
+    document.getElementById('previewStep').style.display = 'block';
+    document.getElementById('downloadStep').style.display = 'block';
+    document.getElementById('previewStep').scrollIntoView({ behavior: 'smooth' });
+}
+
+function buildPreview() {
+    const defaultCat = document.getElementById('default-category').value;
+    const titleIdx = document.getElementById('map-title').value;
+
+    if (titleIdx === '') { showError('Musisz wybrać kolumnę z nazwą produktu!'); return; }
+
+    parsedProducts = csvRows.map(row => ({
+        title: getVal(row, 'map-title'),
+        category: getVal(row, 'map-category') || defaultCat,
+        price: getVal(row, 'map-price'),
+        link: addRef(getVal(row, 'map-link')),
+        image: getVal(row, 'map-image'),
+        description: getVal(row, 'map-description'),
+        badge: '',
+        trending: false
+    })).filter(p => p.title);
+
+    const grid = document.getElementById('previewGrid');
+    const count = document.getElementById('previewCount');
+
+    count.textContent = `${parsedProducts.length} produktów gotowych do importu`;
+
+    grid.innerHTML = parsedProducts.map(p => `
+        <div class="preview-card">
+            ${p.image
+                ? `<img src="${p.image}" alt="${p.title}" onerror="this.style.display='none'">`
+                : `<div style="height:140px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--text-subtle);font-size:0.8rem;">Brak zdjęcia</div>`
+            }
+            <div class="pc-info">
+                <div class="pc-cat">${p.category}</div>
+                <div class="pc-name">${p.title}</div>
+                <div class="pc-price">${p.price}</div>
+            </div>
+        </div>
+    `).join('');
+
+    showSuccess(`Znaleziono ${parsedProducts.length} produktów!`);
+}
+
+function downloadJSON() {
+    buildPreview();
+    if (!parsedProducts.length) { showError('Brak produktów do pobrania.'); return; }
+
+    const json = JSON.stringify({ items: parsedProducts }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'products.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showSuccess('Plik pobrany! Zastąp nim products.json w folderze strona i uruchom .\\push.bat');
+}
+
+function showError(msg) {
+    const el = document.getElementById('alertError');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function showSuccess(msg) {
+    const el = document.getElementById('alertSuccess');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+}
+
+// Aktualizuj podgląd gdy zmienisz mapowanie
+document.querySelectorAll('[id^="map-"]').forEach(sel => {
+    sel.addEventListener('change', () => {
+        if (csvRows.length) buildPreview();
+    });
+});
+</script>
+</body>
+</html>
