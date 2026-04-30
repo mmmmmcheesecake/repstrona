@@ -1,0 +1,20 @@
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/katalog
+  Cache-Control: public, max-age=0, must-revalidate
+
+/produkt
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.js
+  Cache-Control: public, max-age=300
+
+/*.css
+  Cache-Control: public, max-age=300
+
+/api/*
+  Cache-Control: public, max-age=300
