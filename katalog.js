@@ -1,7 +1,4 @@
-const SHEET_ID = '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk';
 const REF = '?ref=MGRSBE';
-
-const COL = { name: 0, batch: 1, link: 2, price: 3, image: 4, description: 5, budgetLink: 6 };
 
 let allProducts = [];
 let activeCategory = 'all';
@@ -15,9 +12,10 @@ function batchClass(b) {
     return KNOWN_BATCHES.includes(u) ? `batch-${u}` : 'batch-other';
 }
 
-function addRef(url) {
-    if (!url || !url.trim() || url === '#' || url.toLowerCase() === 'link' || url.toLowerCase() === 'budget link') return null;
+function ensureRef(url) {
+    if (!url || typeof url !== 'string') return null;
     url = url.trim();
+    if (!url || url === '#') return null;
     if (url.includes('ref=MGRSBE')) return url;
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
@@ -36,53 +34,37 @@ function detectCategory(name) {
     return 'Inne';
 }
 
-function parseCSV(text) {
-    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n').filter(l => l.trim());
-    return lines.map(line => {
-        const cells = [];
-        let cur = '', inQ = false;
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i], nx = line[i + 1];
-            if (inQ) {
-                if (ch === '"' && nx === '"') { cur += '"'; i++; }
-                else if (ch === '"') inQ = false;
-                else cur += ch;
-            } else {
-                if (ch === '"') inQ = true;
-                else if (ch === ',') { cells.push(cur.trim()); cur = ''; }
-                else cur += ch;
-            }
-        }
-        cells.push(cur.trim());
-        return cells;
-    });
-}
-
 async function fetchProducts() {
     const res = await fetch('/api/sheet');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    if (!text || text.trim().startsWith('<')) throw new Error('Błędna odpowiedź');
-    return parseCSV(text);
-}
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Błędna odpowiedź');
 
-function rowToProduct(row) {
-    const name = (row[COL.name] || '').trim();
-    if (!name) return null;
-    return {
-        name,
-        batch:       (row[COL.batch] || '').trim(),
-        link:        addRef(row[COL.link]),
-        price:       (row[COL.price] || '').trim(),
-        image:       (row[COL.image] || '').trim(),
-        description: (row[COL.description] || '').trim(),
-        budgetLink:  addRef(row[COL.budgetLink]),
-        category:    detectCategory(name)
-    };
+    return data.map(p => ({
+        name: p.name,
+        batch: p.batch || '',
+        link: ensureRef(p.link),
+        price: p.price || '',
+        image: p.image || '',
+        description: p.description || '',
+        budgetLink: ensureRef(p.budgetLink),
+        category: detectCategory(p.name),
+        livePrice: null,
+        liveImage: null,
+    }));
 }
 
 function parsePrice(str) {
     return parseFloat((str || '0').replace(/[^0-9.]/g, '')) || 0;
+}
+
+function getDisplayPrice(p) {
+    if (p.livePrice != null) return `$${Math.round(p.livePrice)}`;
+    return p.price;
+}
+
+function getDisplayImage(p) {
+    return p.liveImage || p.image || '';
 }
 
 function getFiltered() {
@@ -96,8 +78,8 @@ function getFiltered() {
             p.description.toLowerCase().includes(q)
         );
     }
-    if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
-    if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
+    if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(getDisplayPrice(a)) - parsePrice(getDisplayPrice(b)));
+    if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
     if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
     return items;
 }
@@ -120,9 +102,14 @@ function buildCategoryTabs() {
     });
 }
 
+function productKey(p) {
+    return p.link || p.name;
+}
+
 function cardHTML(p) {
-    const img = p.image
-        ? `<img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+    const img = getDisplayImage(p);
+    const imgTag = img
+        ? `<img src="${img}" alt="${p.name}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
 
     const mainBtn = p.link
@@ -134,14 +121,14 @@ function cardHTML(p) {
         : '';
 
     return `
-    <div class="product-card">
-        <div class="card-img ${!p.image ? 'no-img' : ''}">${img}
+    <div class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
+        <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
             ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
         </div>
         <div class="card-body">
             <p class="card-name">${p.name}</p>
             <div class="card-foot">
-                <span class="card-price">${p.price}</span>
+                <span class="card-price">${getDisplayPrice(p)}</span>
                 <div class="card-actions">${mainBtn}${budgetBtn}</div>
             </div>
         </div>
@@ -176,10 +163,103 @@ function showError(msg) {
     if (msgEl) msgEl.textContent = msg;
 }
 
+const enrichCache = new Map();
+const enrichInFlight = new Set();
+
+async function enrichProduct(p) {
+    if (!p.link) return;
+    const key = p.link;
+    if (enrichInFlight.has(key)) return;
+    if (enrichCache.has(key)) {
+        applyEnrichment(p, enrichCache.get(key));
+        return;
+    }
+    enrichInFlight.add(key);
+    try {
+        const r = await fetch(`/api/product?url=${encodeURIComponent(p.link)}`);
+        if (!r.ok) return;
+        const data = await r.json();
+        enrichCache.set(key, data);
+        applyEnrichment(p, data);
+    } catch {} finally {
+        enrichInFlight.delete(key);
+    }
+}
+
+function applyEnrichment(p, data) {
+    if (!data) return;
+    let changed = false;
+    if (data.priceUsd != null && p.livePrice !== data.priceUsd) {
+        p.livePrice = data.priceUsd;
+        changed = true;
+    }
+    if (data.image && p.liveImage !== data.image) {
+        p.liveImage = data.image;
+        changed = true;
+    }
+    if (changed) updateCard(p);
+}
+
+function updateCard(p) {
+    const sel = `.product-card[data-key="${CSS.escape(productKey(p))}"]`;
+    document.querySelectorAll(sel).forEach(card => {
+        const priceEl = card.querySelector('.card-price');
+        if (priceEl) priceEl.textContent = getDisplayPrice(p);
+
+        const imgWrap = card.querySelector('.card-img');
+        const newImg = getDisplayImage(p);
+        if (imgWrap && newImg) {
+            const existing = imgWrap.querySelector('img');
+            if (existing) {
+                if (existing.src !== newImg) existing.src = newImg;
+            } else {
+                imgWrap.classList.remove('no-img');
+                const img = document.createElement('img');
+                img.src = newImg;
+                img.alt = p.name;
+                img.loading = 'lazy';
+                img.onerror = function () { imgWrap.classList.add('no-img'); this.remove(); };
+                imgWrap.prepend(img);
+            }
+        }
+    });
+}
+
+function setupLazyEnrichment() {
+    if (!('IntersectionObserver' in window)) {
+        allProducts.forEach(p => enrichProduct(p));
+        return;
+    }
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const key = entry.target.dataset.key;
+            const p = allProducts.find(x => productKey(x) === key);
+            if (p) enrichProduct(p);
+            observer.unobserve(entry.target);
+        });
+    }, { rootMargin: '300px' });
+
+    const watch = () => {
+        document.querySelectorAll('.product-card[data-key]').forEach(el => {
+            if (!el.dataset.observed) {
+                el.dataset.observed = '1';
+                observer.observe(el);
+            }
+        });
+    };
+    watch();
+
+    const grid = document.getElementById('productsGrid');
+    if (grid) {
+        const mo = new MutationObserver(watch);
+        mo.observe(grid, { childList: true });
+    }
+}
+
 async function init() {
     try {
-        const rows = await fetchProducts();
-        allProducts = rows.map(rowToProduct).filter(Boolean);
+        allProducts = await fetchProducts();
 
         document.getElementById('loadingState').style.display = 'none';
 
@@ -196,7 +276,10 @@ async function init() {
                 renderGrid();
             }
         }
+
+        setupLazyEnrichment();
     } catch (e) {
+        console.error(e);
         showError('Nie udało się załadować produktów.');
     }
 }

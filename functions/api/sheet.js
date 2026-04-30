@@ -1,20 +1,48 @@
 const SHEET_ID = '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk';
 
-export async function onRequest() {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
-
-    const res = await fetch(url, { redirect: 'follow' });
-    const body = await res.text();
-
-    if (!res.ok || body.trim().startsWith('<')) {
-        return new Response('Arkusz niedostępny lub niepubliczny', { status: 502 });
+export async function onRequest(ctx) {
+    const apiKey = ctx.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+        return new Response('Brak GOOGLE_API_KEY w env', { status: 500 });
     }
 
-    return new Response(body, {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}` +
+        `?fields=sheets.data.rowData.values(formattedValue,hyperlink)` +
+        `&includeGridData=true&key=${apiKey}`;
+
+    const r = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!r.ok) {
+        return new Response(`Sheets API error: ${r.status}`, { status: 502 });
+    }
+    const json = await r.json();
+
+    const rows = json?.sheets?.[0]?.data?.[0]?.rowData ?? [];
+    const products = [];
+    let isHeader = true;
+
+    for (const row of rows) {
+        const cells = row.values ?? [];
+        if (isHeader) { isHeader = false; continue; }
+        const get = (i) => cells[i] || {};
+        const name = (get(0).formattedValue || '').trim();
+        if (!name) continue;
+
+        products.push({
+            name,
+            batch:       (get(1).formattedValue || '').trim(),
+            link:        get(2).hyperlink || null,
+            price:       (get(3).formattedValue || '').trim(),
+            image:       get(4).hyperlink || (get(4).formattedValue || '').trim() || '',
+            description: (get(5).formattedValue || '').trim(),
+            budgetLink:  get(6).hyperlink || null,
+        });
+    }
+
+    return new Response(JSON.stringify(products), {
         headers: {
-            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=120',
+            'Cache-Control': 'public, max-age=300',
         }
     });
 }
