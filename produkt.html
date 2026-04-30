@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produkt — RePluG</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="logo">Re<span>PluG</span></a>
+            <div class="nav-right">
+                <a id="nav-discord" href="#" class="discord-link">Discord</a>
+                <button class="theme-toggle" id="themeToggle"><span class="icon">🌙</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="product-page">
+        <div class="container">
+            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link">← Powrót</a>
+
+            <div class="loading-state" id="loadingState"><div class="spinner"></div></div>
+            <div class="error-state" id="errorState" style="display:none">
+                <p>⚠️ Nie udało się załadować produktu. <a href="katalog.html">Wróć do katalogu</a>.</p>
+            </div>
+
+            <div class="product-detail" id="productDetail" style="display:none">
+                <div class="pd-gallery">
+                    <div class="pd-main-img">
+                        <img id="pdMainImg" alt="">
+                    </div>
+                    <div class="pd-thumbs" id="pdThumbs"></div>
+                </div>
+
+                <div class="pd-info">
+                    <div class="pd-meta" id="pdMeta"></div>
+                    <h1 class="pd-name" id="pdName"></h1>
+                    <div class="pd-price-row">
+                        <span class="pd-price" id="pdPrice"></span>
+                        <span class="pd-stock" id="pdStock"></span>
+                    </div>
+
+                    <div class="pd-options" id="pdOptions"></div>
+
+                    <div class="pd-buttons">
+                        <a id="pdBuy" href="#" target="_blank" rel="noopener" class="card-btn primary pd-buy">Kup u agenta →</a>
+                        <a id="pdBudget" href="#" target="_blank" rel="noopener" class="card-btn pd-budget" style="display:none">Wersja Budget</a>
+                    </div>
+
+                    <div class="pd-section pd-desc-wrap" id="pdDescWrap" style="display:none">
+                        <h3 class="pd-section-title">Opis ze strony agenta</h3>
+                        <div class="pd-desc" id="pdDesc"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text">© 2026 RePluG. Strona ma charakter informacyjny.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="produkt.js"></script>
+</body>
+</html>

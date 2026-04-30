@@ -1,7 +1,8 @@
 const REF = '?ref=MGRSBE';
 
 let allProducts = [];
-let activeCategory = 'all';
+let activeBrand = 'all';
+let activeModel = 'all';
 let searchQuery = '';
 let sortMode = 'default';
 
@@ -20,18 +21,36 @@ function ensureRef(url) {
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
 
-function detectCategory(name) {
+function detectBrandModel(name) {
     const n = name.toLowerCase();
-    if (n.includes('jordan 1')) return 'Jordan 1';
-    if (n.includes('jordan 3')) return 'Jordan 3';
-    if (n.includes('jordan 4')) return 'Jordan 4';
-    if (n.includes('jordan 5')) return 'Jordan 5';
-    if (n.includes('jordan 6')) return 'Jordan 6';
-    if (n.includes('jordan')) return 'Jordan';
-    if (n.includes('yeezy') || n.includes('adidas')) return 'Adidas';
-    if (n.includes('dunk') || n.includes('air force') || n.includes('air max') || n.includes('nike')) return 'Nike';
-    if (n.includes('new balance') || n.includes('nb ')) return 'New Balance';
-    return 'Inne';
+
+    let m;
+    if ((m = n.match(/jordan\s*(\d+)/))) return { brand: 'Jordan', model: `Jordan ${m[1]}` };
+    if (n.includes('jordan')) return { brand: 'Jordan', model: 'Inne' };
+
+    if ((m = n.match(/yeezy\s*(\d{3,4})/))) return { brand: 'Adidas', model: `Yeezy ${m[1]}` };
+    if (n.includes('yeezy slide')) return { brand: 'Adidas', model: 'Yeezy Slide' };
+    if (n.includes('yeezy foam')) return { brand: 'Adidas', model: 'Yeezy Foam' };
+    if (n.includes('yeezy')) return { brand: 'Adidas', model: 'Yeezy' };
+    if (n.includes('samba')) return { brand: 'Adidas', model: 'Samba' };
+    if (n.includes('gazelle')) return { brand: 'Adidas', model: 'Gazelle' };
+    if (n.includes('campus')) return { brand: 'Adidas', model: 'Campus' };
+    if (n.includes('handball spezial') || n.includes('spezial')) return { brand: 'Adidas', model: 'Spezial' };
+    if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
+
+    if (n.includes('dunk low')) return { brand: 'Nike', model: 'Dunk Low' };
+    if (n.includes('dunk high') || n.includes('dunk hi')) return { brand: 'Nike', model: 'Dunk High' };
+    if (n.includes('dunk')) return { brand: 'Nike', model: 'Dunk' };
+    if (n.includes('air force')) return { brand: 'Nike', model: 'Air Force' };
+    if (n.includes('air max')) return { brand: 'Nike', model: 'Air Max' };
+    if (n.includes('cortez')) return { brand: 'Nike', model: 'Cortez' };
+    if (n.includes('vomero')) return { brand: 'Nike', model: 'Vomero' };
+    if (n.includes('nike')) return { brand: 'Nike', model: 'Inne' };
+
+    if ((m = n.match(/(?:new balance|nb)\s*(\d{3,4}r?)/i))) return { brand: 'New Balance', model: m[1].toUpperCase() };
+    if (n.includes('new balance') || /\bnb\b/.test(n)) return { brand: 'New Balance', model: 'Inne' };
+
+    return { brand: 'Inne', model: 'Inne' };
 }
 
 async function fetchProducts() {
@@ -40,18 +59,22 @@ async function fetchProducts() {
     const data = await res.json();
     if (!Array.isArray(data)) throw new Error('Błędna odpowiedź');
 
-    return data.map(p => ({
-        name: p.name,
-        batch: p.batch || '',
-        link: ensureRef(p.link),
-        price: p.price || '',
-        image: p.image || '',
-        description: p.description || '',
-        budgetLink: ensureRef(p.budgetLink),
-        category: detectCategory(p.name),
-        livePrice: null,
-        liveImage: null,
-    }));
+    return data.map(p => {
+        const { brand, model } = detectBrandModel(p.name);
+        return {
+            name: p.name,
+            batch: p.batch || '',
+            link: ensureRef(p.link),
+            price: p.price || '',
+            image: p.image || '',
+            description: p.description || '',
+            budgetLink: ensureRef(p.budgetLink),
+            brand,
+            model,
+            livePrice: null,
+            liveImage: null,
+        };
+    });
 }
 
 function parsePrice(str) {
@@ -67,9 +90,30 @@ function getDisplayImage(p) {
     return p.liveImage || p.image || '';
 }
 
+function brandsAvailable() {
+    return [...new Set(allProducts.map(p => p.brand))].sort((a, b) => {
+        if (a === 'Inne') return 1;
+        if (b === 'Inne') return -1;
+        return a.localeCompare(b);
+    });
+}
+
+function modelsForBrand(brand) {
+    const items = brand === 'all' ? allProducts : allProducts.filter(p => p.brand === brand);
+    return [...new Set(items.map(p => p.model))].sort((a, b) => {
+        if (a === 'Inne') return 1;
+        if (b === 'Inne') return -1;
+        const an = parseInt(a.replace(/\D/g, ''), 10);
+        const bn = parseInt(b.replace(/\D/g, ''), 10);
+        if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
+        return a.localeCompare(b);
+    });
+}
+
 function getFiltered() {
     let items = [...allProducts];
-    if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
+    if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
+    if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
     if (searchQuery) {
         const q = searchQuery.toLowerCase();
         items = items.filter(p =>
@@ -84,22 +128,64 @@ function getFiltered() {
     return items;
 }
 
-function buildCategoryTabs() {
-    const cats = [...new Set(allProducts.map(p => p.category))].sort();
-    const tabs = document.getElementById('categoryTabs');
-    cats.forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = 'cat-pill';
-        btn.dataset.cat = cat;
-        btn.textContent = cat;
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.cat-pill').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            activeCategory = cat;
-            renderGrid();
-        });
+function buildBrandTabs() {
+    const tabs = document.getElementById('brandTabs');
+    tabs.innerHTML = '';
+
+    const allBtn = makeTab('Wszystkie', 'all', activeBrand === 'all');
+    allBtn.addEventListener('click', () => selectBrand('all'));
+    tabs.appendChild(allBtn);
+
+    brandsAvailable().forEach(brand => {
+        const btn = makeTab(brand, brand, activeBrand === brand);
+        btn.addEventListener('click', () => selectBrand(brand));
         tabs.appendChild(btn);
     });
+}
+
+function buildModelTabs() {
+    const tabs = document.getElementById('modelTabs');
+    if (!tabs) return;
+    tabs.innerHTML = '';
+
+    const models = modelsForBrand(activeBrand);
+    if (activeBrand === 'all' || models.length <= 1) {
+        tabs.parentElement.parentElement.style.display = 'none';
+        return;
+    }
+    tabs.parentElement.parentElement.style.display = '';
+
+    const allBtn = makeTab('Wszystkie', 'all', activeModel === 'all');
+    allBtn.addEventListener('click', () => selectModel('all'));
+    tabs.appendChild(allBtn);
+
+    models.forEach(model => {
+        const btn = makeTab(model, model, activeModel === model);
+        btn.addEventListener('click', () => selectModel(model));
+        tabs.appendChild(btn);
+    });
+}
+
+function makeTab(label, value, active) {
+    const btn = document.createElement('button');
+    btn.className = 'cat-pill' + (active ? ' active' : '');
+    btn.dataset.value = value;
+    btn.textContent = label;
+    return btn;
+}
+
+function selectBrand(brand) {
+    activeBrand = brand;
+    activeModel = 'all';
+    buildBrandTabs();
+    buildModelTabs();
+    renderGrid();
+}
+
+function selectModel(model) {
+    activeModel = model;
+    buildModelTabs();
+    renderGrid();
 }
 
 function productKey(p) {
@@ -112,16 +198,23 @@ function cardHTML(p) {
         ? `<img src="${img}" alt="${p.name}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
 
-    const mainBtn = p.link
-        ? `<a href="${p.link}" target="_blank" rel="noopener" class="card-btn primary">Kup →</a>`
+    const buyBtn = p.link
+        ? `<a href="${p.link}" target="_blank" rel="noopener" class="card-btn primary" data-stop>Kup →</a>`
         : `<span class="card-btn disabled">Brak</span>`;
 
     const budgetBtn = p.budgetLink
-        ? `<a href="${p.budgetLink}" target="_blank" rel="noopener" class="card-btn">Budget</a>`
+        ? `<a href="${p.budgetLink}" target="_blank" rel="noopener" class="card-btn" data-stop>Budget</a>`
         : '';
 
+    let detailHref = '#';
+    if (p.link) {
+        const q = new URLSearchParams({ url: p.link, name: p.name, batch: p.batch || '' });
+        if (p.budgetLink) q.set('budget', p.budgetLink);
+        detailHref = `produkt.html?${q.toString()}`;
+    }
+
     return `
-    <div class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
+    <a href="${detailHref}" class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
             ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
         </div>
@@ -129,10 +222,10 @@ function cardHTML(p) {
             <p class="card-name">${p.name}</p>
             <div class="card-foot">
                 <span class="card-price">${getDisplayPrice(p)}</span>
-                <div class="card-actions">${mainBtn}${budgetBtn}</div>
+                <div class="card-actions">${buyBtn}${budgetBtn}</div>
             </div>
         </div>
-    </div>`;
+    </a>`;
 }
 
 function renderGrid() {
@@ -154,6 +247,10 @@ function renderGrid() {
     empty.style.display = 'none';
     grid.style.display = 'grid';
     grid.innerHTML = items.map(cardHTML).join('');
+
+    grid.querySelectorAll('[data-stop]').forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+    });
 }
 
 function showError(msg) {
@@ -260,23 +357,18 @@ function setupLazyEnrichment() {
 async function init() {
     try {
         allProducts = await fetchProducts();
-
         document.getElementById('loadingState').style.display = 'none';
-
-        buildCategoryTabs();
-        renderGrid();
 
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
         if (kat) {
-            const match = [...new Set(allProducts.map(p => p.category))].find(c => c.toLowerCase() === kat.toLowerCase());
-            if (match) {
-                activeCategory = match;
-                document.querySelectorAll('.cat-pill').forEach(t => t.classList.toggle('active', t.dataset.cat === match));
-                renderGrid();
-            }
+            const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
+            if (brandMatch) activeBrand = brandMatch;
         }
 
+        buildBrandTabs();
+        buildModelTabs();
+        renderGrid();
         setupLazyEnrichment();
     } catch (e) {
         console.error(e);
@@ -291,13 +383,6 @@ document.getElementById('searchInput').addEventListener('input', e => {
 
 document.getElementById('sortSelect').addEventListener('change', e => {
     sortMode = e.target.value;
-    renderGrid();
-});
-
-document.querySelector('[data-cat="all"]').addEventListener('click', () => {
-    document.querySelectorAll('.cat-pill').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-cat="all"]').classList.add('active');
-    activeCategory = 'all';
     renderGrid();
 });
 

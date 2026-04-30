@@ -10,20 +10,12 @@ function parseUsfans(rawUrl) {
 
 export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
-    if (!url) {
-        return new Response(JSON.stringify({ error: 'missing url' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    const full = new URL(ctx.request.url).searchParams.get('full') === '1';
+
+    if (!url) return jsonError('missing url', 400);
 
     const parsed = parseUsfans(url);
-    if (!parsed) {
-        return new Response(JSON.stringify({ error: 'unsupported url' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    if (!parsed) return jsonError('unsupported url', 400);
 
     const api = `https://usfans.com/api/goods/info?channel=${parsed.channel}&goodsId=${encodeURIComponent(parsed.goodsId)}`;
 
@@ -34,18 +26,9 @@ export async function onRequest(ctx) {
             cf: { cacheTtl: 3600, cacheEverything: true }
         });
     } catch {
-        return new Response(JSON.stringify({ error: 'upstream fetch failed' }), {
-            status: 502,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonError('upstream fetch failed', 502);
     }
-
-    if (!upstream.ok) {
-        return new Response(JSON.stringify({ error: 'upstream error', status: upstream.status }), {
-            status: 502,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    if (!upstream.ok) return jsonError('upstream error', 502);
 
     const j = await upstream.json();
     const d = j?.data || {};
@@ -64,10 +47,33 @@ export async function onRequest(ctx) {
     const result = {
         title: d.titleEn || d.title || null,
         image: (Array.isArray(d.images) && d.images[0]) || null,
-        images: Array.isArray(d.images) ? d.images.slice(0, 6) : [],
+        images: Array.isArray(d.images) ? d.images.slice(0, 8) : [],
         priceUsd: minPrice,
         stock: typeof d.stock === 'number' ? d.stock : null,
     };
+
+    if (full) {
+        result.description = d.description || '';
+        result.shopName = d.shopNameEn || d.shopName || null;
+        result.detailUrl = d.detailUrl || null;
+        result.properties = Array.isArray(d.properties) ? d.properties.map(p => ({
+            propId: p.propId,
+            propName: p.propNameEn || p.propName || '',
+            valuesList: (p.valuesList || []).map(v => ({
+                valueId: v.valueId,
+                valueName: v.valueNameEn || v.valueName || '',
+                picUrl: v.picUrl || null,
+            })),
+        })) : [];
+        result.skuList = Array.isArray(d.skuList) ? d.skuList.map(s => ({
+            skuId: s.skuId,
+            valueIds: s.valueIds || [],
+            price: s.price,
+            convertedPrice: s.convertedPrice,
+            stock: s.stock,
+            imgUrl: s.imgUrl || null,
+        })) : [];
+    }
 
     return new Response(JSON.stringify(result), {
         headers: {
@@ -75,5 +81,12 @@ export async function onRequest(ctx) {
             'Access-Control-Allow-Origin': '*',
             'Cache-Control': 'public, max-age=3600',
         }
+    });
+}
+
+function jsonError(msg, status) {
+    return new Response(JSON.stringify({ error: msg }), {
+        status,
+        headers: { 'Content-Type': 'application/json' }
     });
 }
