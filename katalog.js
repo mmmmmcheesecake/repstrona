@@ -3,8 +3,49 @@ const REF = '?ref=MGRSBE';
 let allProducts = [];
 let activeBrand = 'all';
 let activeModel = 'all';
+let activeCategory = 'all';
 let searchQuery = '';
 let sortMode = 'default';
+
+const CATEGORIES = [
+    'Sneakers', 'Hoodie', 'Shorts', 'Underwear', 'Crewnecks', 'Sport Clothing',
+    'Accesories', 'T-shirts', 'Electronics', 'Bags', 'High-end', "Jersey's",
+    'Jewelry', 'Lego', 'Jackets', 'Tracksuits', 'Sunglasses', 'Belt', 'Vests',
+    'Pants', "Mask's & hats", 'Watches', 'Football', 'Basketball', 'Perfume'
+];
+
+function detectCategory(name, description = '') {
+    const text = ((name || '') + ' ' + (description || '')).toLowerCase();
+
+    if (/\blego\b/.test(text)) return 'Lego';
+    if (/\b(perfume|fragrance|cologne|eau de (parfum|toilette)|edp|edt|parfum)\b/.test(text)) return 'Perfume';
+    if (/\b(rolex|patek|audemars|cartier watch|richard mille|omega watch|hublot|tag heuer|ap watch|datejust|submariner|daytona|gmt|nautilus)\b/.test(text)) return 'Watches';
+    if (/\bwatch(es)?\b/.test(text) && !/\bwatchcase\b/.test(text)) return 'Watches';
+    if (/\b(sunglasses|sunglass|shades|eyewear|goggles|aviators)\b/.test(text)) return 'Sunglasses';
+    if (/\b(necklace|bracelet|earring|earrings|cuban link|chain|pendant|jewelry|jewellery|cufflink|brooch|anklet|ring)\b/.test(text)) return 'Jewelry';
+    if (/\b(airpods|iphone|ipad|macbook|airtag|earbud|earbuds|headphone|headphones|charger|earpods|ps5|ps4|console|nintendo|xbox|samsung galaxy|smartwatch|apple watch|drone|gopro)\b/.test(text)) return 'Electronics';
+    if (/\b(backpack|handbag|tote|duffle|duffel|luggage|suitcase|crossbody|messenger|fanny pack|bumbag|sling)\b/.test(text)) return 'Bags';
+    if (/\bbag(s)?\b/.test(text) && !/\bairbag\b/.test(text)) return 'Bags';
+    if (/\bbelt(s)?\b/.test(text)) return 'Belt';
+    if (/\b(tracksuit|track suit|jogging suit|track set)\b/.test(text)) return 'Tracksuits';
+    if (/\b(jacket|parka|puffer|coat|varsity|bomber|windbreaker|anorak|trench|down jacket|peacoat)\b/.test(text)) return 'Jackets';
+    if (/\b(vest|gilet|waistcoat)\b/.test(text)) return 'Vests';
+    if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodie';
+    if (/\b(crewneck|crew neck|sweatshirt|jumper|sweater|cardigan|pullover|knit)\b/.test(text)) return 'Crewnecks';
+    if (/\bjersey|trikot|kit\b/.test(text)) return "Jersey's";
+    if (/\b(t-shirt|tshirt|tee|polo shirt|polo)\b/.test(text)) return 'T-shirts';
+    if (/\bshorts?\b/.test(text)) return 'Shorts';
+    if (/\b(jeans|trousers|pants|sweatpants|joggers|cargo|leggings|chinos|denim)\b/.test(text)) return 'Pants';
+    if (/\b(boxer|boxers|briefs|underwear|thong|panty|panties|lingerie)\b/.test(text)) return 'Underwear';
+    if (/\b(beanie|bucket hat|baseball cap|snapback|fedora|balaclava|skull cap|durag|ski mask|face mask)\b/.test(text)) return "Mask's & hats";
+    if (/\b(cap|hat|mask)\b/.test(text)) return "Mask's & hats";
+    if (/\b(football boot|soccer ball|football ball|matchball|football jersey)\b/.test(text)) return 'Football';
+    if (/\b(basketball ball|basketball hoop|basketball jersey)\b/.test(text)) return 'Basketball';
+    if (/\b(jordan|dunk|air force|air max|yeezy|samba|gazelle|campus|spezial|new balance|\bnb\b|cortez|vomero|sneaker|shoe|trainer|runner|sb dunk|ultraboost|nmd|ozweego|asics|huarache|loafer|sandal|slide|slipper|foamposite|boot|kobe|lebron|kyrie|kd|adidas |nike |puma)\b/.test(text)) return 'Sneakers';
+    if (/\b(louis vuitton|\blv\b|gucci|hermes|dior|chanel|prada|balenciaga|fendi|burberry|saint laurent|ysl|givenchy|moncler|amiri|off-white|stone island|rhude|essentials)\b/.test(text)) return 'High-end';
+    if (/\b(training|workout|gym|sport|active|athletic|tracksuit)\b/.test(text)) return 'Sport Clothing';
+    return 'Accesories';
+}
 
 const KNOWN_BATCHES = ['LJR', 'BD', 'DG', 'PK', 'UA', 'OG'];
 const BATCH_TOKEN_RE = /\b(LJR|BD|DG|PK|UA|OG|MAS|GD|REP|GP|G5|H12|TS|OWF|HC|BATCH)\b/gi;
@@ -106,6 +147,7 @@ async function fetchProducts() {
 
     return data.map(p => {
         const { brand, model } = detectBrandModel(p.name);
+        const category = detectCategory(p.name, p.description);
         return {
             name: p.name,
             batch: p.batch || '',
@@ -116,6 +158,7 @@ async function fetchProducts() {
             budgetLink: ensureRef(p.budgetLink),
             brand,
             model,
+            category,
             livePrice: null,
             liveImage: null,
         };
@@ -136,7 +179,10 @@ function getDisplayImage(p) {
 }
 
 function brandsAvailable() {
-    return [...new Set(allProducts.map(p => p.brand))].sort((a, b) => {
+    const pool = activeCategory === 'all'
+        ? allProducts
+        : allProducts.filter(p => p.category === activeCategory);
+    return [...new Set(pool.map(p => p.brand))].sort((a, b) => {
         if (a === 'Inne') return 1;
         if (b === 'Inne') return -1;
         return a.localeCompare(b);
@@ -144,7 +190,10 @@ function brandsAvailable() {
 }
 
 function modelsForBrand(brand) {
-    const items = brand === 'all' ? allProducts : allProducts.filter(p => p.brand === brand);
+    let items = activeCategory === 'all'
+        ? allProducts
+        : allProducts.filter(p => p.category === activeCategory);
+    if (brand !== 'all') items = items.filter(p => p.brand === brand);
     return [...new Set(items.map(p => p.model))].sort((a, b) => {
         if (a === 'Inne') return 1;
         if (b === 'Inne') return -1;
@@ -157,6 +206,7 @@ function modelsForBrand(brand) {
 
 function getFiltered() {
     let items = [...allProducts];
+    if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
     if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
     if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
     if (searchQuery) {
@@ -435,6 +485,24 @@ document.getElementById('sortSelect').addEventListener('change', e => {
     sortMode = e.target.value;
     renderGrid();
 });
+
+const catSel = document.getElementById('categorySelect');
+if (catSel) {
+    CATEGORIES.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        catSel.appendChild(opt);
+    });
+    catSel.addEventListener('change', e => {
+        activeCategory = e.target.value || 'all';
+        activeBrand = 'all';
+        activeModel = 'all';
+        buildBrandTabs();
+        buildModelTabs();
+        renderGrid();
+    });
+}
 
 fetch('/content/settings.json').then(r => r.json()).then(s => {
     const el = document.getElementById('nav-discord');
