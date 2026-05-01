@@ -11,18 +11,6 @@
     --discord: #4752c4;
 }
 
-[data-theme="dark"] {
-    --bg: #1a1814;
-    --bg-soft: #221f1a;
-    --bg-image: #2a2620;
-    --text: #ebe4d4;
-    --text-muted: #8c8678;
-    --text-subtle: #5e594f;
-    --hairline: #2a2620;
-    --accent: #ebe4d4;
-    --discord: #8e96ff;
-}
-
 /* ===== RESET ===== */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -91,22 +79,6 @@ button, input, select { font-family: inherit; color: inherit; }
     letter-spacing: 0.02em;
 }
 .discord-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
-
-.theme-toggle {
-    background: none;
-    border: none;
-    width: 26px;
-    height: 26px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    transition: color 0.12s;
-    padding: 0;
-}
-.theme-toggle:hover { color: var(--text); }
 
 /* ===== FILTER BAR ===== */
 .filter-bar {
