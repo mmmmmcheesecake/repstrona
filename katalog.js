@@ -107,34 +107,82 @@ function ensureRef(url) {
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
 
-function detectBrandModel(name) {
-    const n = name.toLowerCase();
+const HIGH_END_BRANDS = ['louis vuitton', 'lv ', 'gucci', 'dior', 'hermes', 'chanel', 'prada', 'balenciaga', 'fendi', 'burberry', 'saint laurent', 'ysl', 'givenchy', 'valentino', 'rick owens', 'lanvin', 'amiri'];
 
+function detectBrandModel(name, category = '') {
+    const n = (name || '').toLowerCase();
     let m;
-    if ((m = n.match(/jordan\s*(\d+)/))) return { brand: 'Jordan', model: `Jordan ${m[1]}` };
-    if (n.includes('jordan')) return { brand: 'Jordan', model: 'Inne' };
 
-    if ((m = n.match(/yeezy\s*(\d{3,4})/))) return { brand: 'Adidas', model: `Yeezy ${m[1]}` };
-    if (n.includes('yeezy slide')) return { brand: 'Adidas', model: 'Yeezy Slide' };
-    if (n.includes('yeezy foam')) return { brand: 'Adidas', model: 'Yeezy Foam' };
-    if (n.includes('yeezy')) return { brand: 'Adidas', model: 'Yeezy' };
-    if (n.includes('samba')) return { brand: 'Adidas', model: 'Samba' };
-    if (n.includes('gazelle')) return { brand: 'Adidas', model: 'Gazelle' };
-    if (n.includes('campus')) return { brand: 'Adidas', model: 'Campus' };
-    if (n.includes('handball spezial') || n.includes('spezial')) return { brand: 'Adidas', model: 'Spezial' };
-    if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
+    if (category === 'Sneakers' || category === 'Football' || category === 'Basketball') {
+        if (HIGH_END_BRANDS.some(b => n.includes(b))) return { brand: 'High-End', model: 'High-End' };
+        if (n.includes('off-white') || n.includes('off white')) return { brand: 'Off-White', model: 'Off-White' };
+        if ((m = n.match(/jordan\s*1\b/))) return { brand: 'Jordan 1', model: 'Jordan 1' };
+        if ((m = n.match(/jordan\s*3\b/))) return { brand: 'Jordan 3', model: 'Jordan 3' };
+        if ((m = n.match(/jordan\s*4\b/))) return { brand: 'Jordan 4', model: 'Jordan 4' };
+        if ((m = n.match(/jordan\s*(5|6|7|8|9|10|11|12|13)\b/))) return { brand: 'Jordan 5-13', model: `Jordan ${m[1]}` };
+        if (n.includes('jordan')) return { brand: 'Jordan (Inne)', model: 'Inne' };
+        if (n.includes('dunk')) return { brand: 'Dunks', model: n.includes('low') ? 'Dunk Low' : (n.includes('high') ? 'Dunk High' : 'Dunk') };
+        if (n.includes('yeezy')) {
+            if ((m = n.match(/yeezy\s*(\d{3,4})/))) return { brand: 'Yeezy', model: `Yeezy ${m[1]}` };
+            if (n.includes('slide')) return { brand: 'Yeezy', model: 'Slide' };
+            if (n.includes('foam')) return { brand: 'Yeezy', model: 'Foam' };
+            return { brand: 'Yeezy', model: 'Yeezy' };
+        }
+        if (n.includes('air force')) return { brand: 'Nike', model: 'Air Force' };
+        if (n.includes('air max')) return { brand: 'Nike', model: 'Air Max' };
+        if (n.includes('cortez')) return { brand: 'Nike', model: 'Cortez' };
+        if (n.includes('vomero')) return { brand: 'Nike', model: 'Vomero' };
+        if (n.includes('nocta')) return { brand: 'Nike', model: 'Nocta' };
+        if (n.includes('mercurial') || n.includes('phantom') || n.includes('tiempo') || n.includes('predator')) return { brand: 'Nike', model: 'Football' };
+        if (n.includes('nike')) return { brand: 'Nike', model: 'Inne' };
+        if (n.includes('samba')) return { brand: 'Adidas', model: 'Samba' };
+        if (n.includes('gazelle')) return { brand: 'Adidas', model: 'Gazelle' };
+        if (n.includes('campus')) return { brand: 'Adidas', model: 'Campus' };
+        if (n.includes('spezial')) return { brand: 'Adidas', model: 'Spezial' };
+        if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
+        if ((m = n.match(/(?:new balance|\bnb)\s*(\d{3,4}r?)/i))) return { brand: 'New Balance', model: m[1].toUpperCase() };
+        if (n.includes('new balance') || /\bnb\b/.test(n)) return { brand: 'New Balance', model: 'Inne' };
+        if (n.includes('asics')) return { brand: 'Asics', model: 'Inne' };
+        if (n.includes('ugg')) return { brand: 'UGG', model: 'Inne' };
+        if (n.includes('timberland')) return { brand: 'Timberland', model: 'Inne' };
+        if (n.includes('puma')) return { brand: 'Puma', model: 'Inne' };
+        if (n.includes('crocs')) return { brand: 'Crocs', model: 'Inne' };
+        return { brand: 'Inne', model: 'Inne' };
+    }
 
-    if (n.includes('dunk low')) return { brand: 'Nike', model: 'Dunk Low' };
-    if (n.includes('dunk high') || n.includes('dunk hi')) return { brand: 'Nike', model: 'Dunk High' };
-    if (n.includes('dunk')) return { brand: 'Nike', model: 'Dunk' };
-    if (n.includes('air force')) return { brand: 'Nike', model: 'Air Force' };
-    if (n.includes('air max')) return { brand: 'Nike', model: 'Air Max' };
-    if (n.includes('cortez')) return { brand: 'Nike', model: 'Cortez' };
-    if (n.includes('vomero')) return { brand: 'Nike', model: 'Vomero' };
+    if (HIGH_END_BRANDS.some(b => n.includes(b))) {
+        for (const b of HIGH_END_BRANDS) {
+            if (n.includes(b)) {
+                const label = b.replace(/\s+$/, '').split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+                return { brand: label === 'Lv' ? 'Louis Vuitton' : (label === 'Ysl' ? 'Saint Laurent' : label), model: 'Inne' };
+            }
+        }
+    }
+    if (n.includes('ralph lauren') || n.includes('polo ralph')) return { brand: 'Ralph Lauren', model: 'Inne' };
+    if (n.includes('stone island')) return { brand: 'Stone Island', model: 'Inne' };
+    if (n.includes('lacoste')) return { brand: 'Lacoste', model: 'Inne' };
+    if (n.includes('ami ')) return { brand: 'Ami', model: 'Inne' };
+    if (n.includes('moncler')) return { brand: 'Moncler', model: 'Inne' };
+    if (n.includes('supreme')) return { brand: 'Supreme', model: 'Inne' };
+    if (n.includes('essentials') || n.includes('fear of god')) return { brand: 'Essentials', model: 'Inne' };
+    if (n.includes('comme des') || n.includes('cdg')) return { brand: 'Comme des Garçons', model: 'Inne' };
+    if (n.includes('corteiz')) return { brand: 'Corteiz', model: 'Inne' };
+    if (n.includes('syna')) return { brand: 'Syna World', model: 'Inne' };
+    if (n.includes('goyard')) return { brand: 'Goyard', model: 'Inne' };
+    if (n.includes('off-white') || n.includes('off white')) return { brand: 'Off-White', model: 'Inne' };
     if (n.includes('nike')) return { brand: 'Nike', model: 'Inne' };
-
-    if ((m = n.match(/(?:new balance|nb)\s*(\d{3,4}r?)/i))) return { brand: 'New Balance', model: m[1].toUpperCase() };
-    if (n.includes('new balance') || /\bnb\b/.test(n)) return { brand: 'New Balance', model: 'Inne' };
+    if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
+    if (n.includes('jordan')) return { brand: 'Jordan', model: 'Inne' };
+    if (n.includes('apple') || n.includes('airpods') || n.includes('iphone') || n.includes('ipad') || n.includes('macbook')) return { brand: 'Apple', model: 'Inne' };
+    if (n.includes('jbl')) return { brand: 'JBL', model: 'Inne' };
+    if (n.includes('bose')) return { brand: 'Bose', model: 'Inne' };
+    if (n.includes('beats')) return { brand: 'Beats', model: 'Inne' };
+    if (n.includes('samsung')) return { brand: 'Samsung', model: 'Inne' };
+    if (n.includes('sony')) return { brand: 'Sony', model: 'Inne' };
+    if (n.includes('rolex')) return { brand: 'Rolex', model: 'Inne' };
+    if (n.includes('cartier')) return { brand: 'Cartier', model: 'Inne' };
+    if (n.includes('omega')) return { brand: 'Omega', model: 'Inne' };
+    if (n.includes('lego')) return { brand: 'Lego', model: 'Inne' };
 
     return { brand: 'Inne', model: 'Inne' };
 }
@@ -146,8 +194,8 @@ async function fetchProducts() {
     if (!Array.isArray(data)) throw new Error('Błędna odpowiedź');
 
     return data.map(p => {
-        const { brand, model } = detectBrandModel(p.name);
         const category = detectCategory(p.name, p.description);
+        const { brand, model } = detectBrandModel(p.name, category);
         return {
             name: p.name,
             batch: p.batch || '',
@@ -178,11 +226,30 @@ function getDisplayImage(p) {
     return p.liveImage || p.image || '';
 }
 
+const SNEAKER_BRAND_ORDER = [
+    'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Inne)',
+    'Dunks', 'Off-White', 'Yeezy', 'Nike', 'Adidas', 'New Balance',
+    'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Inne'
+];
+
 function brandsAvailable() {
     const pool = activeCategory === 'all'
         ? allProducts
         : allProducts.filter(p => p.category === activeCategory);
-    return [...new Set(pool.map(p => p.brand))].sort((a, b) => {
+    const brands = [...new Set(pool.map(p => p.brand))];
+
+    if (activeCategory === 'Sneakers' || activeCategory === 'Football' || activeCategory === 'Basketball') {
+        return brands.sort((a, b) => {
+            const ai = SNEAKER_BRAND_ORDER.indexOf(a);
+            const bi = SNEAKER_BRAND_ORDER.indexOf(b);
+            const aa = ai === -1 ? 999 : ai;
+            const bb = bi === -1 ? 999 : bi;
+            if (aa !== bb) return aa - bb;
+            return a.localeCompare(b);
+        });
+    }
+
+    return brands.sort((a, b) => {
         if (a === 'Inne') return 1;
         if (b === 'Inne') return -1;
         return a.localeCompare(b);
@@ -462,8 +529,15 @@ async function init() {
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
         if (kat) {
-            const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
-            if (brandMatch) activeBrand = brandMatch;
+            const catMatch = CATEGORIES.find(c => c.toLowerCase() === kat.toLowerCase());
+            if (catMatch) {
+                activeCategory = catMatch;
+                const sel = document.getElementById('categorySelect');
+                if (sel) sel.value = catMatch;
+            } else {
+                const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
+                if (brandMatch) activeBrand = brandMatch;
+            }
         }
 
         buildBrandTabs();
