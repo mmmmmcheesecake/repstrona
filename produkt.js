@@ -95,6 +95,41 @@ function refreshPriceAndStock() {
     el('pdStock').classList.toggle('out', stock === 0);
 }
 
+const mqMobile = window.matchMedia('(max-width: 768px)');
+
+function placeColorwaysForViewport() {
+    const opts = document.getElementById('pdOptions');
+    if (!opts) return;
+    const groups = opts.parentElement.querySelectorAll('.pd-option-group');
+    let colorways = null;
+    for (const g of groups) {
+        if (g.querySelector('.pd-option-pill.with-image')) { colorways = g; break; }
+    }
+    if (!colorways) {
+        const slot = document.getElementById('pdMobileColors');
+        if (slot) slot.style.display = 'none';
+        return;
+    }
+
+    let slot = document.getElementById('pdMobileColors');
+    if (!slot) {
+        slot = document.createElement('div');
+        slot.id = 'pdMobileColors';
+        slot.className = 'pd-mobile-colors';
+        const gallery = document.querySelector('.pd-gallery');
+        if (gallery) gallery.appendChild(slot);
+    }
+
+    if (mqMobile.matches) {
+        if (colorways.parentNode !== slot) slot.appendChild(colorways);
+    } else {
+        if (colorways.parentNode !== opts) opts.insertBefore(colorways, opts.firstChild);
+    }
+}
+
+if (mqMobile.addEventListener) mqMobile.addEventListener('change', placeColorwaysForViewport);
+else if (mqMobile.addListener) mqMobile.addListener(placeColorwaysForViewport);
+
 function buildOptions() {
     const wrap = el('pdOptions');
     wrap.innerHTML = '';
@@ -144,6 +179,8 @@ function buildOptions() {
         group.appendChild(choices);
         wrap.appendChild(group);
     });
+
+    placeColorwaysForViewport();
 }
 
 function sanitizeHtml(html) {

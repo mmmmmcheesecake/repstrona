@@ -383,9 +383,13 @@ button, input, select { font-family: inherit; color: inherit; }
     .cat-bar-sub { top: 156px; }
     .product-detail { grid-template-columns: 1fr !important; }
     .pd-gallery { position: static !important; }
+    .pd-thumbs { display: none; }
+    .pd-mobile-colors { display: block; margin-top: 6px; }
     .card-name { font-size: 0.75rem; }
     .card-desc { font-size: 0.7rem; }
 }
+
+.pd-mobile-colors { display: none; }
 
 @media (max-width: 560px) {
     .products-grid { grid-template-columns: repeat(2, 1fr); gap: 22px 12px; }
