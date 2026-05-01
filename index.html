@@ -4,59 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RePluG — Katalog produktów</title>
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=12">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
-<body>
+<body class="home-page">
 
     <nav class="navbar">
         <div class="nav-inner">
             <a href="index.html" class="logo">Re<span>PluG</span></a>
             <div class="nav-right">
+                <a href="katalog.html" class="nav-link">Katalog</a>
                 <a id="nav-discord" href="#" class="discord-link">Discord</a>
             </div>
         </div>
     </nav>
 
-    <div class="filter-bar">
-        <div class="container">
-            <div class="filter-inner">
-                <div class="search-box">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="searchInput" placeholder="Szukaj produktu, batcha..." autocomplete="off">
-                </div>
-                <select id="categorySelect" class="sort-select cat-select">
-                    <option value="all">Wszystkie kategorie</option>
-                </select>
-                <select id="sortSelect" class="sort-select">
-                    <option value="default">Domyślnie</option>
-                    <option value="price-asc">Cena: rosnąco</option>
-                    <option value="price-desc">Cena: malejąco</option>
-                    <option value="name-asc">Nazwa: A–Z</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="cat-bar">
-        <div class="container">
-            <div class="cat-scroll" id="categoryTabs">
-                <button class="cat-pill active" data-cat="all">Wszystkie</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="cat-bar cat-bar-sub">
-        <div class="container">
-            <div class="cat-scroll" id="modelTabs"></div>
-        </div>
-    </div>
-
     <main class="shop-main">
         <div class="container">
+            <div class="featured-header">
+                <span class="featured-eyebrow">FEATURED</span>
+                <h1 class="featured-title">Najgorętsze pozycje</h1>
+                <p class="featured-sub">Ręcznie wybrane reps. najlepiej oceniane przez społeczność.</p>
+            </div>
             <div class="loading-state" id="loadingState">
                 <div class="spinner"></div>
             </div>
@@ -67,6 +39,9 @@
                 <span id="resultsCount"></span>
             </div>
             <div class="products-grid" id="productsGrid" style="display:none"></div>
+            <div class="featured-cta" id="featuredCta" style="display:none">
+                <a href="katalog.html" class="featured-cta-link">Zobacz pełny katalog →</a>
+            </div>
             <div class="empty-state" id="emptyState" style="display:none">
                 <p>🔍 Brak wyników. Spróbuj innej frazy lub zmień kategorię.</p>
             </div>
@@ -80,6 +55,6 @@
     </footer>
 
     <script src="script.js?v=10"></script>
-    <script src="katalog.js?v=12"></script>
+    <script src="katalog.js?v=13"></script>
 </body>
 </html>

@@ -394,20 +394,25 @@ function renderGrid() {
     const empty = document.getElementById('emptyState');
     const info = document.getElementById('resultsInfo');
     const count = document.getElementById('resultsCount');
-    const items = getFiltered();
+    const cta = document.getElementById('featuredCta');
+    const items = IS_HOME ? allProducts : getFiltered();
 
-    count.textContent = `${items.length} produktów`;
-    info.style.display = 'block';
+    if (info && count && !IS_HOME) {
+        count.textContent = `${items.length} produktów`;
+        info.style.display = 'block';
+    }
 
     if (!items.length) {
         grid.style.display = 'none';
         empty.style.display = 'block';
+        if (cta) cta.style.display = 'none';
         return;
     }
 
     empty.style.display = 'none';
     grid.style.display = 'grid';
     grid.innerHTML = items.map(cardHTML).join('');
+    if (IS_HOME && cta) cta.style.display = '';
 
     grid.querySelectorAll('[data-stop]').forEach(el => {
         el.addEventListener('click', e => e.stopPropagation());
@@ -521,9 +526,90 @@ function setupLazyEnrichment() {
     }
 }
 
+const FEATURED_PATTERNS = [
+    /jordan 1.*lost.*found/i,
+    /jordan 1.*chicago/i,
+    /jordan 1.*mocha/i,
+    /jordan 1.*royal/i,
+    /jordan 1.*spider/i,
+    /jordan 1.*dior/i,
+    /jordan 4.*black cat/i,
+    /jordan 4.*white thunder/i,
+    /jordan 4.*bred/i,
+    /jordan 4.*military/i,
+    /jordan 3.*reimagined/i,
+    /jordan 11.*concord/i,
+    /yeezy 350/i,
+    /yeezy slide/i,
+    /dunk low.*panda/i,
+    /dunk low.*reverse|dunk low.*chicago|dunk low.*unc/i,
+    /sb dunk/i,
+    /off.white/i,
+    /travis scott/i,
+    /air force 1/i,
+    /air max 1|air max 90|air max 95/i,
+    /new balance 9060/i,
+    /new balance 530/i,
+    /new balance 550/i,
+    /samba/i,
+    /stone island/i,
+    /essentials/i,
+    /corteiz/i,
+    /burberry/i,
+    /ralph lauren.*(hoodie|sweater|polo)/i,
+    /louis vuitton.*belt|lv.*belt/i,
+    /goyard/i,
+    /moncler/i,
+    /supreme/i,
+    /comme des|cdg/i,
+    /airpods (max|pro)/i,
+    /apple watch/i,
+    /rolex/i,
+    /lego/i,
+];
+
+function pickFeatured(products, limit = 16) {
+    const seen = new Set();
+    const out = [];
+    const key = p => p.link || p.name;
+
+    const withImage = products.filter(p => p.image || p.liveImage);
+    const pool = withImage.length >= limit ? withImage : products;
+
+    for (const re of FEATURED_PATTERNS) {
+        if (out.length >= limit) break;
+        const match = pool.find(p => !seen.has(key(p)) && re.test(p.name));
+        if (match) {
+            out.push(match);
+            seen.add(key(match));
+        }
+    }
+
+    if (out.length < limit) {
+        const byCat = new Map();
+        for (const p of pool) {
+            if (seen.has(key(p))) continue;
+            if (!byCat.has(p.category)) byCat.set(p.category, []);
+            byCat.get(p.category).push(p);
+        }
+        for (const list of byCat.values()) {
+            if (out.length >= limit) break;
+            const pick = list[0];
+            if (pick) { out.push(pick); seen.add(key(pick)); }
+        }
+    }
+
+    return out.slice(0, limit);
+}
+
+const IS_HOME = document.body.classList.contains('home-page');
+
 async function init() {
     try {
         allProducts = dedupProducts(await fetchProducts());
+        if (IS_HOME) {
+            allProducts = pickFeatured(allProducts, 16);
+        }
         document.getElementById('loadingState').style.display = 'none';
 
         const params = new URLSearchParams(window.location.search);
@@ -550,15 +636,21 @@ async function init() {
     }
 }
 
-document.getElementById('searchInput').addEventListener('input', e => {
-    searchQuery = e.target.value.trim();
-    renderGrid();
-});
+const searchEl = document.getElementById('searchInput');
+if (searchEl) {
+    searchEl.addEventListener('input', e => {
+        searchQuery = e.target.value.trim();
+        renderGrid();
+    });
+}
 
-document.getElementById('sortSelect').addEventListener('change', e => {
-    sortMode = e.target.value;
-    renderGrid();
-});
+const sortEl = document.getElementById('sortSelect');
+if (sortEl) {
+    sortEl.addEventListener('change', e => {
+        sortMode = e.target.value;
+        renderGrid();
+    });
+}
 
 const catSel = document.getElementById('categorySelect');
 if (catSel) {
