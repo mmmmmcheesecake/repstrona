@@ -7,6 +7,52 @@ let searchQuery = '';
 let sortMode = 'default';
 
 const KNOWN_BATCHES = ['LJR', 'BD', 'DG', 'PK', 'UA', 'OG'];
+const BATCH_TOKEN_RE = /\b(LJR|BD|DG|PK|UA|OG|MAS|GD|REP|GP|G5|H12|TS|OWF|HC|BATCH)\b/gi;
+
+function normalizeNameKey(name) {
+    return (name || '')
+        .toLowerCase()
+        .replace(BATCH_TOKEN_RE, '')
+        .replace(/[^a-z0-9 ]+/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function stripBatchFromName(name) {
+    return (name || '')
+        .replace(BATCH_TOKEN_RE, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([,.])/g, '$1')
+        .trim()
+        .replace(/[\s,;:-]+$/, '');
+}
+
+function dedupProducts(products) {
+    const groups = new Map();
+    for (const p of products) {
+        const key = `${normalizeNameKey(p.name)}|${(p.price || '').trim()}`;
+        if (!key.startsWith('|')) {
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(p);
+        } else {
+            groups.set(`__solo_${groups.size}`, [p]);
+        }
+    }
+    const merged = [];
+    for (const group of groups.values()) {
+        if (group.length === 1) {
+            merged.push(group[0]);
+            continue;
+        }
+        const rep = group.find(p => p.image) || group[0];
+        merged.push({
+            ...rep,
+            name: stripBatchFromName(rep.name),
+            batch: '',
+        });
+    }
+    return merged;
+}
 
 function batchClass(b) {
     const u = (b || '').trim().toUpperCase();
@@ -363,7 +409,7 @@ function setupLazyEnrichment() {
 
 async function init() {
     try {
-        allProducts = await fetchProducts();
+        allProducts = dedupProducts(await fetchProducts());
         document.getElementById('loadingState').style.display = 'none';
 
         const params = new URLSearchParams(window.location.search);
