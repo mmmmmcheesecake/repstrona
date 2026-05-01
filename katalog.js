@@ -129,7 +129,8 @@ function getFiltered() {
 }
 
 function buildBrandTabs() {
-    const tabs = document.getElementById('brandTabs');
+    const tabs = document.getElementById('brandTabs') || document.getElementById('categoryTabs');
+    if (!tabs) return;
     tabs.innerHTML = '';
 
     const allBtn = makeTab('Wszystkie', 'all', activeBrand === 'all');
@@ -261,26 +262,32 @@ function showError(msg) {
 }
 
 const enrichCache = new Map();
-const enrichInFlight = new Set();
+const enrichPromises = new Map();
 
 async function enrichProduct(p) {
     if (!p.link) return;
     const key = p.link;
-    if (enrichInFlight.has(key)) return;
     if (enrichCache.has(key)) {
         applyEnrichment(p, enrichCache.get(key));
         return;
     }
-    enrichInFlight.add(key);
-    try {
-        const r = await fetch(`/api/product?url=${encodeURIComponent(p.link)}`);
-        if (!r.ok) return;
-        const data = await r.json();
-        enrichCache.set(key, data);
-        applyEnrichment(p, data);
-    } catch {} finally {
-        enrichInFlight.delete(key);
+    let promise = enrichPromises.get(key);
+    if (!promise) {
+        promise = (async () => {
+            try {
+                const r = await fetch(`/api/product?url=${encodeURIComponent(p.link)}`);
+                if (!r.ok) return null;
+                const data = await r.json();
+                enrichCache.set(key, data);
+                return data;
+            } catch {
+                return null;
+            }
+        })();
+        enrichPromises.set(key, promise);
     }
+    const data = await promise;
+    if (data) applyEnrichment(p, data);
 }
 
 function applyEnrichment(p, data) {

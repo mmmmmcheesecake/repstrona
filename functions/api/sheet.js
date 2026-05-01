@@ -27,10 +27,13 @@ export async function onRequest(ctx) {
         const name = (get(0).formattedValue || '').trim();
         if (!name) continue;
 
+        const link = get(2).hyperlink || null;
+        if (!link) continue;
+
         products.push({
             name,
             batch:       (get(1).formattedValue || '').trim(),
-            link:        get(2).hyperlink || null,
+            link,
             price:       (get(3).formattedValue || '').trim(),
             image:       get(4).hyperlink || (get(4).formattedValue || '').trim() || '',
             description: (get(5).formattedValue || '').trim(),
