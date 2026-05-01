@@ -91,9 +91,7 @@ function refreshPriceAndStock() {
     const p = minPrice(skus);
     el('pdPrice').textContent = p != null ? `$${Math.round(p)}` : '—';
     const stock = totalStock(skus);
-    el('pdStock').textContent = stock != null
-        ? (stock > 0 ? `Dostępne (${stock})` : 'Brak w magazynie')
-        : '';
+    el('pdStock').textContent = stock === 0 ? 'Brak w magazynie' : '';
     el('pdStock').classList.toggle('out', stock === 0);
 }
 
