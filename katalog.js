@@ -238,18 +238,16 @@ function productKey(p) {
     return p.link || p.name;
 }
 
+function escapeHtml(s) {
+    return (s || '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
 function cardHTML(p) {
     const img = getDisplayImage(p);
     const imgTag = img
-        ? `<img src="${img}" alt="${p.name}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
-        : '';
-
-    const buyBtn = p.link
-        ? `<a href="${p.link}" target="_blank" rel="noopener" class="card-btn primary" data-stop>Kup →</a>`
-        : `<span class="card-btn disabled">Brak</span>`;
-
-    const budgetBtn = p.budgetLink
-        ? `<a href="${p.budgetLink}" target="_blank" rel="noopener" class="card-btn" data-stop>Budget</a>`
+        ? `<img src="${img}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
 
     let detailHref = '#';
@@ -259,17 +257,17 @@ function cardHTML(p) {
         detailHref = `produkt.html?${q.toString()}`;
     }
 
+    const desc = (p.description || '').replace(/\s+/g, ' ').trim();
+
     return `
     <a href="${detailHref}" class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
             ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
         </div>
         <div class="card-body">
-            <p class="card-name">${p.name}</p>
-            <div class="card-foot">
-                <span class="card-price">${getDisplayPrice(p)}</span>
-                <div class="card-actions">${buyBtn}${budgetBtn}</div>
-            </div>
+            <p class="card-name">${escapeHtml(p.name)}</p>
+            ${desc ? `<p class="card-desc">${escapeHtml(desc)}</p>` : '<p class="card-desc card-desc--empty"></p>'}
+            <span class="card-price">${escapeHtml(getDisplayPrice(p))}</span>
         </div>
     </a>`;
 }
