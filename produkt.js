@@ -88,7 +88,8 @@ function totalStock(skus) {
 
 function refreshPriceAndStock() {
     const skus = matchingSkus();
-    const p = minPrice(skus);
+    let p = minPrice(skus);
+    if (p == null) p = minPrice(state.skuList);
     el('pdPrice').textContent = p != null ? `$${Math.round(p)}` : '—';
     const stock = totalStock(skus);
     el('pdStock').textContent = stock === 0 ? 'Brak w magazynie' : '';
