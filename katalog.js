@@ -29,14 +29,13 @@ function stripBatchFromName(name) {
 
 function dedupProducts(products) {
     const groups = new Map();
+    let solo = 0;
     for (const p of products) {
-        const key = `${normalizeNameKey(p.name)}|${(p.price || '').trim()}`;
-        if (!key.startsWith('|')) {
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(p);
-        } else {
-            groups.set(`__solo_${groups.size}`, [p]);
-        }
+        const img = (p.image || '').trim();
+        const link = (p.link || '').trim();
+        const key = img || link || `__solo_${solo++}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
     }
     const merged = [];
     for (const group of groups.values()) {
