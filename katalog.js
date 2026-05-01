@@ -450,6 +450,22 @@ async function enrichProduct(p) {
     if (data) applyEnrichment(p, data);
 }
 
+function pickLifestyleImage(data) {
+    const inHand = Array.isArray(data.inHandImages) ? data.inHandImages : [];
+    if (inHand.length >= 6) return inHand[Math.floor(inHand.length / 2)];
+    if (inHand.length >= 3) return inHand[Math.floor(inHand.length / 2)];
+    if (inHand.length >= 1) return inHand[inHand.length - 1];
+
+    const main = Array.isArray(data.images) ? data.images : [];
+    if (main.length >= 4) return main[main.length - 1];
+    if (main.length >= 2) return main[1];
+
+    const sku = Array.isArray(data.skuImages) ? data.skuImages : [];
+    if (sku.length) return sku[0];
+
+    return data.image || null;
+}
+
 function applyEnrichment(p, data) {
     if (!data) return;
     let changed = false;
@@ -457,8 +473,9 @@ function applyEnrichment(p, data) {
         p.livePrice = data.priceUsd;
         changed = true;
     }
-    if (data.image && p.liveImage !== data.image) {
-        p.liveImage = data.image;
+    const pick = pickLifestyleImage(data);
+    if (pick && p.liveImage !== pick) {
+        p.liveImage = pick;
         changed = true;
     }
     if (changed) updateCard(p);

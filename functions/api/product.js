@@ -44,10 +44,26 @@ export async function onRequest(ctx) {
         minPrice = d.convertedPrice;
     }
 
+    const descImages = [];
+    if (typeof d.description === 'string' && d.description) {
+        const re = /<img[^>]+src=["']([^"']+)["']/gi;
+        let mm;
+        while ((mm = re.exec(d.description)) !== null && descImages.length < 16) {
+            const src = mm[1];
+            if (src.startsWith('http') && !descImages.includes(src)) descImages.push(src);
+        }
+    }
+
+    const skuImages = Array.isArray(d.skuList)
+        ? [...new Set(d.skuList.map(s => s.imgUrl).filter(Boolean))].slice(0, 12)
+        : [];
+
     const result = {
         title: d.titleEn || d.title || null,
         image: (Array.isArray(d.images) && d.images[0]) || null,
         images: Array.isArray(d.images) ? d.images.slice(0, 8) : [],
+        inHandImages: descImages,
+        skuImages,
         priceUsd: minPrice,
         stock: typeof d.stock === 'number' ? d.stock : null,
     };
