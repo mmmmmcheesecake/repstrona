@@ -1,16 +1,16 @@
 // ===== DARK / LIGHT MODE =====
 const html = document.documentElement;
-const saved = localStorage.getItem('theme') || 'dark';
+const saved = localStorage.getItem('theme') || 'light';
 html.setAttribute('data-theme', saved);
 
 const toggle = document.getElementById('themeToggle');
 if (toggle) {
     const icon = toggle.querySelector('.icon');
-    icon.textContent = saved === 'dark' ? '🌙' : '☀️';
+    icon.textContent = saved === 'dark' ? '☀' : '◐';
     toggle.addEventListener('click', () => {
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
-        icon.textContent = next === 'dark' ? '🌙' : '☀️';
+        icon.textContent = next === 'dark' ? '☀' : '◐';
         localStorage.setItem('theme', next);
     });
 }
