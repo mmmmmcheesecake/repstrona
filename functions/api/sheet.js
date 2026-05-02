@@ -38,6 +38,9 @@ export async function onRequest(ctx) {
             image:       get(4).hyperlink || (get(4).formattedValue || '').trim() || '',
             description: (get(5).formattedValue || '').trim(),
             budgetLink:  get(6).hyperlink || null,
+            categoryOverride: (get(7).formattedValue || '').trim() || null,
+            brandOverride:    (get(8).formattedValue || '').trim() || null,
+            modelOverride:    (get(9).formattedValue || '').trim() || null,
         });
     }
 

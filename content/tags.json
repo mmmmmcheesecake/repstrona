@@ -1,0 +1,4 @@
+{
+  "_note": "Mapa link → {category, brand, model}. Wypełnij skryptem tools/tag-products.js (AI batch). Override z arkusza ma wyższy priorytet niż ten plik.",
+  "tags": {}
+}

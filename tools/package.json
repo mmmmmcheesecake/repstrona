@@ -1,0 +1,9 @@
+{
+  "name": "repstrona-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tag": "node tag-products.js",
+    "tag:force": "node tag-products.js --force"
+  }
+}

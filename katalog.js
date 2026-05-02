@@ -187,15 +187,44 @@ function detectBrandModel(name, category = '') {
     return { brand: 'Inne', model: 'Inne' };
 }
 
+async function fetchTags() {
+    try {
+        const r = await fetch('/content/tags.json');
+        if (!r.ok) return {};
+        const j = await r.json();
+        return j.tags || {};
+    } catch {
+        return {};
+    }
+}
+
+function tagKey(link) {
+    if (!link) return '';
+    return link.split('?')[0].replace(/\/+$/, '');
+}
+
 async function fetchProducts() {
-    const res = await fetch('/api/sheet');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const [sheetRes, aiTags] = await Promise.all([
+        fetch('/api/sheet'),
+        fetchTags(),
+    ]);
+    if (!sheetRes.ok) throw new Error(`HTTP ${sheetRes.status}`);
+    const data = await sheetRes.json();
     if (!Array.isArray(data)) throw new Error('Błędna odpowiedź');
 
     return data.map(p => {
-        const category = detectCategory(p.name, p.description);
-        const { brand, model } = detectBrandModel(p.name, category);
+        const auto = (() => {
+            const c = detectCategory(p.name, p.description);
+            const { brand, model } = detectBrandModel(p.name, c);
+            return { category: c, brand, model };
+        })();
+
+        const ai = aiTags[tagKey(p.link)] || {};
+
+        const category = p.categoryOverride || ai.category || auto.category;
+        const brand    = p.brandOverride    || ai.brand    || auto.brand;
+        const model    = p.modelOverride    || ai.model    || auto.model;
+
         return {
             name: p.name,
             batch: p.batch || '',
