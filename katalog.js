@@ -333,8 +333,7 @@ function getFiltered() {
         const q = searchQuery.toLowerCase();
         items = items.filter(p =>
             p.name.toLowerCase().includes(q) ||
-            p.batch.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q)
+            p.batch.toLowerCase().includes(q)
         );
     }
     if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(getDisplayPrice(a)) - parsePrice(getDisplayPrice(b)));
@@ -560,8 +559,6 @@ function cardHTML(p) {
         detailHref = `produkt.html?${q.toString()}`;
     }
 
-    const desc = (p.description || '').replace(/\s+/g, ' ').trim();
-
     return `
     <a href="${detailHref}" class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
@@ -569,7 +566,6 @@ function cardHTML(p) {
         </div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(p.name)}</p>
-            ${desc ? `<p class="card-desc">${escapeHtml(desc)}</p>` : '<p class="card-desc card-desc--empty"></p>'}
             <span class="card-price">${escapeHtml(getDisplayPrice(p))}</span>
         </div>
     </a>`;

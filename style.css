@@ -525,20 +525,6 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .product-card:hover .card-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 
-.card-desc {
-    font-size: 0.74rem;
-    font-weight: 400;
-    color: var(--text-muted);
-    line-height: 1.45;
-    height: 2.9em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-.card-desc--empty { color: transparent; }
-.card-desc--empty::before { content: '—'; }
-
 .card-price {
     font-family: 'Space Mono', monospace;
     font-size: 0.86rem;
@@ -608,7 +594,6 @@ button, input, select { font-family: inherit; color: inherit; }
     .pd-thumbs { display: none; }
     .pd-mobile-colors { display: block; margin-top: 6px; }
     .card-name { font-size: 0.75rem; }
-    .card-desc { font-size: 0.7rem; }
 }
 
 .pd-mobile-colors { display: none; }
@@ -839,14 +824,3 @@ button, input, select { font-family: inherit; color: inherit; }
     letter-spacing: 0.1em;
 }
 
-.pd-desc {
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    line-height: 1.7;
-}
-.pd-desc img {
-    max-width: 100%;
-    height: auto;
-    margin: 10px 0;
-}
-.pd-desc p { margin-bottom: 10px; }

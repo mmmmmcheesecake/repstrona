@@ -190,20 +190,6 @@ function buildOptions() {
     placeColorwaysForViewport();
 }
 
-function sanitizeHtml(html) {
-    if (!html) return '';
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('script,iframe,style,form,input,button,link,meta').forEach(n => n.remove());
-    doc.querySelectorAll('*').forEach(n => {
-        [...n.attributes].forEach(a => {
-            if (a.name.startsWith('on')) n.removeAttribute(a.name);
-            if (a.name === 'href' && a.value.startsWith('javascript:')) n.removeAttribute(a.name);
-        });
-    });
-    doc.querySelectorAll('img').forEach(img => { img.loading = 'lazy'; });
-    return doc.body.innerHTML;
-}
-
 async function load() {
     if (!productUrl) {
         showError('Missing product URL.');
@@ -250,14 +236,6 @@ async function load() {
         state.properties.forEach(p => state.selected[p.propId] = null);
         buildOptions();
         refreshPriceAndStock();
-
-        if (data.description) {
-            const safe = sanitizeHtml(data.description);
-            if (safe.trim()) {
-                el('pdDesc').innerHTML = safe;
-                el('pdDescWrap').style.display = '';
-            }
-        }
 
         el('loadingState').style.display = 'none';
         el('productDetail').style.display = '';
