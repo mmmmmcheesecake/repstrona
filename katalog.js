@@ -416,8 +416,8 @@ function getTileRepr(tileId) {
     const live = inCat.find(p => p.liveImage);
     if (live) return { product: live, source: 'live' };
 
-    const fallback = inCat.find(p => p.image);
-    return fallback ? { product: fallback, source: 'image' } : null;
+    const fallback = inCat.find(p => p.image) || inCat[0];
+    return fallback ? { product: fallback, source: fallback.image ? 'image' : 'pending' } : null;
 }
 
 function findTileImage(tileId) {
@@ -430,7 +430,7 @@ function findTileImage(tileId) {
 async function eagerEnrichTileReprs() {
     const targets = HERO_TILES
         .map(t => getTileRepr(t.id))
-        .filter(r => r && r.source !== 'curated' && !r.product.liveImage)
+        .filter(r => r && (r.source === 'pending' || r.source === 'image') && !r.product.liveImage)
         .map(r => r.product);
 
     if (!targets.length) return;
