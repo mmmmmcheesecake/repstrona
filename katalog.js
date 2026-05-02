@@ -218,7 +218,10 @@ function parsePrice(str) {
 }
 
 function getDisplayPrice(p) {
-    if (p.livePrice != null) return `$${Math.round(p.livePrice)}`;
+    if (p.livePrice != null) {
+        if (window.RePluGCurrency) return window.RePluGCurrency.format(p.livePrice);
+        return `$${Math.round(p.livePrice)}`;
+    }
     return p.price;
 }
 
@@ -232,13 +235,11 @@ const SNEAKER_BRAND_ORDER = [
     'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Inne'
 ];
 
-function brandsAvailable() {
-    const pool = activeCategory === 'all'
-        ? allProducts
-        : allProducts.filter(p => p.category === activeCategory);
+function brandsForCategory(cat) {
+    const pool = cat === 'all' ? allProducts : allProducts.filter(p => p.category === cat);
     const brands = [...new Set(pool.map(p => p.brand))];
 
-    if (activeCategory === 'Sneakers' || activeCategory === 'Football' || activeCategory === 'Basketball') {
+    if (cat === 'Sneakers' || cat === 'Football' || cat === 'Basketball') {
         return brands.sort((a, b) => {
             const ai = SNEAKER_BRAND_ORDER.indexOf(a);
             const bi = SNEAKER_BRAND_ORDER.indexOf(b);
@@ -254,6 +255,10 @@ function brandsAvailable() {
         if (b === 'Inne') return -1;
         return a.localeCompare(b);
     });
+}
+
+function brandsAvailable() {
+    return brandsForCategory(activeCategory);
 }
 
 function modelsForBrand(brand) {
@@ -288,6 +293,99 @@ function getFiltered() {
     if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
     if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
     return items;
+}
+
+let flyoutTimer = null;
+
+function ensureFlyout() {
+    let fly = document.getElementById('catFlyout');
+    if (fly) return fly;
+    const bar = document.querySelector('.cat-bar-main');
+    if (!bar) return null;
+    fly = document.createElement('div');
+    fly.id = 'catFlyout';
+    fly.className = 'cat-flyout';
+    fly.addEventListener('mouseenter', () => clearTimeout(flyoutTimer));
+    fly.addEventListener('mouseleave', hideFlyoutSoon);
+    bar.appendChild(fly);
+    return fly;
+}
+
+function showFlyout(pill, cat) {
+    const fly = ensureFlyout();
+    if (!fly) return;
+    clearTimeout(flyoutTimer);
+
+    const brands = brandsForCategory(cat);
+    if (!brands.length) { fly.classList.remove('open'); return; }
+
+    fly.innerHTML = '';
+    brands.forEach(brand => {
+        const chip = document.createElement('button');
+        chip.className = 'flyout-chip' + (activeCategory === cat && activeBrand === brand ? ' active' : '');
+        chip.textContent = brand;
+        chip.addEventListener('click', () => {
+            hideFlyout();
+            activeCategory = cat;
+            activeBrand = brand;
+            activeModel = 'all';
+            buildCategoryPills();
+            buildBrandTabs();
+            buildModelTabs();
+            renderGrid();
+        });
+        fly.appendChild(chip);
+    });
+
+    const bar = document.querySelector('.cat-bar-main');
+    const barRect = bar.getBoundingClientRect();
+    const pillRect = pill.getBoundingClientRect();
+    const maxLeft = barRect.width - 32;
+    const left = Math.max(0, Math.min(pillRect.left - barRect.left - 12, maxLeft));
+    fly.style.left = `${left}px`;
+    fly.classList.add('open');
+}
+
+function hideFlyoutSoon() {
+    clearTimeout(flyoutTimer);
+    flyoutTimer = setTimeout(hideFlyout, 180);
+}
+
+function hideFlyout() {
+    const fly = document.getElementById('catFlyout');
+    if (fly) fly.classList.remove('open');
+}
+
+function buildCategoryPills() {
+    const wrap = document.getElementById('categoryPills');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    const allBtn = makeTab('Wszystkie', 'all', activeCategory === 'all');
+    allBtn.addEventListener('click', () => { hideFlyout(); selectCategory('all'); });
+    allBtn.addEventListener('mouseenter', hideFlyoutSoon);
+    wrap.appendChild(allBtn);
+
+    CATEGORIES.forEach(cat => {
+        const brands = brandsForCategory(cat);
+        if (!brands.length) return;
+
+        const btn = makeTab(cat, cat, activeCategory === cat);
+        btn.addEventListener('click', () => { hideFlyout(); selectCategory(cat); });
+        btn.addEventListener('mouseenter', () => showFlyout(btn, cat));
+        btn.addEventListener('mouseleave', hideFlyoutSoon);
+        wrap.appendChild(btn);
+    });
+}
+
+function selectCategory(cat) {
+    activeCategory = cat;
+    activeBrand = 'all';
+    activeModel = 'all';
+    buildCategoryPills();
+    buildBrandTabs();
+    buildModelTabs();
+    renderGrid();
 }
 
 function buildBrandTabs() {
@@ -549,14 +647,13 @@ async function init() {
             const catMatch = CATEGORIES.find(c => c.toLowerCase() === kat.toLowerCase());
             if (catMatch) {
                 activeCategory = catMatch;
-                const sel = document.getElementById('categorySelect');
-                if (sel) sel.value = catMatch;
             } else {
                 const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
                 if (brandMatch) activeBrand = brandMatch;
             }
         }
 
+        buildCategoryPills();
         buildBrandTabs();
         buildModelTabs();
         renderGrid();
@@ -577,27 +674,15 @@ document.getElementById('sortSelect').addEventListener('change', e => {
     renderGrid();
 });
 
-const catSel = document.getElementById('categorySelect');
-if (catSel) {
-    CATEGORIES.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        catSel.appendChild(opt);
-    });
-    catSel.addEventListener('change', e => {
-        activeCategory = e.target.value || 'all';
-        activeBrand = 'all';
-        activeModel = 'all';
-        buildBrandTabs();
-        buildModelTabs();
-        renderGrid();
-    });
-}
-
 fetch('/content/settings.json').then(r => r.json()).then(s => {
     const el = document.getElementById('nav-discord');
     if (el && s.discordUrl) el.href = s.discordUrl;
 }).catch(() => {});
+
+if (window.RePluGCurrency) {
+    window.RePluGCurrency.onChange(() => {
+        if (allProducts.length) renderGrid();
+    });
+}
 
 init();

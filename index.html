@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RePluG — Katalog produktów</title>
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=13">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -28,9 +28,6 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                     <input type="text" id="searchInput" placeholder="Szukaj produktu, batcha..." autocomplete="off">
                 </div>
-                <select id="categorySelect" class="sort-select cat-select">
-                    <option value="all">Wszystkie kategorie</option>
-                </select>
                 <select id="sortSelect" class="sort-select">
                     <option value="default">Domyślnie</option>
                     <option value="price-asc">Cena: rosnąco</option>
@@ -41,11 +38,15 @@
         </div>
     </div>
 
-    <div class="cat-bar">
+    <div class="cat-bar cat-bar-main">
         <div class="container">
-            <div class="cat-scroll" id="categoryTabs">
-                <button class="cat-pill active" data-cat="all">Wszystkie</button>
-            </div>
+            <div class="cat-scroll" id="categoryPills"></div>
+        </div>
+    </div>
+
+    <div class="cat-bar cat-bar-brands">
+        <div class="container">
+            <div class="cat-scroll" id="categoryTabs"></div>
         </div>
     </div>
 
@@ -80,6 +81,7 @@
     </footer>
 
     <script src="script.js?v=10"></script>
-    <script src="katalog.js?v=14"></script>
+    <script src="currency.js?v=1"></script>
+    <script src="katalog.js?v=16"></script>
 </body>
 </html>

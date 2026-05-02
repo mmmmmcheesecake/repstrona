@@ -90,7 +90,13 @@ function refreshPriceAndStock() {
     const skus = matchingSkus();
     let p = minPrice(skus);
     if (p == null) p = minPrice(state.skuList);
-    el('pdPrice').textContent = p != null ? `$${Math.round(p)}` : '—';
+    let priceText = '—';
+    if (p != null) {
+        priceText = window.RePluGCurrency
+            ? window.RePluGCurrency.format(p)
+            : `$${Math.round(p)}`;
+    }
+    el('pdPrice').textContent = priceText;
     const stock = totalStock(skus);
     el('pdStock').textContent = stock === 0 ? 'Brak w magazynie' : '';
     el('pdStock').classList.toggle('out', stock === 0);
@@ -271,5 +277,9 @@ fetch('/content/settings.json').then(r => r.json()).then(s => {
     const elD = document.getElementById('nav-discord');
     if (elD && s.discordUrl) elD.href = s.discordUrl;
 }).catch(() => {});
+
+if (window.RePluGCurrency) {
+    window.RePluGCurrency.onChange(() => refreshPriceAndStock());
+}
 
 load();
