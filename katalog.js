@@ -245,6 +245,8 @@ async function fetchProducts() {
             link: ensureRef(p.link),
             price: p.price || '',
             image: p.image || '',
+            imageOverride: p.imageOverride || '',
+            tileImage: p.tileImage || '',
             description: p.description || '',
             budgetLink: ensureRef(p.budgetLink),
             brand,
@@ -269,7 +271,7 @@ function getDisplayPrice(p) {
 }
 
 function getDisplayImage(p) {
-    return p.liveImage || p.image || '';
+    return p.imageOverride || p.liveImage || p.image || '';
 }
 
 const SNEAKER_BRAND_ORDER = [
@@ -404,10 +406,15 @@ function hideFlyout() {
 }
 
 function findTileImage(tileId) {
-    const pool = tileId === HERO_OTHER
-        ? allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category) && p.image)
-        : allProducts.filter(p => p.category === tileId && p.image);
-    return pool.length ? pool[0].image : '';
+    const inCat = tileId === HERO_OTHER
+        ? allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category))
+        : allProducts.filter(p => p.category === tileId);
+
+    const curated = inCat.find(p => p.tileImage);
+    if (curated) return curated.tileImage;
+
+    const withImg = inCat.find(p => getDisplayImage(p));
+    return withImg ? getDisplayImage(withImg) : '';
 }
 
 function buildHeroTiles() {
@@ -556,6 +563,7 @@ function cardHTML(p) {
     if (p.link) {
         const q = new URLSearchParams({ url: p.link, name: p.name, batch: p.batch || '' });
         if (p.budgetLink) q.set('budget', p.budgetLink);
+        if (p.imageOverride) q.set('img', p.imageOverride);
         detailHref = `produkt.html?${q.toString()}`;
     }
 

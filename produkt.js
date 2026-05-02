@@ -13,6 +13,7 @@ const productUrl = params.get('url');
 const sheetName = params.get('name') || '';
 const sheetBatch = params.get('batch') || '';
 const budgetUrl = params.get('budget') ? ensureRef(params.get('budget')) : null;
+const imageOverride = params.get('img') || '';
 
 const state = {
     properties: [],
@@ -224,7 +225,11 @@ async function load() {
 
         const variantImages = [];
         state.properties.forEach(p => p.valuesList.forEach(v => { if (v.picUrl) variantImages.push(v.picUrl); }));
-        const allImgs = [...new Set([...state.images, ...variantImages])];
+        const allImgs = [...new Set([
+            ...(imageOverride ? [imageOverride] : []),
+            ...state.images,
+            ...variantImages,
+        ])];
         if (allImgs.length) {
             setMainImage(allImgs[0]);
             buildThumbs(allImgs);

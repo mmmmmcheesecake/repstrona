@@ -41,6 +41,8 @@ export async function onRequest(ctx) {
             categoryOverride: (get(7).formattedValue || '').trim() || null,
             brandOverride:    (get(8).formattedValue || '').trim() || null,
             modelOverride:    (get(9).formattedValue || '').trim() || null,
+            imageOverride:    get(10).hyperlink || (get(10).formattedValue || '').trim() || null,
+            tileImage:        get(11).hyperlink || (get(11).formattedValue || '').trim() || null,
         });
     }
 
