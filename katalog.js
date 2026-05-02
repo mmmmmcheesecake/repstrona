@@ -405,16 +405,37 @@ function hideFlyout() {
     if (fly) fly.classList.remove('open');
 }
 
-function findTileImage(tileId) {
+function getTileRepr(tileId) {
     const inCat = tileId === HERO_OTHER
         ? allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category))
         : allProducts.filter(p => p.category === tileId);
 
     const curated = inCat.find(p => p.tileImage);
-    if (curated) return curated.tileImage;
+    if (curated) return { product: curated, source: 'curated' };
 
-    const withImg = inCat.find(p => getDisplayImage(p));
-    return withImg ? getDisplayImage(withImg) : '';
+    const live = inCat.find(p => p.liveImage);
+    if (live) return { product: live, source: 'live' };
+
+    const fallback = inCat.find(p => p.image);
+    return fallback ? { product: fallback, source: 'image' } : null;
+}
+
+function findTileImage(tileId) {
+    const repr = getTileRepr(tileId);
+    if (!repr) return '';
+    if (repr.source === 'curated') return repr.product.tileImage;
+    return getDisplayImage(repr.product);
+}
+
+async function eagerEnrichTileReprs() {
+    const targets = HERO_TILES
+        .map(t => getTileRepr(t.id))
+        .filter(r => r && r.source !== 'curated' && !r.product.liveImage)
+        .map(r => r.product);
+
+    if (!targets.length) return;
+    await Promise.all(targets.map(p => enrichProduct(p).catch(() => {})));
+    buildHeroTiles();
 }
 
 function buildHeroTiles() {
@@ -755,6 +776,7 @@ async function init() {
         buildModelTabs();
         renderGrid();
         setupLazyEnrichment();
+        eagerEnrichTileReprs();
     } catch (e) {
         console.error(e);
         showError('Failed to load products.');
