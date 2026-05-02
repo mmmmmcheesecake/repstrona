@@ -80,7 +80,7 @@ function renderCategories(items) {
 // ===== TRENDING =====
 function badgeHTML(badge) {
     if (!badge) return '';
-    const labels = { hot: '🔥 Hot', new: 'Nowy', top: 'Top Pick' };
+    const labels = { hot: '🔥 Hot', new: 'New', top: 'Top Pick' };
     return `<div class="product-badge ${badge}">${labels[badge] || badge}</div>`;
 }
 
@@ -103,7 +103,7 @@ function renderTrending(items) {
                 <p class="product-desc">${p.description}</p>
                 <div class="product-footer">
                     <span class="product-price">${p.price}</span>
-                    <a href="${p.link}" target="_blank" rel="noopener" class="btn-card">Zobacz ofertę →</a>
+                    <a href="${p.link}" target="_blank" rel="noopener" class="btn-card">View offer →</a>
                 </div>
             </div>
         </div>
@@ -120,7 +120,7 @@ function applyDiscord(d, url) {
 }
 
 // ===== START =====
-loadAll().catch(err => console.warn('Błąd ładowania danych:', err));
+loadAll().catch(err => console.warn('Data loading error:', err));
 
 // ===== TRYB EDYCJI =====
 function initEditMode() {
@@ -128,21 +128,21 @@ function initEditMode() {
     document.querySelectorAll('[data-edit]').forEach(section => {
         const overlay = document.createElement('div');
         overlay.className = 'edit-overlay';
-        overlay.innerHTML = `<a href="${section.dataset.editUrl}" target="_blank">✏️ Edytuj: ${section.dataset.editLabel}</a>`;
+        overlay.innerHTML = `<a href="${section.dataset.editUrl}" target="_blank">✏️ Edit: ${section.dataset.editLabel}</a>`;
         section.appendChild(overlay);
     });
 
     // Przycisk FAB
     const fab = document.createElement('button');
     fab.id = 'edit-fab';
-    fab.innerHTML = '✏️ Tryb edycji';
+    fab.innerHTML = '✏️ Edit mode';
     document.body.appendChild(fab);
 
     let editMode = false;
     fab.addEventListener('click', () => {
         editMode = !editMode;
         document.body.classList.toggle('edit-mode', editMode);
-        fab.textContent = editMode ? '✕ Zamknij edycję' : '✏️ Tryb edycji';
+        fab.textContent = editMode ? '✕ Close edit' : '✏️ Edit mode';
         fab.classList.toggle('active', editMode);
     });
 

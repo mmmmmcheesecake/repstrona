@@ -16,6 +16,10 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 const KEY = process.env.ANTHROPIC_API_KEY;
 if (!KEY) {
@@ -27,8 +31,9 @@ const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
 const SHEET_URL = (args.find(a => a.startsWith('--sheet=')) || '').split('=')[1] || 'https://repstrona.pages.dev/api/sheet';
 const MODEL = (args.find(a => a.startsWith('--model=')) || '').split('=')[1] || 'claude-haiku-4-5-20251001';
-const BATCH_SIZE = 25;
-const OUT_PATH = path.resolve('content/tags.json');
+const BATCH_SIZE = 20;
+const THROTTLE_MS = 7000;
+const OUT_PATH = path.join(PROJECT_ROOT, 'content', 'tags.json');
 
 const CATEGORIES = [
     'Sneakers', 'Hoodie', 'Shorts', 'Underwear', 'Crewnecks', 'Sport Clothing',
@@ -38,36 +43,38 @@ const CATEGORIES = [
 ];
 
 const SNEAKER_BRANDS = [
-    'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Inne)',
+    'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Other)',
     'Dunks', 'Off-White', 'Yeezy', 'Nike', 'Adidas', 'New Balance',
-    'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Inne'
+    'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Other'
 ];
 
-const SYSTEM_PROMPT = `Jesteś taggerem katalogu sneakerów/streetwear/elektroniki/luxury.
+const SYSTEM_PROMPT = `You are a tagger for a sneaker/streetwear/electronics/luxury catalog.
 
-Dla każdego produktu zdecyduj:
+For each product, decide:
 
-1. category — DOKŁADNIE jeden z: ${CATEGORIES.join(', ')}.
+1. category — EXACTLY one of: ${CATEGORIES.join(', ')}.
 
-2. brand — zasady:
-   - Jeśli category to Sneakers/Football/Basketball: użyj DOKŁADNIE jednej z: ${SNEAKER_BRANDS.join(', ')}.
-     Mapowanie modeli Jordan: "Jordan 1" → Jordan 1, "Jordan 3" → Jordan 3, "Jordan 4" → Jordan 4, "Jordan 5/6/7/8/9/10/11/12/13" → Jordan 5-13, inne Jordany → Jordan (Inne).
-     Marki luksusowe (LV, Gucci, Dior, Balenciaga, Amiri itp.) w sneakers → "High-End".
-   - Dla innych kategorii: naturalna nazwa marki (np. "Stone Island", "Apple", "Rolex", "Lego", "Stussy", "Supreme", "Essentials"). Jeśli marki nie da się rozpoznać → "Inne".
+2. brand — rules:
+   - If category is Sneakers/Football/Basketball: use EXACTLY one of: ${SNEAKER_BRANDS.join(', ')}.
+     Jordan model mapping: "Jordan 1" → Jordan 1, "Jordan 3" → Jordan 3, "Jordan 4" → Jordan 4, "Jordan 5/6/7/8/9/10/11/12/13" → Jordan 5-13, other Jordans → Jordan (Other).
+     Luxury brands (LV, Gucci, Dior, Balenciaga, Amiri etc.) in sneakers → "High-End".
+   - For other categories: natural brand name (e.g. "Stone Island", "Apple", "Rolex", "Lego", "Stussy", "Supreme", "Essentials"). If brand cannot be recognized → "Other".
 
-3. model — konkretny model (np. "Jordan 4 Black Cat", "Air Force 1 Low", "AirPods Pro 2", "Tech Fleece Hoodie") lub "Inne" gdy się nie da rozpoznać.
+3. model — specific model (e.g. "Jordan 4 Black Cat", "Air Force 1 Low", "AirPods Pro 2", "Tech Fleece Hoodie") or "Other" when not recognizable.
 
-Zwróć WYŁĄCZNIE poprawny JSON w formacie:
-{"tags": [{"i": <indeks z inputu>, "category": "...", "brand": "...", "model": "..."}, ...]}
+Return ONLY valid JSON in the format:
+{"tags": [{"i": <index from input>, "category": "...", "brand": "...", "model": "..."}, ...]}
 
-Nie dodawaj żadnego komentarza, markdownu, ani prefiksu. Tylko JSON.`;
+Do not add any comments, markdown, or prefix. JSON only.`;
 
 function tagKey(link) {
     if (!link) return '';
     return link.split('?')[0].replace(/\/+$/, '');
 }
 
-async function callClaude(products) {
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function callClaude(products, attempt = 1) {
     const userMsg = products.map((p, i) => `${i}: ${p.name}${p.description ? ' — ' + p.description.slice(0, 200) : ''}`).join('\n');
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -84,6 +91,15 @@ async function callClaude(products) {
             messages: [{ role: 'user', content: userMsg }],
         }),
     });
+
+    if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+        const waitMs = (retryAfter > 0 ? retryAfter : Math.min(60, 5 * attempt)) * 1000;
+        console.log(`  ⏳ 429 — czekam ${Math.round(waitMs / 1000)}s (próba ${attempt})`);
+        await sleep(waitMs);
+        if (attempt > 6) throw new Error('rate limit po 6 próbach');
+        return callClaude(products, attempt + 1);
+    }
 
     if (!res.ok) {
         const txt = await res.text();
@@ -155,9 +171,12 @@ async function main() {
                 };
             }
             done += batch.length;
-            console.log(`  ${done}/${todo.length}`);
+            fs.writeFileSync(OUT_PATH, JSON.stringify(existing, null, 2));
+            console.log(`  ${done}/${todo.length} (zapisane)`);
+            await sleep(THROTTLE_MS);
         } catch (e) {
             console.warn(`  ⚠ batch fail: ${e.message}`);
+            await sleep(THROTTLE_MS);
         }
     }
 

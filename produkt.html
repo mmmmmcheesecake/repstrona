@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pl" data-theme="light">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Produkt — RePluG</title>
-    <link rel="stylesheet" href="style.css?v=14">
+    <title>Product — RePluG</title>
+    <link rel="stylesheet" href="style.css?v=15">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -16,17 +16,18 @@
             <a href="index.html" class="logo">Re<span>PluG</span></a>
             <div class="nav-right">
                 <a id="nav-discord" href="#" class="discord-link">Discord</a>
+                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link">Sign up USFans</a>
             </div>
         </div>
     </nav>
 
     <main class="product-page">
         <div class="container">
-            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link">← Powrót</a>
+            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link">← Back</a>
 
             <div class="loading-state" id="loadingState"><div class="spinner"></div></div>
             <div class="error-state" id="errorState" style="display:none">
-                <p>⚠️ Nie udało się załadować produktu. <a href="katalog.html">Wróć do katalogu</a>.</p>
+                <p>⚠️ Failed to load product. <a href="katalog.html">Back to catalog</a>.</p>
             </div>
 
             <div class="product-detail" id="productDetail" style="display:none">
@@ -48,12 +49,12 @@
                     <div class="pd-options" id="pdOptions"></div>
 
                     <div class="pd-buttons">
-                        <a id="pdBuy" href="#" target="_blank" rel="noopener" class="card-btn primary pd-buy">Kup u agenta →</a>
-                        <a id="pdBudget" href="#" target="_blank" rel="noopener" class="card-btn pd-budget" style="display:none">Wersja Budget</a>
+                        <a id="pdBuy" href="#" target="_blank" rel="noopener" class="card-btn primary pd-buy">Buy from agent →</a>
+                        <a id="pdBudget" href="#" target="_blank" rel="noopener" class="card-btn pd-budget" style="display:none">Budget version</a>
                     </div>
 
                     <div class="pd-section pd-desc-wrap" id="pdDescWrap" style="display:none">
-                        <h3 class="pd-section-title">Opis ze strony agenta</h3>
+                        <h3 class="pd-section-title">Description from agent page</h3>
                         <div class="pd-desc" id="pdDesc"></div>
                     </div>
                 </div>
@@ -63,12 +64,12 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="footer-text">© 2026 RePluG. Strona ma charakter informacyjny.</p>
+            <p class="footer-text">© 2026 RePluG. For informational purposes only.</p>
         </div>
     </footer>
 
-    <script src="script.js?v=10"></script>
-    <script src="currency.js?v=1"></script>
-    <script src="produkt.js?v=14"></script>
+    <script src="script.js?v=11"></script>
+    <script src="currency.js?v=2"></script>
+    <script src="produkt.js?v=15"></script>
 </body>
 </html>

@@ -14,6 +14,20 @@ const CATEGORIES = [
     'Pants', "Mask's & hats", 'Watches', 'Football', 'Basketball', 'Perfume'
 ];
 
+const HERO_OTHER = '__OTHER__';
+const HERO_TILES = [
+    { id: 'Sneakers',   label: 'Sneakers' },
+    { id: 'Hoodie',     label: 'Hoodies' },
+    { id: 'T-shirts',   label: 'T-shirts' },
+    { id: 'Jackets',    label: 'Jackets' },
+    { id: 'Pants',      label: 'Pants' },
+    { id: 'Shorts',     label: 'Shorts' },
+    { id: 'Accesories', label: 'Accessories' },
+    { id: 'Watches',    label: 'Watches' },
+    { id: HERO_OTHER,   label: 'Other' },
+];
+const HERO_MAIN_IDS = HERO_TILES.filter(t => t.id !== HERO_OTHER).map(t => t.id);
+
 function detectCategory(name, description = '') {
     const text = ((name || '') + ' ' + (description || '')).toLowerCase();
 
@@ -120,7 +134,7 @@ function detectBrandModel(name, category = '') {
         if ((m = n.match(/jordan\s*3\b/))) return { brand: 'Jordan 3', model: 'Jordan 3' };
         if ((m = n.match(/jordan\s*4\b/))) return { brand: 'Jordan 4', model: 'Jordan 4' };
         if ((m = n.match(/jordan\s*(5|6|7|8|9|10|11|12|13)\b/))) return { brand: 'Jordan 5-13', model: `Jordan ${m[1]}` };
-        if (n.includes('jordan')) return { brand: 'Jordan (Inne)', model: 'Inne' };
+        if (n.includes('jordan')) return { brand: 'Jordan (Other)', model: 'Other' };
         if (n.includes('dunk')) return { brand: 'Dunks', model: n.includes('low') ? 'Dunk Low' : (n.includes('high') ? 'Dunk High' : 'Dunk') };
         if (n.includes('yeezy')) {
             if ((m = n.match(/yeezy\s*(\d{3,4})/))) return { brand: 'Yeezy', model: `Yeezy ${m[1]}` };
@@ -134,57 +148,57 @@ function detectBrandModel(name, category = '') {
         if (n.includes('vomero')) return { brand: 'Nike', model: 'Vomero' };
         if (n.includes('nocta')) return { brand: 'Nike', model: 'Nocta' };
         if (n.includes('mercurial') || n.includes('phantom') || n.includes('tiempo') || n.includes('predator')) return { brand: 'Nike', model: 'Football' };
-        if (n.includes('nike')) return { brand: 'Nike', model: 'Inne' };
+        if (n.includes('nike')) return { brand: 'Nike', model: 'Other' };
         if (n.includes('samba')) return { brand: 'Adidas', model: 'Samba' };
         if (n.includes('gazelle')) return { brand: 'Adidas', model: 'Gazelle' };
         if (n.includes('campus')) return { brand: 'Adidas', model: 'Campus' };
         if (n.includes('spezial')) return { brand: 'Adidas', model: 'Spezial' };
-        if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
+        if (n.includes('adidas')) return { brand: 'Adidas', model: 'Other' };
         if ((m = n.match(/(?:new balance|\bnb)\s*(\d{3,4}r?)/i))) return { brand: 'New Balance', model: m[1].toUpperCase() };
-        if (n.includes('new balance') || /\bnb\b/.test(n)) return { brand: 'New Balance', model: 'Inne' };
-        if (n.includes('asics')) return { brand: 'Asics', model: 'Inne' };
-        if (n.includes('ugg')) return { brand: 'UGG', model: 'Inne' };
-        if (n.includes('timberland')) return { brand: 'Timberland', model: 'Inne' };
-        if (n.includes('puma')) return { brand: 'Puma', model: 'Inne' };
-        if (n.includes('crocs')) return { brand: 'Crocs', model: 'Inne' };
-        return { brand: 'Inne', model: 'Inne' };
+        if (n.includes('new balance') || /\bnb\b/.test(n)) return { brand: 'New Balance', model: 'Other' };
+        if (n.includes('asics')) return { brand: 'Asics', model: 'Other' };
+        if (n.includes('ugg')) return { brand: 'UGG', model: 'Other' };
+        if (n.includes('timberland')) return { brand: 'Timberland', model: 'Other' };
+        if (n.includes('puma')) return { brand: 'Puma', model: 'Other' };
+        if (n.includes('crocs')) return { brand: 'Crocs', model: 'Other' };
+        return { brand: 'Other', model: 'Other' };
     }
 
     if (HIGH_END_BRANDS.some(b => n.includes(b))) {
         for (const b of HIGH_END_BRANDS) {
             if (n.includes(b)) {
                 const label = b.replace(/\s+$/, '').split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-                return { brand: label === 'Lv' ? 'Louis Vuitton' : (label === 'Ysl' ? 'Saint Laurent' : label), model: 'Inne' };
+                return { brand: label === 'Lv' ? 'Louis Vuitton' : (label === 'Ysl' ? 'Saint Laurent' : label), model: 'Other' };
             }
         }
     }
-    if (n.includes('ralph lauren') || n.includes('polo ralph')) return { brand: 'Ralph Lauren', model: 'Inne' };
-    if (n.includes('stone island')) return { brand: 'Stone Island', model: 'Inne' };
-    if (n.includes('lacoste')) return { brand: 'Lacoste', model: 'Inne' };
-    if (n.includes('ami ')) return { brand: 'Ami', model: 'Inne' };
-    if (n.includes('moncler')) return { brand: 'Moncler', model: 'Inne' };
-    if (n.includes('supreme')) return { brand: 'Supreme', model: 'Inne' };
-    if (n.includes('essentials') || n.includes('fear of god')) return { brand: 'Essentials', model: 'Inne' };
-    if (n.includes('comme des') || n.includes('cdg')) return { brand: 'Comme des Garçons', model: 'Inne' };
-    if (n.includes('corteiz')) return { brand: 'Corteiz', model: 'Inne' };
-    if (n.includes('syna')) return { brand: 'Syna World', model: 'Inne' };
-    if (n.includes('goyard')) return { brand: 'Goyard', model: 'Inne' };
-    if (n.includes('off-white') || n.includes('off white')) return { brand: 'Off-White', model: 'Inne' };
-    if (n.includes('nike')) return { brand: 'Nike', model: 'Inne' };
-    if (n.includes('adidas')) return { brand: 'Adidas', model: 'Inne' };
-    if (n.includes('jordan')) return { brand: 'Jordan', model: 'Inne' };
-    if (n.includes('apple') || n.includes('airpods') || n.includes('iphone') || n.includes('ipad') || n.includes('macbook')) return { brand: 'Apple', model: 'Inne' };
-    if (n.includes('jbl')) return { brand: 'JBL', model: 'Inne' };
-    if (n.includes('bose')) return { brand: 'Bose', model: 'Inne' };
-    if (n.includes('beats')) return { brand: 'Beats', model: 'Inne' };
-    if (n.includes('samsung')) return { brand: 'Samsung', model: 'Inne' };
-    if (n.includes('sony')) return { brand: 'Sony', model: 'Inne' };
-    if (n.includes('rolex')) return { brand: 'Rolex', model: 'Inne' };
-    if (n.includes('cartier')) return { brand: 'Cartier', model: 'Inne' };
-    if (n.includes('omega')) return { brand: 'Omega', model: 'Inne' };
-    if (n.includes('lego')) return { brand: 'Lego', model: 'Inne' };
+    if (n.includes('ralph lauren') || n.includes('polo ralph')) return { brand: 'Ralph Lauren', model: 'Other' };
+    if (n.includes('stone island')) return { brand: 'Stone Island', model: 'Other' };
+    if (n.includes('lacoste')) return { brand: 'Lacoste', model: 'Other' };
+    if (n.includes('ami ')) return { brand: 'Ami', model: 'Other' };
+    if (n.includes('moncler')) return { brand: 'Moncler', model: 'Other' };
+    if (n.includes('supreme')) return { brand: 'Supreme', model: 'Other' };
+    if (n.includes('essentials') || n.includes('fear of god')) return { brand: 'Essentials', model: 'Other' };
+    if (n.includes('comme des') || n.includes('cdg')) return { brand: 'Comme des Garçons', model: 'Other' };
+    if (n.includes('corteiz')) return { brand: 'Corteiz', model: 'Other' };
+    if (n.includes('syna')) return { brand: 'Syna World', model: 'Other' };
+    if (n.includes('goyard')) return { brand: 'Goyard', model: 'Other' };
+    if (n.includes('off-white') || n.includes('off white')) return { brand: 'Off-White', model: 'Other' };
+    if (n.includes('nike')) return { brand: 'Nike', model: 'Other' };
+    if (n.includes('adidas')) return { brand: 'Adidas', model: 'Other' };
+    if (n.includes('jordan')) return { brand: 'Jordan', model: 'Other' };
+    if (n.includes('apple') || n.includes('airpods') || n.includes('iphone') || n.includes('ipad') || n.includes('macbook')) return { brand: 'Apple', model: 'Other' };
+    if (n.includes('jbl')) return { brand: 'JBL', model: 'Other' };
+    if (n.includes('bose')) return { brand: 'Bose', model: 'Other' };
+    if (n.includes('beats')) return { brand: 'Beats', model: 'Other' };
+    if (n.includes('samsung')) return { brand: 'Samsung', model: 'Other' };
+    if (n.includes('sony')) return { brand: 'Sony', model: 'Other' };
+    if (n.includes('rolex')) return { brand: 'Rolex', model: 'Other' };
+    if (n.includes('cartier')) return { brand: 'Cartier', model: 'Other' };
+    if (n.includes('omega')) return { brand: 'Omega', model: 'Other' };
+    if (n.includes('lego')) return { brand: 'Lego', model: 'Other' };
 
-    return { brand: 'Inne', model: 'Inne' };
+    return { brand: 'Other', model: 'Other' };
 }
 
 async function fetchTags() {
@@ -259,13 +273,16 @@ function getDisplayImage(p) {
 }
 
 const SNEAKER_BRAND_ORDER = [
-    'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Inne)',
+    'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Other)',
     'Dunks', 'Off-White', 'Yeezy', 'Nike', 'Adidas', 'New Balance',
-    'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Inne'
+    'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Other'
 ];
 
 function brandsForCategory(cat) {
-    const pool = cat === 'all' ? allProducts : allProducts.filter(p => p.category === cat);
+    let pool;
+    if (cat === 'all') pool = allProducts;
+    else if (cat === HERO_OTHER) pool = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
+    else pool = allProducts.filter(p => p.category === cat);
     const brands = [...new Set(pool.map(p => p.brand))];
 
     if (cat === 'Sneakers' || cat === 'Football' || cat === 'Basketball') {
@@ -280,8 +297,8 @@ function brandsForCategory(cat) {
     }
 
     return brands.sort((a, b) => {
-        if (a === 'Inne') return 1;
-        if (b === 'Inne') return -1;
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
         return a.localeCompare(b);
     });
 }
@@ -291,13 +308,14 @@ function brandsAvailable() {
 }
 
 function modelsForBrand(brand) {
-    let items = activeCategory === 'all'
-        ? allProducts
-        : allProducts.filter(p => p.category === activeCategory);
+    let items;
+    if (activeCategory === 'all') items = allProducts;
+    else if (activeCategory === HERO_OTHER) items = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
+    else items = allProducts.filter(p => p.category === activeCategory);
     if (brand !== 'all') items = items.filter(p => p.brand === brand);
     return [...new Set(items.map(p => p.model))].sort((a, b) => {
-        if (a === 'Inne') return 1;
-        if (b === 'Inne') return -1;
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
         const an = parseInt(a.replace(/\D/g, ''), 10);
         const bn = parseInt(b.replace(/\D/g, ''), 10);
         if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
@@ -307,7 +325,8 @@ function modelsForBrand(brand) {
 
 function getFiltered() {
     let items = [...allProducts];
-    if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
+    if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
+    else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
     if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
     if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
     if (searchQuery) {
@@ -385,12 +404,51 @@ function hideFlyout() {
     if (fly) fly.classList.remove('open');
 }
 
+function findTileImage(tileId) {
+    const pool = tileId === HERO_OTHER
+        ? allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category) && p.image)
+        : allProducts.filter(p => p.category === tileId && p.image);
+    return pool.length ? pool[0].image : '';
+}
+
+function buildHeroTiles() {
+    const wrap = document.getElementById('heroTiles');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    HERO_TILES.forEach(t => {
+        const tile = document.createElement('button');
+        tile.className = 'hero-tile' + (activeCategory === t.id ? ' active' : '');
+        tile.dataset.cat = t.id;
+
+        const img = findTileImage(t.id);
+        const imgHtml = img
+            ? `<img src="${img}" alt="${t.label}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+            : '';
+        tile.innerHTML = `
+            <div class="hero-tile-img${img ? '' : ' no-img'}">${imgHtml}</div>
+            <span class="hero-tile-label">${t.label}</span>
+        `;
+
+        tile.addEventListener('click', () => {
+            selectCategory(t.id);
+            const target = document.querySelector('.filter-bar');
+            if (target) {
+                const top = target.getBoundingClientRect().top + window.scrollY - 64;
+                window.scrollTo({ top, behavior: 'smooth' });
+            }
+        });
+
+        wrap.appendChild(tile);
+    });
+}
+
 function buildCategoryPills() {
     const wrap = document.getElementById('categoryPills');
     if (!wrap) return;
     wrap.innerHTML = '';
 
-    const allBtn = makeTab('Wszystkie', 'all', activeCategory === 'all');
+    const allBtn = makeTab('All', 'all', activeCategory === 'all');
     allBtn.addEventListener('click', () => { hideFlyout(); selectCategory('all'); });
     allBtn.addEventListener('mouseenter', hideFlyoutSoon);
     wrap.appendChild(allBtn);
@@ -411,6 +469,7 @@ function selectCategory(cat) {
     activeCategory = cat;
     activeBrand = 'all';
     activeModel = 'all';
+    buildHeroTiles();
     buildCategoryPills();
     buildBrandTabs();
     buildModelTabs();
@@ -422,7 +481,7 @@ function buildBrandTabs() {
     if (!tabs) return;
     tabs.innerHTML = '';
 
-    const allBtn = makeTab('Wszystkie', 'all', activeBrand === 'all');
+    const allBtn = makeTab('All', 'all', activeBrand === 'all');
     allBtn.addEventListener('click', () => selectBrand('all'));
     tabs.appendChild(allBtn);
 
@@ -445,7 +504,7 @@ function buildModelTabs() {
     }
     tabs.parentElement.parentElement.style.display = '';
 
-    const allBtn = makeTab('Wszystkie', 'all', activeModel === 'all');
+    const allBtn = makeTab('All', 'all', activeModel === 'all');
     allBtn.addEventListener('click', () => selectModel('all'));
     tabs.appendChild(allBtn);
 
@@ -523,7 +582,7 @@ function renderGrid() {
     const count = document.getElementById('resultsCount');
     const items = getFiltered();
 
-    count.textContent = `${items.length} produktów`;
+    count.textContent = `${items.length} products`;
     info.style.display = 'block';
 
     if (!items.length) {
@@ -673,15 +732,20 @@ async function init() {
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
         if (kat) {
-            const catMatch = CATEGORIES.find(c => c.toLowerCase() === kat.toLowerCase());
-            if (catMatch) {
-                activeCategory = catMatch;
+            if (kat.toLowerCase() === 'other') {
+                activeCategory = HERO_OTHER;
             } else {
-                const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
-                if (brandMatch) activeBrand = brandMatch;
+                const catMatch = CATEGORIES.find(c => c.toLowerCase() === kat.toLowerCase());
+                if (catMatch) {
+                    activeCategory = catMatch;
+                } else {
+                    const brandMatch = brandsAvailable().find(b => b.toLowerCase() === kat.toLowerCase());
+                    if (brandMatch) activeBrand = brandMatch;
+                }
             }
         }
 
+        buildHeroTiles();
         buildCategoryPills();
         buildBrandTabs();
         buildModelTabs();
@@ -689,7 +753,7 @@ async function init() {
         setupLazyEnrichment();
     } catch (e) {
         console.error(e);
-        showError('Nie udało się załadować produktów.');
+        showError('Failed to load products.');
     }
 }
 

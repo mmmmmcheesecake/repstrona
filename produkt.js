@@ -98,7 +98,7 @@ function refreshPriceAndStock() {
     }
     el('pdPrice').textContent = priceText;
     const stock = totalStock(skus);
-    el('pdStock').textContent = stock === 0 ? 'Brak w magazynie' : '';
+    el('pdStock').textContent = stock === 0 ? 'Out of stock' : '';
     el('pdStock').classList.toggle('out', stock === 0);
 }
 
@@ -149,7 +149,7 @@ function buildOptions() {
 
         const label = document.createElement('div');
         label.className = 'pd-option-label';
-        const propTitle = idx === 0 ? 'Kolorystyka / Wariant' : (idx === 1 ? 'Rozmiar' : (prop.propName || `Opcja ${idx + 1}`));
+        const propTitle = idx === 0 ? 'Color / Variant' : (idx === 1 ? 'Size' : (prop.propName || `Option ${idx + 1}`));
         label.textContent = propTitle;
         group.appendChild(label);
 
@@ -206,7 +206,7 @@ function sanitizeHtml(html) {
 
 async function load() {
     if (!productUrl) {
-        showError('Brak adresu produktu w URL.');
+        showError('Missing product URL.');
         return;
     }
 
@@ -223,14 +223,14 @@ async function load() {
         const data = await r.json();
         if (data.error) throw new Error(data.error);
 
-        document.title = (data.title || sheetName || 'Produkt') + ' — RePluG';
+        document.title = (data.title || sheetName || 'Product') + ' — RePluG';
 
         const meta = [];
         if (sheetBatch) meta.push(`<span class="card-batch ${batchClass(sheetBatch)}">${sheetBatch}</span>`);
-        if (data.shopName) meta.push(`<span class="pd-shop">Sklep: ${data.shopName}</span>`);
+        if (data.shopName) meta.push(`<span class="pd-shop">Shop: ${data.shopName}</span>`);
         el('pdMeta').innerHTML = meta.join('');
 
-        el('pdName').textContent = sheetName || data.title || 'Produkt';
+        el('pdName').textContent = sheetName || data.title || 'Product';
 
         state.images = data.images || [];
         state.properties = data.properties || [];
@@ -263,7 +263,7 @@ async function load() {
         el('productDetail').style.display = '';
     } catch (e) {
         console.error(e);
-        showError('Nie udało się załadować produktu.');
+        showError('Failed to load product.');
     }
 }
 

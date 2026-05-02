@@ -1,14 +1,15 @@
 /* ===== VARIABLES ===== */
 :root {
-    --bg: #f0eadd;
-    --bg-soft: #ebe4d4;
-    --bg-image: #e6dfce;
-    --text: #2a2723;
-    --text-muted: #7d776c;
-    --text-subtle: #a8a294;
-    --hairline: #d8d2c2;
-    --accent: #2a2723;
+    --bg: #fafaf7;
+    --bg-soft: #f3efe6;
+    --bg-image: #efeadb;
+    --text: #1a1816;
+    --text-muted: #6b6660;
+    --text-subtle: #9c9586;
+    --hairline: #e6e0d2;
+    --accent: #1a1816;
     --discord: #4752c4;
+    --usfans: #d4a017;
 }
 
 /* ===== RESET ===== */
@@ -80,6 +81,19 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .discord-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
 
+.usfans-link {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text);
+    border: 1px solid var(--text);
+    padding: 6px 12px;
+    transition: background 0.12s, color 0.12s;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+.usfans-link:hover { background: var(--text); color: var(--bg); }
+
 .cur-select {
     height: 28px;
     background: transparent;
@@ -100,6 +114,144 @@ button, input, select { font-family: inherit; color: inherit; }
     transition: color 0.12s;
 }
 .cur-select:hover { color: var(--text); }
+
+/* ===== HERO ===== */
+.hero {
+    padding: 56px 0 40px;
+    background: var(--bg);
+}
+
+.hero-text {
+    text-align: center;
+    margin-bottom: 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.hero-headline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    line-height: 1.05;
+}
+.hero-headline span {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.hero-sub {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    max-width: 540px;
+    line-height: 1.55;
+}
+
+.hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text);
+    border-bottom: 1px solid var(--text);
+    padding-bottom: 2px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: opacity 0.12s;
+}
+.hero-cta:hover { opacity: 0.7; }
+.hero-cta-badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    background: var(--text);
+    color: var(--bg);
+    padding: 2px 7px;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+}
+
+.hero-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+}
+
+.hero-tile {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font-family: inherit;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+}
+
+.hero-tile-img {
+    aspect-ratio: 1 / 1;
+    background: var(--bg-soft);
+    overflow: hidden;
+    position: relative;
+}
+.hero-tile-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease, opacity 0.25s ease;
+}
+.hero-tile:hover .hero-tile-img img {
+    transform: scale(1.03);
+    opacity: 0.92;
+}
+.hero-tile-img.no-img::after {
+    content: '—';
+    font-size: 1.6rem;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-subtle);
+}
+
+.hero-tile-label {
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    text-transform: uppercase;
+}
+
+.hero-tile.active .hero-tile-label {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+@media (max-width: 1024px) {
+    .hero-tiles { gap: 16px; }
+}
+@media (max-width: 768px) {
+    .hero { padding: 36px 0 28px; }
+    .hero-headline { font-size: 1.7rem; }
+    .hero-sub { font-size: 0.76rem; }
+    .hero-text { margin-bottom: 28px; }
+    .hero-tiles { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .hero-tile-label { font-size: 0.72rem; letter-spacing: 0.04em; }
+    .hero-tile { gap: 8px; }
+}
+@media (max-width: 480px) {
+    .hero-headline { font-size: 1.4rem; }
+    .hero-tiles { gap: 10px; }
+    .hero-tile-label { font-size: 0.66rem; }
+}
 
 /* ===== FILTER BAR ===== */
 .filter-bar {
