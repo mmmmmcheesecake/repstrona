@@ -674,6 +674,20 @@ document.getElementById('sortSelect').addEventListener('change', e => {
     renderGrid();
 });
 
+function enableHorizontalWheel(el) {
+    if (!el || el.dataset.wheelBound) return;
+    el.dataset.wheelBound = '1';
+    el.addEventListener('wheel', e => {
+        const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (!delta) return;
+        if (el.scrollWidth <= el.clientWidth) return;
+        e.preventDefault();
+        el.scrollLeft += delta;
+    }, { passive: false });
+}
+
+document.querySelectorAll('.cat-scroll').forEach(enableHorizontalWheel);
+
 fetch('/content/settings.json').then(r => r.json()).then(s => {
     const el = document.getElementById('nav-discord');
     if (el && s.discordUrl) el.href = s.discordUrl;
