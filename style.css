@@ -183,13 +183,13 @@ button, input, select { font-family: inherit; color: inherit; }
 .cat-bar.cat-bar-main .container { position: relative; }
 
 .cat-bar.cat-bar-brands {
-    top: 152px;
-    z-index: 99;
+    position: static;
+    z-index: auto;
 }
 
 .cat-bar-sub {
-    top: 196px;
-    z-index: 98;
+    position: static;
+    z-index: auto;
     padding: 0 0 14px;
 }
 
@@ -447,10 +447,9 @@ button, input, select { font-family: inherit; color: inherit; }
     .container { padding: 0 18px; }
     .nav-inner { padding: 0 18px; }
     .products-grid { gap: 20px 12px; }
-    .cat-bar { top: 112px; }
     .cat-bar.cat-bar-main { top: 112px; }
-    .cat-bar.cat-bar-brands { top: 152px; }
-    .cat-bar-sub { top: 196px; }
+    .cat-bar.cat-bar-brands { position: static; }
+    .cat-bar-sub { position: static; }
     .cat-flyout { display: none !important; }
     .product-detail { grid-template-columns: 1fr !important; }
     .pd-gallery { position: static !important; }
