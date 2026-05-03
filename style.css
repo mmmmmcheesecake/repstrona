@@ -391,7 +391,10 @@ button, input, select { font-family: inherit; color: inherit; }
     display: flex;
     gap: 22px;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
 }
 .cat-scroll::-webkit-scrollbar { display: none; }
 
