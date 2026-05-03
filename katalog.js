@@ -599,6 +599,7 @@ function buildHeroTiles() {
 
         tile.addEventListener('click', () => {
             selectCategory(t.id);
+            if (isMobile()) return;
             const target = document.querySelector('.filter-bar');
             if (target) {
                 const top = target.getBoundingClientRect().top + window.scrollY - 64;
@@ -632,6 +633,17 @@ function buildCategoryPills() {
     });
 }
 
+function isMobile() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function scrollToProducts(opts) {
+    const target = document.getElementById('resultsInfo') || document.getElementById('productsGrid');
+    if (!target) return;
+    const top = target.getBoundingClientRect().top + window.scrollY - 12;
+    window.scrollTo({ top, behavior: (opts && opts.smooth) ? 'smooth' : 'auto' });
+}
+
 function selectCategory(cat) {
     activeCategory = cat;
     activeBrand = 'all';
@@ -641,6 +653,7 @@ function selectCategory(cat) {
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
+    if (isMobile()) scrollToProducts({ smooth: true });
 }
 
 function buildBrandTabs() {
@@ -696,12 +709,14 @@ function selectBrand(brand) {
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
+    if (isMobile()) scrollToProducts({ smooth: true });
 }
 
 function selectModel(model) {
     activeModel = model;
     buildModelTabs();
     renderGrid();
+    if (isMobile()) scrollToProducts({ smooth: true });
 }
 
 function productKey(p) {
