@@ -69,7 +69,8 @@
     function encode(items) {
         const compact = items.map(it => ({
             l: it.link, n: it.name, i: it.image, p: it.price,
-            b: it.batch, c: it.color, s: it.size, q: it.qty || 1,
+            b: it.batch, c: it.color, s: it.size, k: it.category || '',
+            q: it.qty || 1,
         }));
         return toBase64Url(JSON.stringify(compact));
     }
@@ -81,7 +82,7 @@
             return arr.map(it => ({
                 link: it.l || '', name: it.n || '', image: it.i || '',
                 price: it.p || '', batch: it.b || '', color: it.c || '',
-                size: it.s || '', qty: it.q || 1,
+                size: it.s || '', category: it.k || '', qty: it.q || 1,
             }));
         } catch { return []; }
     }

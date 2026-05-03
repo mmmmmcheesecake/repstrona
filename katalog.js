@@ -740,6 +740,7 @@ function cardHTML(p) {
         const q = new URLSearchParams({ url: p.link, name: p.name, batch: p.batch || '' });
         if (p.budgetLink) q.set('budget', p.budgetLink);
         if (p.imageOverride) q.set('img', p.imageOverride);
+        if (p.category) q.set('cat', p.category);
         detailHref = `produkt.html?${q.toString()}`;
     }
 

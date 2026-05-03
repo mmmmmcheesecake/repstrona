@@ -1022,6 +1022,18 @@ button, input, select { font-family: inherit; color: inherit; }
     font-weight: 600;
     color: var(--text);
 }
+.cart-weight-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    margin-top: -4px;
+}
+.cart-weight-value {
+    font-family: 'JetBrains Mono', monospace;
+}
 .cart-actions {
     display: flex;
     flex-wrap: wrap;

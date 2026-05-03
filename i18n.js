@@ -56,6 +56,7 @@
             'cart.viewing': 'Viewing shared cart',
             'cart.clone': 'Save to my cart',
             'cart.total': 'Total',
+            'cart.weight': 'Approx. weight',
             'card.add': '+ Cart',
         },
         pl: {
@@ -110,6 +111,7 @@
             'cart.viewing': 'Przeglądasz udostępniony koszyk',
             'cart.clone': 'Zapisz do mojego koszyka',
             'cart.total': 'Razem',
+            'cart.weight': 'Przybliżona waga',
             'card.add': '+ Koszyk',
         },
     };

@@ -70,6 +70,52 @@
         </div>`;
     }
 
+    const CATEGORY_WEIGHTS = {
+        'Sneakers': 1.2,
+        'Hoodies/Crewnecks': 0.9,
+        'T-shirts': 0.35,
+        "Jersey's": 0.4,
+        'Jackets': 1.4,
+        'Vests': 0.5,
+        'Shorts': 0.4,
+        'Pants': 0.8,
+        'Underwear': 0.2,
+        'Sport Clothing': 0.6,
+        'High-end': 1.0,
+        'Watches': 0.5,
+        'Lego': 0.7,
+        'Accesories': 0.3,
+        'Football': 0.8,
+        'Basketball': 0.8,
+    };
+
+    function inferCategory(name) {
+        const t = String(name || '').toLowerCase();
+        if (/\b(jordan|dunk|air force|air max|yeezy|samba|gazelle|sneaker|trainer|cortez|vomero|new balance|\bnb\b|asics|crocs|slide|sandal|slipper)\b/.test(t)) return 'Sneakers';
+        if (/\b(hoodie|hoody|hooded|crewneck|crew neck|sweatshirt|sweater|tracksuit|track suit)\b/.test(t)) return 'Hoodies/Crewnecks';
+        if (/\b(t-shirt|tshirt|tee|polo)\b/.test(t)) return 'T-shirts';
+        if (/\b(jersey|jerseys|trikot)\b/.test(t)) return "Jersey's";
+        if (/\b(jacket|puffer|parka|bomber|windbreaker|coat)\b/.test(t)) return 'Jackets';
+        if (/\b(vest|gilet|waistcoat)\b/.test(t)) return 'Vests';
+        if (/\bshorts?\b/.test(t)) return 'Shorts';
+        if (/\b(jeans|pants|trousers|joggers|sweatpants|cargo|chinos|denim)\b/.test(t)) return 'Pants';
+        if (/\b(rolex|patek|audemars|richard mille|cartier watch|apple watch|watch)\b/.test(t)) return 'Watches';
+        if (/\blego\b/.test(t)) return 'Lego';
+        return null;
+    }
+
+    function estimateWeight(item) {
+        const cat = item.category || inferCategory(item.name);
+        const kg = CATEGORY_WEIGHTS[cat];
+        return (typeof kg === 'number' ? kg : 0.5) * (Number(item.qty) || 1);
+    }
+
+    function formatWeight(kg) {
+        if (kg <= 0) return '—';
+        if (kg < 1) return `${Math.round(kg * 1000)} g`;
+        return `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
+    }
+
     function parsePriceNum(str) {
         const s = String(str || '').replace(/[^\d.,-]/g, '').replace(/,/g, '.');
         const n = parseFloat(s);
@@ -96,15 +142,21 @@
 
     function updateTotal(items) {
         const el = document.getElementById('cartTotalValue');
-        if (!el) return;
-        let sum = 0;
-        let sample = '';
-        items.forEach(it => {
-            const p = parsePriceNum(it.price);
-            sum += p * (Number(it.qty) || 1);
-            if (!sample && it.price) sample = it.price;
-        });
-        el.textContent = formatTotal(sum, sample);
+        if (el) {
+            let sum = 0;
+            let sample = '';
+            items.forEach(it => {
+                const p = parsePriceNum(it.price);
+                sum += p * (Number(it.qty) || 1);
+                if (!sample && it.price) sample = it.price;
+            });
+            el.textContent = formatTotal(sum, sample);
+        }
+        const wEl = document.getElementById('cartWeightValue');
+        if (wEl) {
+            const totalKg = items.reduce((acc, it) => acc + estimateWeight(it), 0);
+            wEl.textContent = formatWeight(totalKg);
+        }
     }
 
     function render() {

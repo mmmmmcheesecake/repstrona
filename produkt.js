@@ -19,6 +19,7 @@ const sheetName = params.get('name') || '';
 const sheetBatch = params.get('batch') || '';
 const budgetUrl = params.get('budget') ? ensureRef(params.get('budget')) : null;
 const imageOverride = params.get('img') || '';
+const productCategory = params.get('cat') || '';
 
 const state = {
     properties: [],
@@ -315,6 +316,7 @@ function bindAddToCart() {
             batch: sheetBatch || '',
             color: selectedNameFor(0),
             size: selectedNameFor(1),
+            category: productCategory || '',
             qty: 1,
         };
         window.RePluGCart.add(item);
