@@ -15,7 +15,7 @@ let sortMode = 'default';
 const CATEGORIES = [
     'Sneakers', 'Hoodies/Crewnecks', 'Shorts', 'Underwear', 'Sport Clothing',
     'Accesories', 'T-shirts', 'High-end', "Jersey's",
-    'Lego', 'Jackets', 'Tracksuits', 'Vests',
+    'Lego', 'Jackets', 'Vests',
     'Pants', 'Watches', 'Football', 'Basketball'
 ];
 
@@ -49,6 +49,7 @@ function strongCategoryHint(name) {
     if (/\b(jacket|jackets|puffer|parka|bomber|windbreaker|down jacket|trench coat|peacoat|varsity jacket)\b/.test(text)) return 'Jackets';
     if (/\b(vest|gilet|waistcoat)\b/.test(text)) return 'Vests';
     if (/\b(crewneck|crew neck|sweatshirt)\b/.test(text)) return 'Hoodies/Crewnecks';
+    if (/\b(tracksuit|track suit|jogging suit|track set|dres)\b/.test(text)) return 'Hoodies/Crewnecks';
     if (/\bshorts?\b/.test(text)) return 'Shorts';
     if (/\b(jeans|trousers|joggers|sweatpants|cargo pants|chinos|denim pants)\b/.test(text)) return 'Pants';
     if (/\bpants\b/.test(text)) return 'Pants';
@@ -146,9 +147,10 @@ const CATEGORY_ALIASES = {
     'zegarki': 'Watches',
     'underwear': 'Underwear',
     'bielizna': 'Underwear',
-    'tracksuit': 'Tracksuits',
-    'dres': 'Tracksuits',
-    'dresy': 'Tracksuits',
+    'tracksuit': 'Hoodies/Crewnecks',
+    'tracksuits': 'Hoodies/Crewnecks',
+    'dres': 'Hoodies/Crewnecks',
+    'dresy': 'Hoodies/Crewnecks',
 };
 
 function normalizeCategory(cat) {
@@ -175,7 +177,7 @@ function detectCategory(name, description = '') {
     if (/\b(backpack|handbag|tote|duffle|duffel|luggage|suitcase|crossbody|messenger|fanny pack|bumbag|sling)\b/.test(text)) return 'Accesories';
     if (/\bbag(s)?\b/.test(text) && !/\bairbag\b/.test(text)) return 'Accesories';
     if (/\bbelt(s)?\b/.test(text)) return 'Accesories';
-    if (/\b(tracksuit|track suit|jogging suit|track set)\b/.test(text)) return 'Tracksuits';
+    if (/\b(tracksuit|track suit|jogging suit|track set)\b/.test(text)) return 'Hoodies/Crewnecks';
     if (/\b(jacket|parka|puffer|coat|varsity|bomber|windbreaker|anorak|trench|down jacket|peacoat)\b/.test(text)) return 'Jackets';
     if (/\b(vest|gilet|waistcoat)\b/.test(text)) return 'Vests';
     if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodies/Crewnecks';
