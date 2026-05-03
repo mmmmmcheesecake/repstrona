@@ -743,10 +743,14 @@ function cardHTML(p) {
         detailHref = `produkt.html?${q.toString()}`;
     }
 
+    const cartHref = detailHref === '#' ? '#' : `${detailHref}&focus=cart`;
+    const addLabel = T('card.add', '+ Cart');
+
     return `
     <a href="${detailHref}" class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
             ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
+            <button type="button" class="card-add" data-stop data-cart-href="${cartHref}">${escapeHtml(addLabel)}</button>
         </div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(p.name)}</p>
@@ -776,7 +780,12 @@ function renderGrid() {
     grid.innerHTML = items.map(cardHTML).join('');
 
     grid.querySelectorAll('[data-stop]').forEach(el => {
-        el.addEventListener('click', e => e.stopPropagation());
+        el.addEventListener('click', e => {
+            e.stopPropagation();
+            e.preventDefault();
+            const href = el.dataset.cartHref;
+            if (href) location.href = href;
+        });
     });
 }
 

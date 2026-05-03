@@ -280,4 +280,56 @@ if (window.RePluGI18n) {
     });
 }
 
+function selectedNameFor(propIdx) {
+    const prop = state.properties[propIdx];
+    if (!prop) return '';
+    const valId = state.selected[prop.propId];
+    if (!valId) return '';
+    const v = (prop.valuesList || []).find(x => x.valueId === valId);
+    return v ? v.valueName : '';
+}
+
+function currentMainImage() {
+    const img = el('pdMainImg');
+    return (img && img.src) ? img.src : (imageOverride || '');
+}
+
+function showCartToast(msg) {
+    const t = el('pdCartToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.display = '';
+    clearTimeout(showCartToast._tm);
+    showCartToast._tm = setTimeout(() => { t.style.display = 'none'; }, 2000);
+}
+
+function bindAddToCart() {
+    const btn = el('pdAddToCart');
+    if (!btn || !window.RePluGCart) return;
+    btn.addEventListener('click', () => {
+        const item = {
+            link: productUrl,
+            name: el('pdName').textContent || sheetName || '',
+            image: currentMainImage(),
+            price: el('pdPrice').textContent || '',
+            batch: sheetBatch || '',
+            color: selectedNameFor(0),
+            size: selectedNameFor(1),
+            qty: 1,
+        };
+        window.RePluGCart.add(item);
+        showCartToast(T('cart.added', 'Added to cart'));
+    });
+
+    if (params.get('focus') === 'cart') {
+        setTimeout(() => {
+            btn.classList.add('pd-add-cart-flash');
+            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => btn.classList.remove('pd-add-cart-flash'), 1600);
+        }, 600);
+    }
+}
+
+bindAddToCart();
+
 load();
