@@ -113,10 +113,30 @@
         link.id = 'cartLink';
         link.href = 'koszyk.html';
         link.className = 'cart-link';
+        link.innerHTML = `
+            <svg class="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.5L22 7H6"/>
+                <circle cx="9" cy="20" r="1.4"/>
+                <circle cx="18" cy="20" r="1.4"/>
+            </svg>
+            <span class="cart-label"></span>
+            <span class="cart-count" hidden></span>
+        `;
+
+        const labelEl = link.querySelector('.cart-label');
+        const countEl = link.querySelector('.cart-count');
 
         function update() {
             const n = count();
-            link.textContent = T('cart.nav', 'Cart') + (n > 0 ? ` (${n})` : '');
+            labelEl.textContent = T('cart.nav', 'Cart');
+            link.setAttribute('aria-label', T('cart.nav', 'Cart') + (n > 0 ? ` (${n})` : ''));
+            if (n > 0) {
+                countEl.textContent = `(${n})`;
+                countEl.removeAttribute('hidden');
+            } else {
+                countEl.textContent = '';
+                countEl.setAttribute('hidden', '');
+            }
         }
         update();
         onChange(update);

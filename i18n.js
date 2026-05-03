@@ -6,7 +6,7 @@
     const DICT = {
         en: {
             'nav.discord': 'Discord',
-            'nav.usfans': 'Sign up USFans',
+            'nav.usfans': 'Claim coupons',
             'nav.lang.label': 'Language',
             'nav.cur.label': 'Currency',
             'hero.headline.main': '2900+ products',
@@ -59,7 +59,7 @@
         },
         pl: {
             'nav.discord': 'Discord',
-            'nav.usfans': '20% OFF USFANS',
+            'nav.usfans': 'Odbierz kupony',
             'nav.lang.label': 'Język',
             'nav.cur.label': 'Waluta',
             'hero.headline.main': '2900+ produktów',
