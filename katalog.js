@@ -637,11 +637,20 @@ function isMobile() {
     return window.matchMedia('(max-width: 768px)').matches;
 }
 
+function getStickyBottom() {
+    const cat = document.querySelector('.cat-bar.cat-bar-main');
+    if (!cat) return 170;
+    const cs = getComputedStyle(cat);
+    const stickyTop = parseFloat(cs.top) || 111;
+    return stickyTop + cat.offsetHeight;
+}
+
 function scrollToProducts(opts) {
     const target = document.getElementById('resultsInfo') || document.getElementById('productsGrid');
     if (!target) return;
-    const top = target.getBoundingClientRect().top + window.scrollY - 12;
-    window.scrollTo({ top, behavior: (opts && opts.smooth) ? 'smooth' : 'auto' });
+    const offset = getStickyBottom() + 8;
+    const top = target.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: (opts && opts.smooth) ? 'smooth' : 'auto' });
 }
 
 function selectCategory(cat) {
