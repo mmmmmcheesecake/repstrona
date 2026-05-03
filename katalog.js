@@ -13,17 +13,17 @@ let searchQuery = '';
 let sortMode = 'default';
 
 const CATEGORIES = [
-    'Sneakers', 'Hoodie', 'Shorts', 'Underwear', 'Crewnecks', 'Sport Clothing',
-    'Accesories', 'T-shirts', 'Electronics', 'Bags', 'High-end', "Jersey's",
-    'Jewelry', 'Lego', 'Jackets', 'Tracksuits', 'Sunglasses', 'Belt', 'Vests',
-    'Pants', "Mask's & hats", 'Watches', 'Football', 'Basketball', 'Perfume'
+    'Sneakers', 'Hoodies/Crewnecks', 'Shorts', 'Underwear', 'Sport Clothing',
+    'Accesories', 'T-shirts', 'High-end', "Jersey's",
+    'Lego', 'Jackets', 'Tracksuits', 'Vests',
+    'Pants', 'Watches', 'Football', 'Basketball'
 ];
 
 const HERO_OTHER = '__OTHER__';
 const HERO_TILES = [
-    { id: 'Sneakers',   label: 'Sneakers' },
-    { id: 'Hoodie',     label: 'Hoodies' },
-    { id: 'T-shirts',   label: 'T-shirts' },
+    { id: 'Sneakers',           label: 'Sneakers' },
+    { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
+    { id: 'T-shirts',           label: 'T-shirts' },
     { id: 'Jackets',    label: 'Jackets' },
     { id: 'Pants',      label: 'Pants' },
     { id: 'Shorts',     label: 'Shorts' },
@@ -41,26 +41,26 @@ function strongCategoryHint(name) {
 
     if (/\b(rolex|patek philippe|audemars piguet|richard mille|apple watch)\b/.test(text)) return 'Watches';
 
-    if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodie';
+    if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodies/Crewnecks';
     if (/\b(t-shirt|t-shirts|tshirt|tshirts|\btee\b|\btees\b)\b/.test(text)) return 'T-shirts';
     if (/\b(jersey|jerseys|jersyes|trikot)\b/.test(text)) return "Jersey's";
-    if (/\bbelt bag\b/.test(text)) return 'Bags';
-    if (/\b(backpack)\b/.test(text)) return 'Bags';
+    if (/\bbelt bag\b/.test(text)) return 'Accesories';
+    if (/\b(backpack)\b/.test(text)) return 'Accesories';
     if (/\b(jacket|jackets|puffer|parka|bomber|windbreaker|down jacket|trench coat|peacoat|varsity jacket)\b/.test(text)) return 'Jackets';
     if (/\b(vest|gilet|waistcoat)\b/.test(text)) return 'Vests';
-    if (/\b(crewneck|crew neck|sweatshirt)\b/.test(text)) return 'Crewnecks';
+    if (/\b(crewneck|crew neck|sweatshirt)\b/.test(text)) return 'Hoodies/Crewnecks';
     if (/\bshorts?\b/.test(text)) return 'Shorts';
     if (/\b(jeans|trousers|joggers|sweatpants|cargo pants|chinos|denim pants)\b/.test(text)) return 'Pants';
     if (/\bpants\b/.test(text)) return 'Pants';
 
-    if (/\b(beanie|bucket hat|snapback|balaclava|skull cap|durag|ski mask)\b/.test(text)) return "Mask's & hats";
-    if (/\bbelt(s)?\b/.test(text)) return 'Belt';
-    if (/\b(handbag|tote|duffle|duffel|crossbody|messenger bag|fanny pack|bumbag)\b/.test(text)) return 'Bags';
-    if (/\b(sunglasses|sunglass)\b/.test(text)) return 'Sunglasses';
-    if (/\b(necklace|bracelet|earrings|pendant|cuban link)\b/.test(text)) return 'Jewelry';
-    if (/\b(airpods|iphone|ipad|macbook|airtag|drone|gopro)\b/.test(text)) return 'Electronics';
+    if (/\b(beanie|bucket hat|snapback|balaclava|skull cap|durag|ski mask)\b/.test(text)) return 'Accesories';
+    if (/\bbelt(s)?\b/.test(text)) return 'Accesories';
+    if (/\b(handbag|tote|duffle|duffel|crossbody|messenger bag|fanny pack|bumbag)\b/.test(text)) return 'Accesories';
+    if (/\b(sunglasses|sunglass)\b/.test(text)) return 'Accesories';
+    if (/\b(necklace|bracelet|earrings|pendant|cuban link)\b/.test(text)) return 'Accesories';
+    if (/\b(airpods|iphone|ipad|macbook|airtag|drone|gopro)\b/.test(text)) return 'Accesories';
 
-    if (/\b(perfume|fragrance|cologne|eau de (parfum|toilette))\b/.test(text)) return 'Perfume';
+    if (/\b(perfume|fragrance|cologne|eau de (parfum|toilette))\b/.test(text)) return 'Accesories';
     if (/\blego\b/.test(text)) return 'Lego';
 
     if (/\b(slides|slipper|slippers|sandal|sandals|crocs|foamposite)\b/.test(text)) return 'Sneakers';
@@ -69,12 +69,96 @@ function strongCategoryHint(name) {
     return null;
 }
 
+const CATEGORY_ALIASES = {
+    'accessories': 'Accesories',
+    'accesories': 'Accesories',
+    'akcesoria': 'Accesories',
+    'inne': 'Accesories',
+    'other': 'Accesories',
+    'sneaker': 'Sneakers',
+    'shoes': 'Sneakers',
+    'buty': 'Sneakers',
+    'hoodie': 'Hoodies/Crewnecks',
+    'hoodies': 'Hoodies/Crewnecks',
+    'bluza': 'Hoodies/Crewnecks',
+    'bluzy': 'Hoodies/Crewnecks',
+    'crewneck': 'Hoodies/Crewnecks',
+    'crewnecks': 'Hoodies/Crewnecks',
+    'sweatshirt': 'Hoodies/Crewnecks',
+    'sweatshirts': 'Hoodies/Crewnecks',
+    'sweter': 'Hoodies/Crewnecks',
+    'swetry': 'Hoodies/Crewnecks',
+    'jumper': 'Hoodies/Crewnecks',
+    'pullover': 'Hoodies/Crewnecks',
+    't-shirt': 'T-shirts',
+    'tshirt': 'T-shirts',
+    'tshirts': 'T-shirts',
+    'tee': 'T-shirts',
+    'tees': 'T-shirts',
+    'koszulka': 'T-shirts',
+    'koszulki': 'T-shirts',
+    'jersey': "Jersey's",
+    'jerseys': "Jersey's",
+    'jacket': 'Jackets',
+    'kurtka': 'Jackets',
+    'kurtki': 'Jackets',
+    'vest': 'Vests',
+    'kamizelka': 'Vests',
+    'short': 'Shorts',
+    'spodenki': 'Shorts',
+    'pant': 'Pants',
+    'spodnie': 'Pants',
+    'mask': 'Accesories',
+    'masks': 'Accesories',
+    "mask's & hats": 'Accesories',
+    'mask & hats': 'Accesories',
+    'masks & hats': 'Accesories',
+    'hat': 'Accesories',
+    'hats': 'Accesories',
+    'cap': 'Accesories',
+    'caps': 'Accesories',
+    'czapka': 'Accesories',
+    'czapki': 'Accesories',
+    'belt': 'Accesories',
+    'belts': 'Accesories',
+    'pasek': 'Accesories',
+    'paski': 'Accesories',
+    'bag': 'Accesories',
+    'bags': 'Accesories',
+    'torba': 'Accesories',
+    'torby': 'Accesories',
+    'sunglass': 'Accesories',
+    'sunglasses': 'Accesories',
+    'okulary': 'Accesories',
+    'jewelry': 'Accesories',
+    'jewellery': 'Accesories',
+    'bizuteria': 'Accesories',
+    'biżuteria': 'Accesories',
+    'electronic': 'Accesories',
+    'electronics': 'Accesories',
+    'elektronika': 'Accesories',
+    'perfume': 'Accesories',
+    'fragrance': 'Accesories',
+    'cologne': 'Accesories',
+    'perfumy': 'Accesories',
+    'watch': 'Watches',
+    'zegarek': 'Watches',
+    'zegarki': 'Watches',
+    'underwear': 'Underwear',
+    'bielizna': 'Underwear',
+    'tracksuit': 'Tracksuits',
+    'dres': 'Tracksuits',
+    'dresy': 'Tracksuits',
+};
+
 function normalizeCategory(cat) {
     if (!cat) return cat;
     const c = String(cat).trim();
-    if (/^accessories$/i.test(c)) return 'Accesories';
-    if (/^inne$/i.test(c)) return 'Accesories';
-    if (/^other$/i.test(c)) return 'Accesories';
+    if (!c) return null;
+    const key = c.toLowerCase();
+    if (CATEGORY_ALIASES[key]) return CATEGORY_ALIASES[key];
+    const canonical = CATEGORIES.find(x => x.toLowerCase() === key);
+    if (canonical) return canonical;
     return c;
 }
 
@@ -82,27 +166,27 @@ function detectCategory(name, description = '') {
     const text = ((name || '') + ' ' + (description || '')).toLowerCase();
 
     if (/\blego\b/.test(text)) return 'Lego';
-    if (/\b(perfume|fragrance|cologne|eau de (parfum|toilette)|edp|edt|parfum)\b/.test(text)) return 'Perfume';
+    if (/\b(perfume|fragrance|cologne|eau de (parfum|toilette)|edp|edt|parfum)\b/.test(text)) return 'Accesories';
     if (/\b(rolex|patek|audemars|cartier watch|richard mille|omega watch|hublot|tag heuer|ap watch|datejust|submariner|daytona|gmt|nautilus)\b/.test(text)) return 'Watches';
     if (/\bwatch(es)?\b/.test(text) && !/\bwatchcase\b/.test(text)) return 'Watches';
-    if (/\b(sunglasses|sunglass|shades|eyewear|goggles|aviators)\b/.test(text)) return 'Sunglasses';
-    if (/\b(necklace|bracelet|earring|earrings|cuban link|chain|pendant|jewelry|jewellery|cufflink|brooch|anklet|ring)\b/.test(text)) return 'Jewelry';
-    if (/\b(airpods|iphone|ipad|macbook|airtag|earbud|earbuds|headphone|headphones|charger|earpods|ps5|ps4|console|nintendo|xbox|samsung galaxy|smartwatch|apple watch|drone|gopro)\b/.test(text)) return 'Electronics';
-    if (/\b(backpack|handbag|tote|duffle|duffel|luggage|suitcase|crossbody|messenger|fanny pack|bumbag|sling)\b/.test(text)) return 'Bags';
-    if (/\bbag(s)?\b/.test(text) && !/\bairbag\b/.test(text)) return 'Bags';
-    if (/\bbelt(s)?\b/.test(text)) return 'Belt';
+    if (/\b(sunglasses|sunglass|shades|eyewear|goggles|aviators)\b/.test(text)) return 'Accesories';
+    if (/\b(necklace|bracelet|earring|earrings|cuban link|chain|pendant|jewelry|jewellery|cufflink|brooch|anklet|ring)\b/.test(text)) return 'Accesories';
+    if (/\b(airpods|iphone|ipad|macbook|airtag|earbud|earbuds|headphone|headphones|charger|earpods|ps5|ps4|console|nintendo|xbox|samsung galaxy|smartwatch|apple watch|drone|gopro)\b/.test(text)) return 'Accesories';
+    if (/\b(backpack|handbag|tote|duffle|duffel|luggage|suitcase|crossbody|messenger|fanny pack|bumbag|sling)\b/.test(text)) return 'Accesories';
+    if (/\bbag(s)?\b/.test(text) && !/\bairbag\b/.test(text)) return 'Accesories';
+    if (/\bbelt(s)?\b/.test(text)) return 'Accesories';
     if (/\b(tracksuit|track suit|jogging suit|track set)\b/.test(text)) return 'Tracksuits';
     if (/\b(jacket|parka|puffer|coat|varsity|bomber|windbreaker|anorak|trench|down jacket|peacoat)\b/.test(text)) return 'Jackets';
     if (/\b(vest|gilet|waistcoat)\b/.test(text)) return 'Vests';
-    if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodie';
-    if (/\b(crewneck|crew neck|sweatshirt|jumper|sweater|cardigan|pullover|knit)\b/.test(text)) return 'Crewnecks';
+    if (/\b(hoodie|hoody|hooded)\b/.test(text)) return 'Hoodies/Crewnecks';
+    if (/\b(crewneck|crew neck|sweatshirt|jumper|sweater|cardigan|pullover|knit)\b/.test(text)) return 'Hoodies/Crewnecks';
     if (/\bjersey|trikot|kit\b/.test(text)) return "Jersey's";
     if (/\b(t-shirt|tshirt|tee|polo shirt|polo)\b/.test(text)) return 'T-shirts';
     if (/\bshorts?\b/.test(text)) return 'Shorts';
     if (/\b(jeans|trousers|pants|sweatpants|joggers|cargo|leggings|chinos|denim)\b/.test(text)) return 'Pants';
     if (/\b(boxer|boxers|briefs|underwear|thong|panty|panties|lingerie)\b/.test(text)) return 'Underwear';
-    if (/\b(beanie|bucket hat|baseball cap|snapback|fedora|balaclava|skull cap|durag|ski mask|face mask)\b/.test(text)) return "Mask's & hats";
-    if (/\b(cap|hat|mask)\b/.test(text)) return "Mask's & hats";
+    if (/\b(beanie|bucket hat|baseball cap|snapback|fedora|balaclava|skull cap|durag|ski mask|face mask)\b/.test(text)) return 'Accesories';
+    if (/\b(cap|hat|mask)\b/.test(text)) return 'Accesories';
     if (/\b(football boot|soccer ball|football ball|matchball|football jersey)\b/.test(text)) return 'Football';
     if (/\b(basketball ball|basketball hoop|basketball jersey)\b/.test(text)) return 'Basketball';
     if (/\b(jordan|dunk|air force|air max|yeezy|samba|gazelle|campus|spezial|new balance|\bnb\b|cortez|vomero|sneaker|shoe|trainer|runner|sb dunk|ultraboost|nmd|ozweego|asics|huarache|loafer|sandal|slide|slipper|foamposite|boot|kobe|lebron|kyrie|kd|adidas |nike |puma)\b/.test(text)) return 'Sneakers';
@@ -286,12 +370,12 @@ async function fetchProducts() {
         const ai = aiTags[tagKey(p.link)] || {};
 
         const hint = strongCategoryHint(p.name);
-        const category = p.categoryOverride
+        const category = normalizeCategory(p.categoryOverride)
             || hint
             || normalizeCategory(ai.category)
             || auto.category;
-        const brand    = p.brandOverride    || ai.brand    || auto.brand;
-        const model    = p.modelOverride    || ai.model    || auto.model;
+        const brand    = (p.brandOverride && p.brandOverride.trim()) || ai.brand || auto.brand;
+        const model    = (p.modelOverride && p.modelOverride.trim()) || ai.model || auto.model;
 
         return {
             name: p.name,
@@ -803,14 +887,66 @@ function setupLazyEnrichment() {
     }
 }
 
+const CATALOG_STATE_KEY = 'repluG:catalogState';
+
+function saveCatalogState() {
+    try {
+        sessionStorage.setItem(CATALOG_STATE_KEY, JSON.stringify({
+            activeCategory, activeBrand, activeModel,
+            searchQuery, sortMode,
+            scrollY: window.scrollY || window.pageYOffset || 0,
+            path: location.pathname,
+            ts: Date.now(),
+        }));
+    } catch {}
+}
+
+function consumeReturnState() {
+    try {
+        const ref = document.referrer || '';
+        const fromProduct = /\/produkt\.html(\?|$|#)/.test(ref);
+        if (!fromProduct) return null;
+        const raw = sessionStorage.getItem(CATALOG_STATE_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || Date.now() - (s.ts || 0) > 30 * 60 * 1000) return null;
+        if (s.path && s.path !== location.pathname) return null;
+        return s;
+    } catch { return null; }
+}
+
+window.addEventListener('pagehide', saveCatalogState);
+window.addEventListener('pageshow', e => {
+    if (e.persisted) {
+        const fly = document.getElementById('catFlyout');
+        if (fly) fly.classList.remove('open');
+    }
+});
+
 async function init() {
     try {
         allProducts = dedupProducts(await fetchProducts());
         document.getElementById('loadingState').style.display = 'none';
 
+        const returnState = consumeReturnState();
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
-        if (kat) {
+
+        if (returnState) {
+            if (returnState.activeCategory) activeCategory = returnState.activeCategory;
+            if (returnState.activeBrand) activeBrand = returnState.activeBrand;
+            if (returnState.activeModel) activeModel = returnState.activeModel;
+            if (returnState.sortMode) {
+                sortMode = returnState.sortMode;
+                const sel = document.getElementById('sortSelect');
+                if (sel) sel.value = sortMode;
+            }
+            if (returnState.searchQuery) {
+                searchQuery = returnState.searchQuery;
+                const inp = document.getElementById('searchInput');
+                if (inp) inp.value = searchQuery;
+            }
+        } else if (kat) {
             if (kat.toLowerCase() === 'other') {
                 activeCategory = HERO_OTHER;
             } else {
@@ -831,6 +967,15 @@ async function init() {
         renderGrid();
         setupLazyEnrichment();
         eagerEnrichTileReprs();
+
+        if (returnState && typeof returnState.scrollY === 'number') {
+            const targetY = returnState.scrollY;
+            const tryScroll = () => window.scrollTo(0, targetY);
+            tryScroll();
+            requestAnimationFrame(tryScroll);
+            setTimeout(tryScroll, 60);
+            setTimeout(tryScroll, 200);
+        }
     } catch (e) {
         console.error(e);
         showError(T('state.errorProducts', 'Failed to load products.'));
