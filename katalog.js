@@ -891,6 +891,10 @@ function setupLazyEnrichment() {
 
 const CATALOG_STATE_KEY = 'repluG:catalogState';
 
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
+
 function saveCatalogState() {
     try {
         sessionStorage.setItem(CATALOG_STATE_KEY, JSON.stringify({
@@ -903,11 +907,8 @@ function saveCatalogState() {
     } catch {}
 }
 
-function consumeReturnState() {
+function readCatalogState() {
     try {
-        const ref = document.referrer || '';
-        const fromProduct = /\/produkt\.html(\?|$|#)/.test(ref);
-        if (!fromProduct) return null;
         const raw = sessionStorage.getItem(CATALOG_STATE_KEY);
         if (!raw) return null;
         const s = JSON.parse(raw);
@@ -918,10 +919,17 @@ function consumeReturnState() {
 }
 
 window.addEventListener('pagehide', saveCatalogState);
+window.addEventListener('beforeunload', saveCatalogState);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveCatalogState();
+});
+
 window.addEventListener('pageshow', e => {
+    const fly = document.getElementById('catFlyout');
+    if (fly) fly.classList.remove('open');
     if (e.persisted) {
-        const fly = document.getElementById('catFlyout');
-        if (fly) fly.classList.remove('open');
+        const s = readCatalogState();
+        if (s && typeof s.scrollY === 'number') window.scrollTo(0, s.scrollY);
     }
 });
 
@@ -930,7 +938,7 @@ async function init() {
         allProducts = dedupProducts(await fetchProducts());
         document.getElementById('loadingState').style.display = 'none';
 
-        const returnState = consumeReturnState();
+        const returnState = readCatalogState();
         const params = new URLSearchParams(window.location.search);
         const kat = params.get('kategoria');
 
@@ -977,6 +985,8 @@ async function init() {
             requestAnimationFrame(tryScroll);
             setTimeout(tryScroll, 60);
             setTimeout(tryScroll, 200);
+            setTimeout(tryScroll, 500);
+            setTimeout(tryScroll, 1000);
         }
     } catch (e) {
         console.error(e);
