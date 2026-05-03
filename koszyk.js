@@ -116,6 +116,42 @@
         return `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
     }
 
+    const SHIPPING_RATES = {
+        PL:    { base: 10, perKg: 16, min: 18 },
+        EU:    { base: 12, perKg: 18, min: 22 },
+        UK:    { base: 14, perKg: 20, min: 26 },
+        NA:    { base: 12, perKg: 16, min: 22 },
+        WORLD: { base: 16, perKg: 24, min: 30 },
+    };
+    const REGION_KEY = 'repluG:shipRegion';
+
+    function getRegion() {
+        const v = localStorage.getItem(REGION_KEY);
+        if (v && SHIPPING_RATES[v]) return v;
+        return 'PL';
+    }
+
+    function setRegion(v) {
+        if (SHIPPING_RATES[v]) {
+            try { localStorage.setItem(REGION_KEY, v); } catch {}
+        }
+    }
+
+    function shippingUsd(kg, region) {
+        const r = SHIPPING_RATES[region] || SHIPPING_RATES.PL;
+        const billable = Math.max(kg, 0.5);
+        return Math.max(r.min, r.base + r.perKg * billable);
+    }
+
+    function formatUsd(n) {
+        if (window.RePluGCurrency && typeof window.RePluGCurrency.format === 'function') {
+            const f = window.RePluGCurrency.format(n);
+            if (f) return f;
+        }
+        const r = Math.round(n * 100) / 100;
+        return `$${r % 1 === 0 ? r : r.toFixed(2)}`;
+    }
+
     function parsePriceNum(str) {
         const s = String(str || '').replace(/[^\d.,-]/g, '').replace(/,/g, '.');
         const n = parseFloat(s);
@@ -141,22 +177,28 @@
     }
 
     function updateTotal(items) {
-        const el = document.getElementById('cartTotalValue');
-        if (el) {
-            let sum = 0;
-            let sample = '';
-            items.forEach(it => {
-                const p = parsePriceNum(it.price);
-                sum += p * (Number(it.qty) || 1);
-                if (!sample && it.price) sample = it.price;
-            });
-            el.textContent = formatTotal(sum, sample);
-        }
+        let subtotal = 0;
+        let sample = '';
+        items.forEach(it => {
+            const p = parsePriceNum(it.price);
+            subtotal += p * (Number(it.qty) || 1);
+            if (!sample && it.price) sample = it.price;
+        });
+
+        const totalEl = document.getElementById('cartTotalValue');
+        if (totalEl) totalEl.textContent = formatTotal(subtotal, sample);
+
+        const totalKg = items.reduce((acc, it) => acc + estimateWeight(it), 0);
         const wEl = document.getElementById('cartWeightValue');
-        if (wEl) {
-            const totalKg = items.reduce((acc, it) => acc + estimateWeight(it), 0);
-            wEl.textContent = formatWeight(totalKg);
-        }
+        if (wEl) wEl.textContent = formatWeight(totalKg);
+
+        const region = getRegion();
+        const shipping = shippingUsd(totalKg, region);
+        const shipEl = document.getElementById('cartShippingValue');
+        if (shipEl) shipEl.textContent = formatUsd(shipping);
+
+        const grandEl = document.getElementById('cartGrandValue');
+        if (grandEl) grandEl.textContent = formatUsd(subtotal + shipping);
     }
 
     function render() {
@@ -276,6 +318,15 @@
         bindShare();
         bindClear();
         bindClone();
+
+        const regionSel = document.getElementById('cartRegion');
+        if (regionSel) {
+            regionSel.value = getRegion();
+            regionSel.addEventListener('change', () => {
+                setRegion(regionSel.value);
+                render();
+            });
+        }
 
         if (mode === 'own') {
             window.RePluGCart.onChange(render);

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n-title="cart.title">Cart — RePluG</title>
-    <link rel="stylesheet" href="style.css?v=28">
+    <link rel="stylesheet" href="style.css?v=29">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -48,6 +48,24 @@
                     <span class="cart-weight-label" data-i18n="cart.weight">Approx. weight</span>
                     <span class="cart-weight-value" id="cartWeightValue"></span>
                 </div>
+                <div class="cart-ship-row">
+                    <label class="cart-ship-label" for="cartRegion" data-i18n="cart.shipTo">Ship to</label>
+                    <select id="cartRegion" class="cart-region">
+                        <option value="PL" data-i18n="cart.region.PL">Poland</option>
+                        <option value="EU" data-i18n="cart.region.EU">Other EU</option>
+                        <option value="UK" data-i18n="cart.region.UK">United Kingdom</option>
+                        <option value="NA" data-i18n="cart.region.NA">USA / Canada</option>
+                        <option value="WORLD" data-i18n="cart.region.WORLD">Rest of world</option>
+                    </select>
+                </div>
+                <div class="cart-shipping-row">
+                    <span class="cart-shipping-label" data-i18n="cart.shipping">Shipping (est.)</span>
+                    <span class="cart-shipping-value" id="cartShippingValue"></span>
+                </div>
+                <div class="cart-grand-row">
+                    <span class="cart-grand-label" data-i18n="cart.grandTotal">Grand total (est.)</span>
+                    <span class="cart-grand-value" id="cartGrandValue"></span>
+                </div>
                 <div class="cart-actions">
                     <button id="cartShare" class="card-btn primary" data-i18n="cart.share">Copy share link</button>
                     <button id="cartClear" class="card-btn cart-clear" data-i18n="cart.clear">Clear cart</button>
@@ -67,10 +85,10 @@
         </div>
     </footer>
 
-    <script src="i18n.js?v=6"></script>
+    <script src="i18n.js?v=7"></script>
     <script src="script.js?v=11"></script>
     <script src="currency.js?v=3"></script>
     <script src="cart.js?v=3"></script>
-    <script src="koszyk.js?v=3"></script>
+    <script src="koszyk.js?v=4"></script>
 </body>
 </html>
