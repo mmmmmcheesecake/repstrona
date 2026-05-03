@@ -1003,6 +1003,25 @@ button, input, select { font-family: inherit; color: inherit; }
     flex-direction: column;
     gap: 14px;
 }
+.cart-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+}
+.cart-total-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+.cart-total-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text);
+}
 .cart-actions {
     display: flex;
     flex-wrap: wrap;

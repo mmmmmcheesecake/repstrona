@@ -70,6 +70,43 @@
         </div>`;
     }
 
+    function parsePriceNum(str) {
+        const s = String(str || '').replace(/[^\d.,-]/g, '').replace(/,/g, '.');
+        const n = parseFloat(s);
+        return isFinite(n) ? n : 0;
+    }
+
+    function priceSymbol(str) {
+        const s = String(str || '');
+        const m = s.match(/[^\d\s.,-]+/);
+        return m ? m[0].trim() : '';
+    }
+
+    function formatTotal(n, sample) {
+        if (window.RePluGCurrency && typeof window.RePluGCurrency.format === 'function') {
+            const formatted = window.RePluGCurrency.format(n);
+            if (formatted) return formatted;
+        }
+        const sym = priceSymbol(sample);
+        const rounded = Math.round(n * 100) / 100;
+        const txt = rounded % 1 === 0 ? String(rounded) : rounded.toFixed(2);
+        if (!sym) return txt;
+        return /^[A-Za-z]/.test(sym) ? `${txt} ${sym}` : `${sym}${txt}`;
+    }
+
+    function updateTotal(items) {
+        const el = document.getElementById('cartTotalValue');
+        if (!el) return;
+        let sum = 0;
+        let sample = '';
+        items.forEach(it => {
+            const p = parsePriceNum(it.price);
+            sum += p * (Number(it.qty) || 1);
+            if (!sample && it.price) sample = it.price;
+        });
+        el.textContent = formatTotal(sum, sample);
+    }
+
     function render() {
         const items = getItems();
         const wrap = document.getElementById('cartItems');
@@ -86,6 +123,7 @@
         empty.style.display = 'none';
         footer.style.display = '';
         wrap.innerHTML = items.map(rowHTML).join('');
+        updateTotal(items);
 
         wrap.querySelectorAll('[data-act="inc"]').forEach(b => b.addEventListener('click', () => {
             const i = +b.dataset.idx;

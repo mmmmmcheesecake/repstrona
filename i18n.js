@@ -55,6 +55,7 @@
             'cart.remove': 'Remove',
             'cart.viewing': 'Viewing shared cart',
             'cart.clone': 'Save to my cart',
+            'cart.total': 'Total',
             'card.add': '+ Cart',
         },
         pl: {
@@ -108,6 +109,7 @@
             'cart.remove': 'Usuń',
             'cart.viewing': 'Przeglądasz udostępniony koszyk',
             'cart.clone': 'Zapisz do mojego koszyka',
+            'cart.total': 'Razem',
             'card.add': '+ Koszyk',
         },
     };

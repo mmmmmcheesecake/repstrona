@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n-title="cart.title">Cart — RePluG</title>
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=27">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -40,6 +40,10 @@
             <div id="cartItems" class="cart-items"></div>
 
             <div id="cartFooter" class="cart-footer" style="display:none">
+                <div class="cart-total-row">
+                    <span class="cart-total-label" data-i18n="cart.total">Total</span>
+                    <span class="cart-total-value" id="cartTotalValue"></span>
+                </div>
                 <div class="cart-actions">
                     <button id="cartShare" class="card-btn primary" data-i18n="cart.share">Copy share link</button>
                     <button id="cartClear" class="card-btn cart-clear" data-i18n="cart.clear">Clear cart</button>
@@ -59,10 +63,10 @@
         </div>
     </footer>
 
-    <script src="i18n.js?v=4"></script>
+    <script src="i18n.js?v=5"></script>
     <script src="script.js?v=11"></script>
     <script src="currency.js?v=3"></script>
     <script src="cart.js?v=2"></script>
-    <script src="koszyk.js?v=1"></script>
+    <script src="koszyk.js?v=2"></script>
 </body>
 </html>
