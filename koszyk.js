@@ -64,7 +64,7 @@
                 <div class="cart-item-meta">${badges.join(' ')}</div>
                 <div class="cart-item-row">
                     ${qtyControls}
-                    <span class="cart-item-price">${escapeHtml(it.price || '')}</span>
+                    <span class="cart-item-price">${escapeHtml(formatUsd(parsePriceNum(it.price)))}</span>
                 </div>
             </div>
         </div>`;
@@ -332,6 +332,7 @@
             window.RePluGCart.onChange(render);
         }
         if (window.RePluGI18n) window.RePluGI18n.onChange(render);
+        if (window.RePluGCurrency) window.RePluGCurrency.onChange(render);
     }
 
     if (document.readyState === 'loading') {
