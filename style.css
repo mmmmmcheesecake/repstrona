@@ -789,8 +789,17 @@ button, input, select { font-family: inherit; color: inherit; }
 
 .pd-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 8px;
+}
+.pd-add-cart {
+    flex: 0 0 100%;
+    justify-content: center;
+}
+.pd-cart-toast {
+    flex: 0 0 100%;
+    margin: 0;
 }
 
 .card-btn {
@@ -839,11 +848,7 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .cart-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-.pd-add-cart {
-    margin-top: 0;
-}
 .pd-cart-toast {
-    margin-top: 8px;
     font-size: 0.78rem;
     color: var(--text);
     letter-spacing: 0.02em;
