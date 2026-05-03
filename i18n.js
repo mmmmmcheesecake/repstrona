@@ -41,7 +41,7 @@
         },
         pl: {
             'nav.discord': 'Discord',
-            'nav.usfans': 'Zarejestruj się w USFans',
+            'nav.usfans': '20% OFF USFANS',
             'nav.lang.label': 'Język',
             'nav.cur.label': 'Waluta',
             'hero.headline.main': '2900+ produktów',
