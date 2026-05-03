@@ -94,7 +94,7 @@
             'pd.colorVariant': 'Kolor / Wariant',
             'pd.size': 'Rozmiar',
             'pd.option': 'Opcja {n}',
-            'pd.buy': 'Kup u pośrednika →',
+            'pd.buy': 'Kup u agenta →',
             'pd.budget': 'Wersja budżetowa',
             'pd.shop': 'Sklep: {name}',
             'title.catalog': 'Katalog — RePluG',

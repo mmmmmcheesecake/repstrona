@@ -802,10 +802,6 @@ button, input, select { font-family: inherit; color: inherit; }
     gap: 10px;
     margin-top: 8px;
 }
-.pd-add-cart {
-    flex: 0 0 100%;
-    justify-content: center;
-}
 .pd-cart-toast {
     flex: 0 0 100%;
     margin: 0;
