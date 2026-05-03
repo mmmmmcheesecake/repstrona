@@ -320,14 +320,6 @@ function bindAddToCart() {
         window.RePluGCart.add(item);
         showCartToast(T('cart.added', 'Added to cart'));
     });
-
-    if (params.get('focus') === 'cart') {
-        setTimeout(() => {
-            btn.classList.add('pd-add-cart-flash');
-            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => btn.classList.remove('pd-add-cart-flash'), 1600);
-        }, 600);
-    }
 }
 
 bindAddToCart();

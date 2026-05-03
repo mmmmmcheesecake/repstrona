@@ -842,38 +842,8 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .cart-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-.card-img { position: relative; }
-.card-add {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    background: rgba(255, 255, 255, 0.92);
-    color: var(--text);
-    border: 1px solid var(--text);
-    padding: 5px 10px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.12s, color 0.12s;
-    z-index: 2;
-}
-.card-add:hover { background: var(--text); color: var(--bg); }
-@media (max-width: 768px) {
-    .card-add { bottom: 6px; right: 6px; padding: 4px 8px; font-size: 0.62rem; }
-}
-
 .pd-add-cart {
     margin-top: 0;
-}
-.pd-add-cart-flash {
-    animation: pdCartFlash 0.5s ease 3;
-}
-@keyframes pdCartFlash {
-    0%, 100% { background: var(--bg); }
-    50% { background: var(--text); color: var(--bg); }
 }
 .pd-cart-toast {
     margin-top: 8px;
