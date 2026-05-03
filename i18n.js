@@ -1,0 +1,164 @@
+(function () {
+    const LANGS = ['en', 'pl'];
+    const KEY = 'lang';
+    const DEFAULT = 'en';
+
+    const DICT = {
+        en: {
+            'nav.discord': 'Discord',
+            'nav.usfans': 'Sign up USFans',
+            'nav.lang.label': 'Language',
+            'nav.cur.label': 'Currency',
+            'hero.headline.main': '2900+ products',
+            'hero.headline.sub': 'with QC photos',
+            'hero.sub': 'Trusted replicas from verified sources. Daily-updated catalog with direct agent links.',
+            'hero.cta.badge': '+$800',
+            'hero.cta.text': 'in USFans coupons',
+            'filter.search': 'Search products, batches...',
+            'sort.default': 'Default',
+            'sort.priceAsc': 'Price: low to high',
+            'sort.priceDesc': 'Price: high to low',
+            'sort.nameAsc': 'Name: A–Z',
+            'state.errorProducts': 'Failed to load products. Please refresh the page.',
+            'state.errorProduct': 'Failed to load product.',
+            'state.empty': 'No results. Try a different search or category.',
+            'state.errorBack': 'Back to catalog',
+            'footer.text': '© 2026 RePluG. For informational purposes only.',
+            'tab.all': 'All',
+            'results.count': '{n} products',
+            'pd.back': '← Back',
+            'pd.outOfStock': 'Out of stock',
+            'pd.colorVariant': 'Color / Variant',
+            'pd.size': 'Size',
+            'pd.option': 'Option {n}',
+            'pd.buy': 'Buy from agent →',
+            'pd.budget': 'Budget version',
+            'pd.shop': 'Shop: {name}',
+            'title.catalog': 'Catalog — RePluG',
+            'title.home': 'RePluG — Product Catalog',
+            'title.product': 'Product — RePluG',
+            'title.productNamed': '{name} — RePluG',
+        },
+        pl: {
+            'nav.discord': 'Discord',
+            'nav.usfans': 'Zarejestruj się w USFans',
+            'nav.lang.label': 'Język',
+            'nav.cur.label': 'Waluta',
+            'hero.headline.main': '2900+ produktów',
+            'hero.headline.sub': 'ze zdjęciami QC',
+            'hero.sub': 'Zaufane repliki ze sprawdzonych źródeł. Codziennie aktualizowany katalog z linkami do pośredników.',
+            'hero.cta.badge': '+800 USD',
+            'hero.cta.text': 'w kuponach USFans',
+            'filter.search': 'Szukaj produktów, batchy...',
+            'sort.default': 'Domyślnie',
+            'sort.priceAsc': 'Cena: od najniższej',
+            'sort.priceDesc': 'Cena: od najwyższej',
+            'sort.nameAsc': 'Nazwa: A–Z',
+            'state.errorProducts': 'Nie udało się załadować produktów. Odśwież stronę.',
+            'state.errorProduct': 'Nie udało się załadować produktu.',
+            'state.empty': 'Brak wyników. Spróbuj innego wyszukiwania lub kategorii.',
+            'state.errorBack': 'Wróć do katalogu',
+            'footer.text': '© 2026 RePluG. Wyłącznie w celach informacyjnych.',
+            'tab.all': 'Wszystkie',
+            'results.count': '{n} produktów',
+            'pd.back': '← Wróć',
+            'pd.outOfStock': 'Brak w magazynie',
+            'pd.colorVariant': 'Kolor / Wariant',
+            'pd.size': 'Rozmiar',
+            'pd.option': 'Opcja {n}',
+            'pd.buy': 'Kup u pośrednika →',
+            'pd.budget': 'Wersja budżetowa',
+            'pd.shop': 'Sklep: {name}',
+            'title.catalog': 'Katalog — RePluG',
+            'title.home': 'RePluG — Katalog produktów',
+            'title.product': 'Produkt — RePluG',
+            'title.productNamed': '{name} — RePluG',
+        },
+    };
+
+    const listeners = [];
+
+    function getLang() {
+        const v = localStorage.getItem(KEY);
+        return LANGS.includes(v) ? v : DEFAULT;
+    }
+
+    function setLang(l) {
+        if (!LANGS.includes(l)) return;
+        localStorage.setItem(KEY, l);
+        applyAll();
+        notify(l);
+    }
+
+    function onChange(fn) { listeners.push(fn); }
+
+    function notify(l) {
+        listeners.forEach(fn => { try { fn(l); } catch (e) { console.warn(e); } });
+    }
+
+    function t(key, vars) {
+        const lang = getLang();
+        let s = (DICT[lang] && DICT[lang][key]) || (DICT[DEFAULT] && DICT[DEFAULT][key]) || key;
+        if (vars) {
+            Object.keys(vars).forEach(k => {
+                s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+            });
+        }
+        return s;
+    }
+
+    function applyAll() {
+        const lang = getLang();
+        document.documentElement.setAttribute('lang', lang);
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = t(el.getAttribute('data-i18n'));
+        });
+        document.querySelectorAll('[data-i18n-html]').forEach(el => {
+            el.innerHTML = t(el.getAttribute('data-i18n-html'));
+        });
+        document.querySelectorAll('[data-i18n-attr]').forEach(el => {
+            const spec = el.getAttribute('data-i18n-attr');
+            spec.split(',').forEach(pair => {
+                const [attr, key] = pair.split(':').map(s => s.trim());
+                if (attr && key) el.setAttribute(attr, t(key));
+            });
+        });
+        const titleEl = document.querySelector('title[data-i18n-title]');
+        if (titleEl) document.title = t(titleEl.getAttribute('data-i18n-title'));
+
+        const sel = document.getElementById('langSelect');
+        if (sel) sel.value = lang;
+    }
+
+    function initPicker() {
+        const nav = document.querySelector('.nav-right');
+        if (!nav || document.getElementById('langSelect')) return;
+        const sel = document.createElement('select');
+        sel.id = 'langSelect';
+        sel.className = 'lang-select';
+        sel.setAttribute('aria-label', t('nav.lang.label'));
+        [['en', 'EN'], ['pl', 'PL']].forEach(([v, label]) => {
+            const o = document.createElement('option');
+            o.value = v;
+            o.textContent = label;
+            sel.appendChild(o);
+        });
+        sel.value = getLang();
+        sel.addEventListener('change', () => setLang(sel.value));
+        nav.insertBefore(sel, nav.firstChild);
+    }
+
+    window.RePluGI18n = { t, current: getLang, set: setLang, onChange, apply: applyAll };
+
+    function boot() {
+        initPicker();
+        applyAll();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();

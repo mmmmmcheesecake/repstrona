@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catalog — RePluG</title>
-    <link rel="stylesheet" href="style.css?v=16">
+    <title data-i18n-title="title.catalog">Catalog — RePluG</title>
+    <link rel="stylesheet" href="style.css?v=17">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -16,8 +16,8 @@
         <div class="nav-inner">
             <a href="index.html" class="logo">Re<span>PluG</span></a>
             <div class="nav-right">
-                <a id="nav-discord" href="#" class="discord-link">Discord</a>
-                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link">Sign up USFans</a>
+                <a id="nav-discord" href="#" class="discord-link" data-i18n="nav.discord">Discord</a>
+                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link" data-i18n="nav.usfans">Sign up USFans</a>
             </div>
         </div>
     </nav>
@@ -25,10 +25,10 @@
     <section class="hero">
         <div class="container">
             <div class="hero-text">
-                <h1 class="hero-headline">2900+ products <span>with QC photos</span></h1>
-                <p class="hero-sub">Trusted replicas from verified sources. Daily-updated catalog with direct agent links.</p>
+                <h1 class="hero-headline"><span data-i18n="hero.headline.main">2900+ products</span> <span data-i18n="hero.headline.sub">with QC photos</span></h1>
+                <p class="hero-sub" data-i18n="hero.sub">Trusted replicas from verified sources. Daily-updated catalog with direct agent links.</p>
                 <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="hero-cta">
-                    <span class="hero-cta-badge">+$800</span> in USFans coupons
+                    <span class="hero-cta-badge" data-i18n="hero.cta.badge">+$800</span> <span data-i18n="hero.cta.text">in USFans coupons</span>
                 </a>
             </div>
             <div class="hero-tiles" id="heroTiles"></div>
@@ -40,13 +40,13 @@
             <div class="filter-inner">
                 <div class="search-box">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="searchInput" placeholder="Search products, batches..." autocomplete="off">
+                    <input type="text" id="searchInput" placeholder="Search products, batches..." autocomplete="off" data-i18n-attr="placeholder:filter.search">
                 </div>
                 <select id="sortSelect" class="sort-select">
-                    <option value="default">Default</option>
-                    <option value="price-asc">Price: low to high</option>
-                    <option value="price-desc">Price: high to low</option>
-                    <option value="name-asc">Name: A–Z</option>
+                    <option value="default" data-i18n="sort.default">Default</option>
+                    <option value="price-asc" data-i18n="sort.priceAsc">Price: low to high</option>
+                    <option value="price-desc" data-i18n="sort.priceDesc">Price: high to low</option>
+                    <option value="name-asc" data-i18n="sort.nameAsc">Name: A–Z</option>
                 </select>
             </div>
         </div>
@@ -76,26 +76,27 @@
                 <div class="spinner"></div>
             </div>
             <div class="error-state" id="errorState" style="display:none">
-                <p>⚠️ Failed to load products. Please refresh the page.</p>
+                <p data-i18n="state.errorProducts">⚠️ Failed to load products. Please refresh the page.</p>
             </div>
             <div class="results-bar" id="resultsInfo" style="display:none">
                 <span id="resultsCount"></span>
             </div>
             <div class="products-grid" id="productsGrid" style="display:none"></div>
             <div class="empty-state" id="emptyState" style="display:none">
-                <p>🔍 No results. Try a different search or category.</p>
+                <p data-i18n="state.empty">🔍 No results. Try a different search or category.</p>
             </div>
         </div>
     </main>
 
     <footer class="footer">
         <div class="container">
-            <p class="footer-text">© 2026 RePluG. For informational purposes only.</p>
+            <p class="footer-text" data-i18n="footer.text">© 2026 RePluG. For informational purposes only.</p>
         </div>
     </footer>
 
+    <script src="i18n.js?v=1"></script>
     <script src="script.js?v=11"></script>
-    <script src="currency.js?v=2"></script>
-    <script src="katalog.js?v=24"></script>
+    <script src="currency.js?v=3"></script>
+    <script src="katalog.js?v=25"></script>
 </body>
 </html>

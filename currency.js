@@ -74,7 +74,7 @@
         const sel = document.createElement('select');
         sel.id = 'currencySelect';
         sel.className = 'cur-select';
-        sel.setAttribute('aria-label', 'Currency');
+        sel.setAttribute('aria-label', (window.RePluGI18n && window.RePluGI18n.t('nav.cur.label')) || 'Currency');
         CURRENCIES.forEach(c => {
             const o = document.createElement('option');
             o.value = c;

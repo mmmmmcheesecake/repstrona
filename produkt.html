@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Product — RePluG</title>
-    <link rel="stylesheet" href="style.css?v=16">
+    <title data-i18n-title="title.product">Product — RePluG</title>
+    <link rel="stylesheet" href="style.css?v=17">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -15,19 +15,19 @@
         <div class="nav-inner">
             <a href="index.html" class="logo">Re<span>PluG</span></a>
             <div class="nav-right">
-                <a id="nav-discord" href="#" class="discord-link">Discord</a>
-                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link">Sign up USFans</a>
+                <a id="nav-discord" href="#" class="discord-link" data-i18n="nav.discord">Discord</a>
+                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link" data-i18n="nav.usfans">Sign up USFans</a>
             </div>
         </div>
     </nav>
 
     <main class="product-page">
         <div class="container">
-            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link">← Back</a>
+            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link" data-i18n="pd.back">← Back</a>
 
             <div class="loading-state" id="loadingState"><div class="spinner"></div></div>
             <div class="error-state" id="errorState" style="display:none">
-                <p>⚠️ Failed to load product. <a href="katalog.html">Back to catalog</a>.</p>
+                <p>⚠️ <span data-i18n="state.errorProduct">Failed to load product.</span> <a href="katalog.html" data-i18n="state.errorBack">Back to catalog</a>.</p>
             </div>
 
             <div class="product-detail" id="productDetail" style="display:none">
@@ -49,8 +49,8 @@
                     <div class="pd-options" id="pdOptions"></div>
 
                     <div class="pd-buttons">
-                        <a id="pdBuy" href="#" target="_blank" rel="noopener" class="card-btn primary pd-buy">Buy from agent →</a>
-                        <a id="pdBudget" href="#" target="_blank" rel="noopener" class="card-btn pd-budget" style="display:none">Budget version</a>
+                        <a id="pdBuy" href="#" target="_blank" rel="noopener" class="card-btn primary pd-buy" data-i18n="pd.buy">Buy from agent →</a>
+                        <a id="pdBudget" href="#" target="_blank" rel="noopener" class="card-btn pd-budget" style="display:none" data-i18n="pd.budget">Budget version</a>
                     </div>
                 </div>
             </div>
@@ -59,12 +59,13 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="footer-text">© 2026 RePluG. For informational purposes only.</p>
+            <p class="footer-text" data-i18n="footer.text">© 2026 RePluG. For informational purposes only.</p>
         </div>
     </footer>
 
+    <script src="i18n.js?v=1"></script>
     <script src="script.js?v=11"></script>
-    <script src="currency.js?v=2"></script>
-    <script src="produkt.js?v=17"></script>
+    <script src="currency.js?v=3"></script>
+    <script src="produkt.js?v=18"></script>
 </body>
 </html>

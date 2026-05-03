@@ -94,7 +94,8 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .usfans-link:hover { background: var(--text); color: var(--bg); }
 
-.cur-select {
+.cur-select,
+.lang-select {
     height: 28px;
     background: transparent;
     border: none;
@@ -113,7 +114,8 @@ button, input, select { font-family: inherit; color: inherit; }
     letter-spacing: 0.02em;
     transition: color 0.12s;
 }
-.cur-select:hover { color: var(--text); }
+.cur-select:hover,
+.lang-select:hover { color: var(--text); }
 
 /* ===== HERO ===== */
 .hero {

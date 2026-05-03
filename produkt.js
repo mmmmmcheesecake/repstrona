@@ -1,5 +1,10 @@
 const REF = '?ref=MGRSBE';
 
+function T(key, fallback, vars) {
+    if (window.RePluGI18n) return window.RePluGI18n.t(key, vars);
+    return fallback;
+}
+
 function ensureRef(url) {
     if (!url || typeof url !== 'string') return null;
     url = url.trim();
@@ -99,7 +104,7 @@ function refreshPriceAndStock() {
     }
     el('pdPrice').textContent = priceText;
     const stock = totalStock(skus);
-    el('pdStock').textContent = stock === 0 ? 'Out of stock' : '';
+    el('pdStock').textContent = stock === 0 ? T('pd.outOfStock', 'Out of stock') : '';
     el('pdStock').classList.toggle('out', stock === 0);
 }
 
@@ -150,7 +155,9 @@ function buildOptions() {
 
         const label = document.createElement('div');
         label.className = 'pd-option-label';
-        const propTitle = idx === 0 ? 'Color / Variant' : (idx === 1 ? 'Size' : (prop.propName || `Option ${idx + 1}`));
+        const propTitle = idx === 0
+            ? T('pd.colorVariant', 'Color / Variant')
+            : (idx === 1 ? T('pd.size', 'Size') : (prop.propName || T('pd.option', `Option ${idx + 1}`, { n: idx + 1 })));
         label.textContent = propTitle;
         group.appendChild(label);
 
@@ -210,11 +217,12 @@ async function load() {
         const data = await r.json();
         if (data.error) throw new Error(data.error);
 
-        document.title = (data.title || sheetName || 'Product') + ' — RePluG';
+        const titleName = data.title || sheetName || 'Product';
+        document.title = T('title.productNamed', `${titleName} — RePluG`, { name: titleName });
 
         const meta = [];
         if (sheetBatch) meta.push(`<span class="card-batch ${batchClass(sheetBatch)}">${sheetBatch}</span>`);
-        if (data.shopName) meta.push(`<span class="pd-shop">Shop: ${data.shopName}</span>`);
+        if (data.shopName) meta.push(`<span class="pd-shop">${T('pd.shop', `Shop: ${data.shopName}`, { name: data.shopName })}</span>`);
         el('pdMeta').innerHTML = meta.join('');
 
         el('pdName').textContent = sheetName || data.title || 'Product';
@@ -246,7 +254,7 @@ async function load() {
         el('productDetail').style.display = '';
     } catch (e) {
         console.error(e);
-        showError('Failed to load product.');
+        showError(T('state.errorProduct', 'Failed to load product.'));
     }
 }
 
@@ -263,6 +271,13 @@ fetch('/content/settings.json').then(r => r.json()).then(s => {
 
 if (window.RePluGCurrency) {
     window.RePluGCurrency.onChange(() => refreshPriceAndStock());
+}
+
+if (window.RePluGI18n) {
+    window.RePluGI18n.onChange(() => {
+        buildOptions();
+        refreshPriceAndStock();
+    });
 }
 
 load();

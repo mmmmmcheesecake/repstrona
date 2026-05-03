@@ -1,5 +1,10 @@
 const REF = '?ref=MGRSBE';
 
+function T(key, fallback, vars) {
+    if (window.RePluGI18n) return window.RePluGI18n.t(key, vars);
+    return fallback;
+}
+
 let allProducts = [];
 let activeBrand = 'all';
 let activeModel = 'all';
@@ -475,7 +480,7 @@ function buildCategoryPills() {
     if (!wrap) return;
     wrap.innerHTML = '';
 
-    const allBtn = makeTab('All', 'all', activeCategory === 'all');
+    const allBtn = makeTab(T('tab.all', 'All'), 'all', activeCategory === 'all');
     allBtn.addEventListener('click', () => { hideFlyout(); selectCategory('all'); });
     allBtn.addEventListener('mouseenter', hideFlyoutSoon);
     wrap.appendChild(allBtn);
@@ -508,7 +513,7 @@ function buildBrandTabs() {
     if (!tabs) return;
     tabs.innerHTML = '';
 
-    const allBtn = makeTab('All', 'all', activeBrand === 'all');
+    const allBtn = makeTab(T('tab.all', 'All'), 'all', activeBrand === 'all');
     allBtn.addEventListener('click', () => selectBrand('all'));
     tabs.appendChild(allBtn);
 
@@ -531,7 +536,7 @@ function buildModelTabs() {
     }
     tabs.parentElement.parentElement.style.display = '';
 
-    const allBtn = makeTab('All', 'all', activeModel === 'all');
+    const allBtn = makeTab(T('tab.all', 'All'), 'all', activeModel === 'all');
     allBtn.addEventListener('click', () => selectModel('all'));
     tabs.appendChild(allBtn);
 
@@ -607,7 +612,7 @@ function renderGrid() {
     const count = document.getElementById('resultsCount');
     const items = getFiltered();
 
-    count.textContent = `${items.length} products`;
+    count.textContent = T('results.count', `${items.length} products`, { n: items.length });
     info.style.display = 'block';
 
     if (!items.length) {
@@ -779,7 +784,7 @@ async function init() {
         eagerEnrichTileReprs();
     } catch (e) {
         console.error(e);
-        showError('Failed to load products.');
+        showError(T('state.errorProducts', 'Failed to load products.'));
     }
 }
 
@@ -787,6 +792,17 @@ document.getElementById('searchInput').addEventListener('input', e => {
     searchQuery = e.target.value.trim();
     renderGrid();
 });
+
+if (window.RePluGI18n) {
+    window.RePluGI18n.onChange(() => {
+        if (allProducts.length) {
+            buildCategoryPills();
+            buildBrandTabs();
+            buildModelTabs();
+            renderGrid();
+        }
+    });
+}
 
 document.getElementById('sortSelect').addEventListener('change', e => {
     sortMode = e.target.value;
