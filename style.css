@@ -1366,5 +1366,47 @@ body.modal-open { overflow: hidden; }
     .cart-thumb-img { width: 72px; height: 72px; }
     .cart-item-name { font-size: 0.82rem; }
     .cart-banner { flex-direction: column; align-items: flex-start; }
+
+    .cart-total-row,
+    .cart-weight-row,
+    .cart-shipping-row,
+    .cart-grand-row {
+        gap: 10px;
+    }
+    .cart-total-label,
+    .cart-weight-label,
+    .cart-shipping-label,
+    .cart-grand-label {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .cart-total-value,
+    .cart-weight-value,
+    .cart-shipping-value,
+    .cart-grand-value {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .info-tip-bubble {
+        top: calc(100% + 8px);
+        left: auto;
+        right: 0;
+        transform: translate(0, 2px);
+        max-width: 220px;
+    }
+    .info-tip-bubble::after {
+        top: auto;
+        bottom: 100%;
+        right: 6px;
+        left: auto;
+        transform: none;
+        border-right-color: transparent;
+        border-bottom-color: var(--text);
+    }
+    .info-tip:hover .info-tip-bubble,
+    .info-tip:focus-visible .info-tip-bubble {
+        transform: translate(0, 0);
+    }
 }
 
