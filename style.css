@@ -1057,8 +1057,8 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .info-tip-bubble {
     position: absolute;
-    bottom: calc(100% + 8px);
-    right: 0;
+    top: 50%;
+    left: calc(100% + 10px);
     width: max-content;
     max-width: 240px;
     padding: 8px 10px;
@@ -1074,23 +1074,24 @@ button, input, select { font-family: inherit; color: inherit; }
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateY(2px);
+    transform: translate(-2px, -50%);
     transition: opacity 0.12s, transform 0.12s, visibility 0.12s;
     z-index: 10;
 }
 .info-tip-bubble::after {
     content: '';
     position: absolute;
-    top: 100%;
-    right: 4px;
+    top: 50%;
+    right: 100%;
+    transform: translateY(-50%);
     border: 5px solid transparent;
-    border-top-color: var(--text);
+    border-right-color: var(--text);
 }
 .info-tip:hover .info-tip-bubble,
 .info-tip:focus-visible .info-tip-bubble {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translate(0, -50%);
 }
 .cart-ship-row {
     display: flex;
