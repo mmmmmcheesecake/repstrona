@@ -301,6 +301,72 @@
         });
     }
 
+    function showModalToast(msg) {
+        const t = document.getElementById('buyCheaperToast');
+        if (!t) return;
+        t.textContent = msg;
+        t.style.display = '';
+        clearTimeout(showModalToast._tm);
+        showModalToast._tm = setTimeout(() => { t.style.display = 'none'; }, 2200);
+    }
+
+    function bindBuyCheaper() {
+        const btn = document.getElementById('buyCheaperBtn');
+        const modal = document.getElementById('buyCheaperModal');
+        if (!btn || !modal) return;
+
+        const dialog = modal.querySelector('.buy-cheaper-dialog');
+        const closeBtn = modal.querySelector('.buy-cheaper-close');
+
+        function open() {
+            modal.hidden = false;
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => modal.classList.add('is-open'));
+            if (closeBtn) closeBtn.focus();
+        }
+        function close() {
+            modal.classList.remove('is-open');
+            document.body.classList.remove('modal-open');
+            setTimeout(() => { modal.hidden = true; }, 180);
+            btn.focus();
+        }
+
+        btn.addEventListener('click', open);
+        modal.querySelectorAll('[data-act="close"]').forEach(el => el.addEventListener('click', close));
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !modal.hidden) close();
+        });
+        if (dialog) dialog.addEventListener('click', e => e.stopPropagation());
+
+        const copyBtn = document.getElementById('buyCheaperCopy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const items = window.RePluGCart.read();
+                if (!items.length) {
+                    showModalToast(T('cart.empty', 'Your cart is empty.'));
+                    return;
+                }
+                const url = window.RePluGCart.buildShareUrl(items);
+                try {
+                    navigator.clipboard.writeText(url).then(
+                        () => showModalToast(T('cart.shared', 'Link copied')),
+                        () => showModalToast(T('cart.copyManual', 'Copy the link manually'))
+                    );
+                } catch {
+                    showModalToast(T('cart.copyManual', 'Copy the link manually'));
+                }
+            });
+        }
+
+        const dEl = document.getElementById('buyCheaperDiscord');
+        if (dEl) {
+            fetch('/content/settings.json')
+                .then(r => r.json())
+                .then(s => { if (s && s.discordUrl) dEl.href = s.discordUrl; })
+                .catch(() => {});
+        }
+    }
+
     function init() {
         const params = new URLSearchParams(location.search);
         const shared = params.get(window.RePluGCart.URL_PARAM);
@@ -318,6 +384,7 @@
         bindShare();
         bindClear();
         bindClone();
+        bindBuyCheaper();
 
         const regionSel = document.getElementById('cartRegion');
         if (regionSel) {
