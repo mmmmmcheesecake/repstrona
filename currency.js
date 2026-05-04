@@ -53,6 +53,14 @@
         }
     }
 
+    function toUsd(value, fromCurrency) {
+        const cur = fromCurrency || getCurrency();
+        const r = getRates();
+        const rate = r[cur];
+        if (!rate || !isFinite(value)) return value;
+        return value / rate;
+    }
+
     function formatPrice(usd, currencyOverride) {
         if (usd == null || isNaN(usd)) return '—';
         const cur = currencyOverride || getCurrency();
@@ -88,6 +96,7 @@
 
     window.RePluGCurrency = {
         format: formatPrice,
+        toUsd,
         current: getCurrency,
         onChange,
     };

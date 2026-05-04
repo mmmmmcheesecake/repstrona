@@ -67,11 +67,15 @@
     }
 
     function encode(items) {
-        const compact = items.map(it => ({
-            l: it.link, n: it.name, i: it.image, p: it.price,
-            b: it.batch, c: it.color, s: it.size, k: it.category || '',
-            q: it.qty || 1,
-        }));
+        const compact = items.map(it => {
+            const o = {
+                l: it.link, n: it.name, i: it.image, p: it.price,
+                b: it.batch, c: it.color, s: it.size, k: it.category || '',
+                q: it.qty || 1,
+            };
+            if (typeof it.priceUsd === 'number' && isFinite(it.priceUsd)) o.pu = it.priceUsd;
+            return o;
+        });
         return toBase64Url(JSON.stringify(compact));
     }
 
@@ -81,7 +85,9 @@
             if (!Array.isArray(arr)) return [];
             return arr.map(it => ({
                 link: it.l || '', name: it.n || '', image: it.i || '',
-                price: it.p || '', batch: it.b || '', color: it.c || '',
+                price: it.p || '',
+                priceUsd: typeof it.pu === 'number' ? it.pu : null,
+                batch: it.b || '', color: it.c || '',
                 size: it.s || '', category: it.k || '', qty: it.q || 1,
             }));
         } catch { return []; }

@@ -308,11 +308,15 @@ function bindAddToCart() {
     const btn = el('pdAddToCart');
     if (!btn || !window.RePluGCart) return;
     btn.addEventListener('click', () => {
+        const skus = matchingSkus();
+        let usd = minPrice(skus);
+        if (usd == null) usd = minPrice(state.skuList);
         const item = {
             link: productUrl,
             name: el('pdName').textContent || sheetName || '',
             image: currentMainImage(),
             price: el('pdPrice').textContent || '',
+            priceUsd: typeof usd === 'number' && isFinite(usd) ? usd : null,
             batch: sheetBatch || '',
             color: selectedNameFor(0),
             size: selectedNameFor(1),

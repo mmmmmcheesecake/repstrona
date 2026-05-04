@@ -64,7 +64,7 @@
                 <div class="cart-item-meta">${badges.join(' ')}</div>
                 <div class="cart-item-row">
                     ${qtyControls}
-                    <span class="cart-item-price">${escapeHtml(formatUsd(parsePriceNum(it.price)))}</span>
+                    <span class="cart-item-price">${escapeHtml(formatUsd(itemUsd(it)))}</span>
                 </div>
             </div>
         </div>`;
@@ -164,6 +164,30 @@
         return m ? m[0].trim() : '';
     }
 
+    function detectCurrency(text) {
+        const s = String(text || '');
+        if (/zł|PLN/i.test(s)) return 'PLN';
+        if (/€|EUR/i.test(s)) return 'EUR';
+        if (/£|GBP/i.test(s)) return 'GBP';
+        if (/¥|CNY|RMB/i.test(s)) return 'CNY';
+        if (/\$|USD/i.test(s)) return 'USD';
+        return null;
+    }
+
+    function itemUsd(it) {
+        if (typeof it.priceUsd === 'number' && isFinite(it.priceUsd) && it.priceUsd > 0) {
+            return it.priceUsd;
+        }
+        const num = parsePriceNum(it.price);
+        if (!num) return 0;
+        const cur = detectCurrency(it.price);
+        if (!cur || cur === 'USD') return num;
+        if (window.RePluGCurrency && typeof window.RePluGCurrency.toUsd === 'function') {
+            return window.RePluGCurrency.toUsd(num, cur);
+        }
+        return num;
+    }
+
     function formatTotal(n, sample) {
         if (window.RePluGCurrency && typeof window.RePluGCurrency.format === 'function') {
             const formatted = window.RePluGCurrency.format(n);
@@ -180,7 +204,7 @@
         let subtotal = 0;
         let sample = '';
         items.forEach(it => {
-            const p = parsePriceNum(it.price);
+            const p = itemUsd(it);
             subtotal += p * (Number(it.qty) || 1);
             if (!sample && it.price) sample = it.price;
         });
