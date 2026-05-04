@@ -1410,3 +1410,150 @@ body.modal-open { overflow: hidden; }
     }
 }
 
+/* ===== USFANS WELCOME POPUP ===== */
+.usfans-popup {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    pointer-events: none;
+}
+.usfans-popup.is-open { pointer-events: auto; }
+.usfans-popup-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 18, 16, 0.55);
+    opacity: 0;
+    transition: opacity 0.18s;
+}
+.usfans-popup.is-open .usfans-popup-backdrop { opacity: 1; }
+.usfans-popup-card {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    text-align: left;
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.2s;
+}
+.usfans-popup.is-open .usfans-popup-card {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+.usfans-popup-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 48px;
+    height: 48px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.12s, background 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.usfans-popup-close:hover {
+    color: var(--text);
+    background: var(--bg-soft);
+}
+.usfans-popup-close:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+}
+.usfans-popup-eyebrow {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 4px 10px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    border-radius: 4px;
+}
+.usfans-popup-title {
+    margin: 0 0 12px;
+    padding-right: 40px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    color: var(--text);
+}
+.usfans-popup-body {
+    margin: 0 0 22px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+.usfans-popup-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--text);
+    color: var(--bg);
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-transform: uppercase;
+    border: 1px solid var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+.usfans-popup-cta:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+.usfans-popup-dismiss {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: color 0.12s;
+}
+.usfans-popup-dismiss:hover { color: var(--text); }
+body.usfans-popup-open { overflow: hidden; }
+
+@media (max-width: 480px) {
+    .usfans-popup-card {
+        padding: 32px 22px 22px;
+    }
+    .usfans-popup-title {
+        font-size: 1.25rem;
+        padding-right: 36px;
+    }
+    .usfans-popup-close {
+        width: 44px;
+        height: 44px;
+        font-size: 1.8rem;
+    }
+}

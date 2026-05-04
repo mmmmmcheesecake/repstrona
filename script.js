@@ -122,6 +122,60 @@ function applyDiscord(d, url) {
 // ===== START =====
 loadAll().catch(err => console.warn('Data loading error:', err));
 
+// ===== USFANS WELCOME POPUP =====
+function initUsfansPopup() {
+    const SEEN_KEY = 'usfansPopupSeen';
+    try {
+        if (localStorage.getItem(SEEN_KEY)) return;
+    } catch {}
+
+    const T = (k, fb) => (window.RePluGI18n ? window.RePluGI18n.t(k) : fb);
+    const HREF = 'https://www.usfans.com/register?ref=MGRSBE';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'usfans-popup';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'usfansPopupTitle');
+    wrap.innerHTML = `
+        <div class="usfans-popup-backdrop" data-act="close"></div>
+        <div class="usfans-popup-card" role="document">
+            <button type="button" class="usfans-popup-close" data-act="close" aria-label="${T('usfansPopup.close', 'Close')}">×</button>
+            <span class="usfans-popup-eyebrow">${T('usfansPopup.eyebrow', 'Limited offer')}</span>
+            <h2 class="usfans-popup-title" id="usfansPopupTitle">${T('usfansPopup.title', 'Claim +$800 in USFans coupons')}</h2>
+            <p class="usfans-popup-body">${T('usfansPopup.body', 'Register an account using our link and unlock free coupons to spend on your orders.')}</p>
+            <a class="usfans-popup-cta" href="${HREF}" target="_blank" rel="noopener">${T('usfansPopup.cta', 'Claim coupons')}</a>
+            <button type="button" class="usfans-popup-dismiss" data-act="close">${T('usfansPopup.dismiss', 'Maybe later')}</button>
+        </div>
+    `;
+
+    function close() {
+        try { localStorage.setItem(SEEN_KEY, '1'); } catch {}
+        wrap.classList.remove('is-open');
+        document.body.classList.remove('usfans-popup-open');
+        setTimeout(() => wrap.remove(), 200);
+        document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    wrap.addEventListener('click', e => {
+        const t = e.target;
+        if (t.closest('.usfans-popup-cta')) { close(); return; }
+        if (t.closest('[data-act="close"]')) close();
+    });
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(wrap);
+    document.body.classList.add('usfans-popup-open');
+    requestAnimationFrame(() => wrap.classList.add('is-open'));
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(initUsfansPopup, 600));
+} else {
+    setTimeout(initUsfansPopup, 600);
+}
+
 // ===== TRYB EDYCJI =====
 function initEditMode() {
     // Dodaj overlaye do sekcji

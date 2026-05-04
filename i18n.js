@@ -77,6 +77,12 @@
             'cart.region.NA': 'USA / Canada',
             'cart.region.WORLD': 'Rest of world',
             'card.add': '+ Cart',
+            'usfansPopup.eyebrow': 'Limited offer',
+            'usfansPopup.title': 'Claim +$800 in USFans coupons',
+            'usfansPopup.body': 'Register an account using our link and unlock free coupons to spend on your orders. Takes less than a minute.',
+            'usfansPopup.cta': 'Claim coupons',
+            'usfansPopup.dismiss': 'Maybe later',
+            'usfansPopup.close': 'Close',
         },
         pl: {
             'nav.discord': 'Discord',
@@ -151,6 +157,12 @@
             'cart.region.NA': 'USA / Kanada',
             'cart.region.WORLD': 'Reszta świata',
             'card.add': '+ Koszyk',
+            'usfansPopup.eyebrow': 'Oferta ograniczona',
+            'usfansPopup.title': 'Odbierz +800 USD w kuponach USFans',
+            'usfansPopup.body': 'Załóż konto z naszego linku i odbierz darmowe kupony do wykorzystania na zakupach. Zajmie to mniej niż minutę.',
+            'usfansPopup.cta': 'Odbierz kupony',
+            'usfansPopup.dismiss': 'Może później',
+            'usfansPopup.close': 'Zamknij',
         },
     };
 
