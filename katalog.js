@@ -888,16 +888,19 @@ async function enrichProduct(p) {
 }
 
 function pickLifestyleImage(data) {
+    const main = Array.isArray(data.images) ? data.images : [];
+    const sku = Array.isArray(data.skuImages) ? data.skuImages : [];
+
+    if (sku.length >= 3 && main.length >= 1) return main[0];
+
     const inHand = Array.isArray(data.inHandImages) ? data.inHandImages : [];
     if (inHand.length >= 6) return inHand[Math.floor(inHand.length / 2)];
     if (inHand.length >= 3) return inHand[Math.floor(inHand.length / 2)];
     if (inHand.length >= 1) return inHand[inHand.length - 1];
 
-    const main = Array.isArray(data.images) ? data.images : [];
     if (main.length >= 4) return main[main.length - 1];
     if (main.length >= 2) return main[1];
 
-    const sku = Array.isArray(data.skuImages) ? data.skuImages : [];
     if (sku.length) return sku[0];
 
     return data.image || null;
