@@ -223,7 +223,6 @@ async function load() {
 
         const meta = [];
         if (sheetBatch) meta.push(`<span class="card-batch ${batchClass(sheetBatch)}">${sheetBatch}</span>`);
-        if (data.shopName) meta.push(`<span class="pd-shop">${T('pd.shop', `Shop: ${data.shopName}`, { name: data.shopName })}</span>`);
         el('pdMeta').innerHTML = meta.join('');
 
         el('pdName').textContent = sheetName || data.title || 'Product';
