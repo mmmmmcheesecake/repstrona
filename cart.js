@@ -74,6 +74,7 @@
                 q: it.qty || 1,
             };
             if (typeof it.priceUsd === 'number' && isFinite(it.priceUsd)) o.pu = it.priceUsd;
+            if (typeof it.weightG === 'number' && isFinite(it.weightG) && it.weightG > 0) o.w = it.weightG;
             return o;
         });
         return toBase64Url(JSON.stringify(compact));
@@ -89,6 +90,7 @@
                 priceUsd: typeof it.pu === 'number' ? it.pu : null,
                 batch: it.b || '', color: it.c || '',
                 size: it.s || '', category: it.k || '', qty: it.q || 1,
+                weightG: typeof it.w === 'number' ? it.w : null,
             }));
         } catch { return []; }
     }

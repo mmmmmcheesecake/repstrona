@@ -12,6 +12,8 @@ const status = document.getElementById('qcStatus');
 const results = document.getElementById('qcResults');
 
 let lastQuery = '';
+let allPhotos = [];
+let lightboxIdx = -1;
 
 function setStatus(text, kind) {
     status.textContent = text || '';
@@ -20,6 +22,7 @@ function setStatus(text, kind) {
 
 function clearResults() {
     results.innerHTML = '';
+    allPhotos = [];
 }
 
 function fmtDate(ts) {
@@ -81,6 +84,66 @@ function appendUsfansFallback(rawInput) {
     results.appendChild(wrap);
 }
 
+function ensureLightbox() {
+    let lb = document.getElementById('qcLightbox');
+    if (lb) return lb;
+    lb = document.createElement('div');
+    lb.id = 'qcLightbox';
+    lb.className = 'qc-lightbox';
+    lb.innerHTML = `
+        <button type="button" class="qc-lb-close" aria-label="Close">×</button>
+        <button type="button" class="qc-lb-nav qc-lb-prev" aria-label="Prev">‹</button>
+        <button type="button" class="qc-lb-nav qc-lb-next" aria-label="Next">›</button>
+        <img class="qc-lb-img" alt="" oncontextmenu="return false">
+        <div class="qc-lb-counter"></div>
+    `;
+    document.body.appendChild(lb);
+    lb.addEventListener('click', e => {
+        if (e.target === lb) closeLightbox();
+    });
+    lb.querySelector('.qc-lb-close').addEventListener('click', closeLightbox);
+    lb.querySelector('.qc-lb-prev').addEventListener('click', e => { e.stopPropagation(); navLightbox(-1); });
+    lb.querySelector('.qc-lb-next').addEventListener('click', e => { e.stopPropagation(); navLightbox(1); });
+    lb.querySelector('.qc-lb-img').addEventListener('click', e => e.stopPropagation());
+    return lb;
+}
+
+function openLightbox(idx) {
+    if (idx < 0 || idx >= allPhotos.length) return;
+    const lb = ensureLightbox();
+    lightboxIdx = idx;
+    const img = lb.querySelector('.qc-lb-img');
+    img.src = allPhotos[idx];
+    lb.querySelector('.qc-lb-counter').textContent = `${idx + 1} / ${allPhotos.length}`;
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    const lb = document.getElementById('qcLightbox');
+    if (!lb) return;
+    lb.classList.remove('open');
+    lightboxIdx = -1;
+    document.body.style.overflow = '';
+    const img = lb.querySelector('.qc-lb-img');
+    if (img) img.src = '';
+}
+
+function navLightbox(dir) {
+    if (lightboxIdx < 0 || !allPhotos.length) return;
+    let next = lightboxIdx + dir;
+    if (next < 0) next = allPhotos.length - 1;
+    if (next >= allPhotos.length) next = 0;
+    openLightbox(next);
+}
+
+document.addEventListener('keydown', e => {
+    if (lightboxIdx < 0) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') navLightbox(-1);
+    else if (e.key === 'ArrowRight') navLightbox(1);
+});
+
 function renderResponse(data, rawInput) {
     clearResults();
     const sets = data.sets || [];
@@ -110,25 +173,31 @@ function renderResponse(data, rawInput) {
         const grid = document.createElement('div');
         grid.className = 'qc-grid';
         set.photos.forEach(p => {
-            const a = document.createElement('a');
-            a.href = p.url;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            a.className = 'qc-tile';
+            const flatIdx = allPhotos.length;
+            allPhotos.push(p.url);
+
+            const tile = document.createElement('button');
+            tile.type = 'button';
+            tile.className = 'qc-tile';
+            tile.addEventListener('click', () => openLightbox(flatIdx));
+
             const img = document.createElement('img');
             img.src = p.url;
             img.loading = 'lazy';
             img.alt = '';
-            img.addEventListener('error', () => a.remove());
-            a.appendChild(img);
+            img.draggable = false;
+            img.addEventListener('error', () => tile.remove());
+            img.addEventListener('contextmenu', e => e.preventDefault());
+            tile.appendChild(img);
+
             const date = fmtDate(p.timestamp);
             if (date) {
                 const cap = document.createElement('span');
                 cap.className = 'qc-tile-date';
                 cap.textContent = date;
-                a.appendChild(cap);
+                tile.appendChild(cap);
             }
-            grid.appendChild(a);
+            grid.appendChild(tile);
         });
         block.appendChild(grid);
         results.appendChild(block);

@@ -24,11 +24,18 @@ const SOURCE_LABEL = {
     oopbuy: 'Oopbuy'
 };
 
+function b64url(s) {
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function proxyImage(originalUrl) {
+    return `/api/qcimg?u=${b64url(originalUrl)}`;
+}
+
 function normalizePhoto(p) {
     if (!p) return null;
-    if (typeof p === 'string') return { url: p, timestamp: null };
+    if (typeof p === 'string') return { url: proxyImage(p), timestamp: null };
     if (typeof p === 'object' && typeof p.url === 'string') {
-        return { url: p.url, timestamp: p.timestamp || null };
+        return { url: proxyImage(p.url), timestamp: p.timestamp || null };
     }
     return null;
 }

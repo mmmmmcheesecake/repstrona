@@ -105,9 +105,13 @@
     }
 
     function estimateWeight(item) {
+        const qty = Number(item.qty) || 1;
+        if (typeof item.weightG === 'number' && item.weightG > 0) {
+            return (item.weightG / 1000) * qty;
+        }
         const cat = item.category || inferCategory(item.name);
         const kg = CATEGORY_WEIGHTS[cat];
-        return (typeof kg === 'number' ? kg : 0.5) * (Number(item.qty) || 1);
+        return (typeof kg === 'number' ? kg : 0.5) * qty;
     }
 
     function formatWeight(kg) {

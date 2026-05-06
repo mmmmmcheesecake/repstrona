@@ -58,6 +58,7 @@ const state = {
     skuList: [],
     selected: {},
     images: [],
+    weightG: null,
 };
 
 function showError(msg) {
@@ -246,6 +247,14 @@ async function load() {
         el('pdBudget').style.display = '';
     }
 
+    fetch(`/api/qc?url=${encodeURIComponent(productUrl)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+            const w = j?.info?.weight;
+            if (typeof w === 'number' && w > 0) state.weightG = w;
+        })
+        .catch(() => {});
+
     try {
         const r = await fetch(`/api/product?url=${encodeURIComponent(productUrl)}&full=1`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -373,6 +382,7 @@ function bindAddToCart() {
             color: colorName,
             size: selectedNameFor(sizeIdx),
             category: productCategory || '',
+            weightG: state.weightG || null,
             qty: 1,
         };
         window.RePluGCart.add(item);
