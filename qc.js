@@ -44,11 +44,49 @@ function renderInfo(info) {
     return div;
 }
 
-function renderResponse(data) {
+function usfansLinkFromInput(raw) {
+    if (!raw) return null;
+    try {
+        const u = new URL(raw);
+        const host = u.hostname.toLowerCase();
+        if (host.endsWith('usfans.com')) return raw + (raw.includes('?') ? '&' : '?') + 'ref=MGRSBE';
+        const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
+        if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+            if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+        }
+        if (host.endsWith('taobao.com') || host.endsWith('tmall.com')) {
+            const tid = u.searchParams.get('id');
+            if (tid) return `https://www.usfans.com/product/1/${tid}?ref=MGRSBE`;
+        }
+        if (host.endsWith('1688.com')) {
+            const m = u.pathname.match(/(\d+)\.html/);
+            if (m) return `https://www.usfans.com/product/2/${m[1]}?ref=MGRSBE`;
+        }
+    } catch {}
+    return null;
+}
+
+function appendUsfansFallback(rawInput) {
+    const link = usfansLinkFromInput(rawInput);
+    if (!link) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'qc-fallback';
+    const a = document.createElement('a');
+    a.href = link;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'card-btn pd-qc';
+    a.textContent = T('qc.openUsfans', 'Check on USFans');
+    wrap.appendChild(a);
+    results.appendChild(wrap);
+}
+
+function renderResponse(data, rawInput) {
     clearResults();
     const sets = data.sets || [];
     if (!sets.length) {
         setStatus(T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
+        appendUsfansFallback(rawInput);
         return;
     }
     setStatus(T('qc.results', `${data.totalPhotos} QC photos`, { n: data.totalPhotos }), 'ok');
@@ -56,7 +94,8 @@ function renderResponse(data) {
     const info = renderInfo(data.info);
     if (info) results.appendChild(info);
 
-    sets.forEach(set => {
+    sets.forEach((set, i) => {
+        const n = i + 1;
         const block = document.createElement('section');
         block.className = 'qc-set';
 
@@ -64,12 +103,8 @@ function renderResponse(data) {
         header.className = 'qc-set-header';
         const title = document.createElement('span');
         title.className = 'qc-set-title';
-        title.textContent = set.name;
-        const badge = document.createElement('span');
-        badge.className = 'qc-set-source';
-        badge.textContent = set.sourceLabel;
+        title.textContent = T('qc.setName', `QC Photos set #${n}`, { n });
         header.appendChild(title);
-        header.appendChild(badge);
         block.appendChild(header);
 
         const grid = document.createElement('div');
@@ -98,6 +133,8 @@ function renderResponse(data) {
         block.appendChild(grid);
         results.appendChild(block);
     });
+
+    appendUsfansFallback(rawInput);
 }
 
 async function runCheck(url) {
@@ -116,12 +153,14 @@ async function runCheck(url) {
             } else {
                 setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
             }
+            appendUsfansFallback(trimmed);
             return;
         }
-        renderResponse(data);
+        renderResponse(data, trimmed);
     } catch {
         if (lastQuery !== trimmed) return;
         setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
+        appendUsfansFallback(trimmed);
     }
 }
 

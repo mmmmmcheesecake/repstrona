@@ -739,6 +739,11 @@ button, input, select { font-family: inherit; color: inherit; }
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
+.qc-fallback {
+    display: flex;
+    justify-content: center;
+    margin-top: 18px;
+}
 .qc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
