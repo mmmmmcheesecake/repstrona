@@ -123,11 +123,30 @@ function applyDiscord(d, url) {
 loadAll().catch(err => console.warn('Data loading error:', err));
 
 // ===== USFANS WELCOME POPUP =====
-function initUsfansPopup() {
-    const SEEN_KEY = 'usfansPopupSeen';
+function shouldShowUsfansPopup() {
+    const path = location.pathname;
+    const isHome = path === '/' || path === '' || /\/index\.html$/i.test(path);
+    if (!isHome) return false;
+
+    let navType = '';
     try {
-        if (localStorage.getItem(SEEN_KEY)) return;
+        const entry = performance.getEntriesByType('navigation')[0];
+        if (entry) navType = entry.type;
     } catch {}
+
+    if (navType === 'back_forward') return false;
+    if (navType === 'reload') return true;
+
+    if (document.referrer) {
+        try {
+            if (new URL(document.referrer).origin === location.origin) return false;
+        } catch {}
+    }
+    return true;
+}
+
+function initUsfansPopup() {
+    if (!shouldShowUsfansPopup()) return;
 
     const T = (k, fb) => (window.RePluGI18n ? window.RePluGI18n.t(k) : fb);
     const HREF = 'https://www.usfans.com/register?ref=MGRSBE';
@@ -150,7 +169,6 @@ function initUsfansPopup() {
     `;
 
     function close() {
-        try { localStorage.setItem(SEEN_KEY, '1'); } catch {}
         wrap.classList.remove('is-open');
         document.body.classList.remove('usfans-popup-open');
         setTimeout(() => wrap.remove(), 200);
