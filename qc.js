@@ -22,36 +22,82 @@ function clearResults() {
     results.innerHTML = '';
 }
 
-function renderImages(images, sources) {
+function fmtDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString();
+}
+
+function renderInfo(info) {
+    if (!info) return null;
+    const bits = [];
+    if (info.weight) bits.push(`${info.weight} g`);
+    if (info.length || info.width || info.height) {
+        bits.push(`${info.length || '?'} × ${info.width || '?'} × ${info.height || '?'} cm`);
+    }
+    if (info.avgArrivalDays) bits.push(`~${info.avgArrivalDays} ${T('qc.days', 'days')}`);
+    if (!bits.length) return null;
+    const div = document.createElement('div');
+    div.className = 'qc-info';
+    div.textContent = bits.join('  •  ');
+    return div;
+}
+
+function renderResponse(data) {
     clearResults();
-    if (!images.length) {
+    const sets = data.sets || [];
+    if (!sets.length) {
         setStatus(T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
         return;
     }
-    setStatus(T('qc.results', `${images.length} QC photos`, { n: images.length }), 'ok');
-    const frag = document.createDocumentFragment();
-    images.forEach(src => {
-        const a = document.createElement('a');
-        a.href = src;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.className = 'qc-tile';
-        const img = document.createElement('img');
-        img.src = src;
-        img.loading = 'lazy';
-        img.alt = '';
-        img.addEventListener('error', () => a.remove());
-        a.appendChild(img);
-        frag.appendChild(a);
-    });
-    results.appendChild(frag);
+    setStatus(T('qc.results', `${data.totalPhotos} QC photos`, { n: data.totalPhotos }), 'ok');
 
-    if (sources && sources.length) {
-        const note = document.createElement('p');
-        note.className = 'qc-sources';
-        note.textContent = T('qc.source', `Source: ${sources.join(', ')}`, { name: sources.join(', ') });
-        results.appendChild(note);
-    }
+    const info = renderInfo(data.info);
+    if (info) results.appendChild(info);
+
+    sets.forEach(set => {
+        const block = document.createElement('section');
+        block.className = 'qc-set';
+
+        const header = document.createElement('div');
+        header.className = 'qc-set-header';
+        const title = document.createElement('span');
+        title.className = 'qc-set-title';
+        title.textContent = set.name;
+        const badge = document.createElement('span');
+        badge.className = 'qc-set-source';
+        badge.textContent = set.sourceLabel;
+        header.appendChild(title);
+        header.appendChild(badge);
+        block.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'qc-grid';
+        set.photos.forEach(p => {
+            const a = document.createElement('a');
+            a.href = p.url;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.className = 'qc-tile';
+            const img = document.createElement('img');
+            img.src = p.url;
+            img.loading = 'lazy';
+            img.alt = '';
+            img.addEventListener('error', () => a.remove());
+            a.appendChild(img);
+            const date = fmtDate(p.timestamp);
+            if (date) {
+                const cap = document.createElement('span');
+                cap.className = 'qc-tile-date';
+                cap.textContent = date;
+                a.appendChild(cap);
+            }
+            grid.appendChild(a);
+        });
+        block.appendChild(grid);
+        results.appendChild(block);
+    });
 }
 
 async function runCheck(url) {
@@ -65,14 +111,14 @@ async function runCheck(url) {
         const data = await r.json();
         if (lastQuery !== trimmed) return;
         if (!r.ok || data.error) {
-            if (data.error === 'unsupported') {
+            if (data.error === 'unsupported' || data.error === 'invalid url') {
                 setStatus(T('qc.invalid', 'Could not recognize the product link.'), 'error');
             } else {
                 setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
             }
             return;
         }
-        renderImages(data.images || [], data.sources || []);
+        renderResponse(data);
     } catch {
         if (lastQuery !== trimmed) return;
         setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
