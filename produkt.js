@@ -239,6 +239,8 @@ async function load() {
 
     const ref = ensureRef(productUrl);
     el('pdBuy').href = ref;
+    const qcBtn = el('pdQc');
+    if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(productUrl)}`;
     if (budgetUrl) {
         el('pdBudget').href = budgetUrl;
         el('pdBudget').style.display = '';

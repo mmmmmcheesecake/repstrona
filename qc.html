@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n-title="title.qc">Quality check — RePluG</title>
+    <link rel="stylesheet" href="style.css?v=39">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="logo">Re<span>PluG</span></a>
+            <div class="nav-right">
+                <a id="nav-discord" href="#" class="discord-link" data-i18n="nav.discord">Discord</a>
+                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link" data-i18n="nav.usfans">Sign up USFans</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="qc-page">
+        <div class="container">
+            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link" data-i18n="pd.back">← Back</a>
+
+            <h1 class="qc-heading" data-i18n="qc.heading">Quality check</h1>
+            <p class="qc-subtitle" data-i18n="qc.subtitle">Paste any product link to find its QC photos.</p>
+
+            <form class="qc-form" id="qcForm" autocomplete="off">
+                <input type="text" id="qcInput" class="qc-input" data-i18n-attr="placeholder:qc.placeholder" placeholder="Paste product link…">
+                <button type="submit" class="card-btn pd-qc" id="qcCheck" data-i18n="qc.check">Check</button>
+            </form>
+
+            <div class="qc-status" id="qcStatus"></div>
+
+            <div class="qc-results" id="qcResults"></div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text" data-i18n="footer.text">© 2026 RePluG. For informational purposes only.</p>
+        </div>
+    </footer>
+
+    <script src="i18n.js?v=13"></script>
+    <script src="script.js?v=13"></script>
+    <script src="qc.js?v=1"></script>
+</body>
+</html>
