@@ -257,10 +257,10 @@ button, input, select { font-family: inherit; color: inherit; }
 
 /* ===== FILTER BAR ===== */
 .filter-bar {
-    padding: 16px 0;
+    padding: 8px 0 10px;
     position: sticky;
-    top: 63px;
-    z-index: 100;
+    top: 109px;
+    z-index: 99;
     background: var(--bg);
     box-shadow: 0 -2px 0 0 var(--bg);
 }
@@ -323,16 +323,16 @@ button, input, select { font-family: inherit; color: inherit; }
 /* ===== CATEGORY BAR ===== */
 .cat-bar {
     position: sticky;
-    top: 111px;
+    top: 63px;
     z-index: 99;
     background: var(--bg);
-    padding: 4px 0 12px;
+    padding: 4px 0 8px;
 }
 
 .cat-bar.cat-bar-main {
-    top: 111px;
+    top: 63px;
     z-index: 100;
-    padding: 6px 0 10px;
+    padding: 6px 0 8px;
     position: sticky;
     box-shadow: 0 -2px 0 0 var(--bg);
 }
