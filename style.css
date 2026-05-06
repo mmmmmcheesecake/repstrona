@@ -293,10 +293,8 @@ button, input, select { font-family: inherit; color: inherit; }
 
 .filter-inner {
     display: flex;
-    gap: 18px;
+    gap: 14px;
     align-items: center;
-    flex-wrap: wrap;
-    row-gap: 10px;
 }
 .filter-inner .search-box { order: 1; }
 .filter-inner #sortSelect { order: 2; margin-left: auto; }
@@ -623,6 +621,7 @@ button, input, select { font-family: inherit; color: inherit; }
     .cat-bar.cat-bar-brands { position: static; }
     .cat-bar-sub { position: static; }
     .cat-flyout { display: none !important; }
+    .filter-inner { flex-wrap: wrap; row-gap: 10px; }
     .filter-inner .search-box { flex: 1 1 100%; max-width: none; order: 1; }
     .filter-inner .gender-toggle { flex: 1 1 100%; order: 2; justify-content: center; }
     .filter-inner #sortSelect { order: 3; margin-left: 0; }
