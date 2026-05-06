@@ -1070,4 +1070,28 @@ if (window.RePluGCurrency) {
     });
 }
 
+(function initBackToTop() {
+    const btn = document.getElementById('backToTop');
+    if (!btn) return;
+    const THRESHOLD = 480;
+    let visible = false;
+    const update = () => {
+        const shouldShow = (window.scrollY || window.pageYOffset || 0) > THRESHOLD;
+        if (shouldShow === visible) return;
+        visible = shouldShow;
+        if (visible) {
+            btn.hidden = false;
+            requestAnimationFrame(() => btn.classList.add('is-visible'));
+        } else {
+            btn.classList.remove('is-visible');
+            setTimeout(() => { if (!visible) btn.hidden = true; }, 200);
+        }
+    };
+    btn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+})();
+
 init();
