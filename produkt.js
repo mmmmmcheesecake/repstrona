@@ -304,6 +304,21 @@ function showCartToast(msg) {
     showCartToast._tm = setTimeout(() => { t.style.display = 'none'; }, 2000);
 }
 
+function colorwayIdx() {
+    return state.properties.findIndex(p => (p.valuesList || []).some(v => v.picUrl));
+}
+
+function colorNameFromMainImage() {
+    const src = currentMainImage();
+    if (!src) return '';
+    for (const p of state.properties) {
+        for (const v of (p.valuesList || [])) {
+            if (v.picUrl && v.picUrl === src) return v.valueName || '';
+        }
+    }
+    return '';
+}
+
 function bindAddToCart() {
     const btn = el('pdAddToCart');
     if (!btn || !window.RePluGCart) return;
@@ -311,6 +326,10 @@ function bindAddToCart() {
         const skus = matchingSkus();
         let usd = minPrice(skus);
         if (usd == null) usd = minPrice(state.skuList);
+        const cwIdx = colorwayIdx();
+        const colorIdx = cwIdx >= 0 ? cwIdx : 0;
+        const sizeIdx = state.properties.findIndex((_, i) => i !== colorIdx);
+        const colorName = selectedNameFor(colorIdx) || colorNameFromMainImage();
         const item = {
             link: productUrl,
             name: el('pdName').textContent || sheetName || '',
@@ -318,8 +337,8 @@ function bindAddToCart() {
             price: el('pdPrice').textContent || '',
             priceUsd: typeof usd === 'number' && isFinite(usd) ? usd : null,
             batch: sheetBatch || '',
-            color: selectedNameFor(0),
-            size: selectedNameFor(1),
+            color: colorName,
+            size: selectedNameFor(sizeIdx),
             category: productCategory || '',
             qty: 1,
         };
