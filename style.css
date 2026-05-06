@@ -1088,7 +1088,8 @@ button, input, select { font-family: inherit; color: inherit; }
     border-right-color: var(--text);
 }
 .info-tip:hover .info-tip-bubble,
-.info-tip:focus-visible .info-tip-bubble {
+.info-tip:focus-visible .info-tip-bubble,
+.info-tip.is-open .info-tip-bubble {
     opacity: 1;
     visibility: visible;
     transform: translate(0, -50%);
@@ -1405,7 +1406,8 @@ body.modal-open { overflow: hidden; }
         border-bottom-color: var(--text);
     }
     .info-tip:hover .info-tip-bubble,
-    .info-tip:focus-visible .info-tip-bubble {
+    .info-tip:focus-visible .info-tip-bubble,
+    .info-tip.is-open .info-tip-bubble {
         transform: translate(0, 0);
     }
 }

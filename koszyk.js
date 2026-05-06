@@ -391,6 +391,30 @@
         }
     }
 
+    function bindInfoTips() {
+        const tips = Array.from(document.querySelectorAll('.info-tip'));
+        if (!tips.length) return;
+
+        const closeAll = () => tips.forEach(t => t.classList.remove('is-open'));
+
+        tips.forEach(tip => {
+            tip.addEventListener('click', e => {
+                e.stopPropagation();
+                const wasOpen = tip.classList.contains('is-open');
+                closeAll();
+                if (!wasOpen) tip.classList.add('is-open');
+            });
+        });
+
+        document.addEventListener('click', closeAll);
+        document.addEventListener('touchstart', e => {
+            if (!e.target.closest('.info-tip')) closeAll();
+        }, { passive: true });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeAll();
+        });
+    }
+
     function init() {
         const params = new URLSearchParams(location.search);
         const shared = params.get(window.RePluGCart.URL_PARAM);
@@ -409,6 +433,7 @@
         bindClear();
         bindClone();
         bindBuyCheaper();
+        bindInfoTips();
 
         const regionSel = document.getElementById('cartRegion');
         if (regionSel) {
