@@ -1,4 +1,7 @@
-const SHEET_ID = '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk';
+const SHEET_IDS = {
+    men:   '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk',
+    women: '1TraN-QZhqFgzaCSKgfqWhIG0BHSBq0jyktaU7i_pjco',
+};
 
 const BATCH_TOKEN_RE = /\b(LJR|BD|DG|PK|UA|OG|MAS|GD|REP|GP|G5|H12|TS|OWF|HC|BATCH)\b/gi;
 
@@ -114,7 +117,11 @@ export async function onRequest(ctx) {
         return new Response('Brak GOOGLE_API_KEY w env', { status: 500 });
     }
 
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}` +
+    const genderParam = new URL(ctx.request.url).searchParams.get('gender');
+    const gender = genderParam === 'women' ? 'women' : 'men';
+    const sheetId = SHEET_IDS[gender];
+
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}` +
         `?fields=sheets.data.rowData.values(formattedValue,hyperlink)` +
         `&includeGridData=true&key=${apiKey}`;
 

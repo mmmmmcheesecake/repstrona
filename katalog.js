@@ -12,12 +12,21 @@ let activeCategory = 'all';
 let searchQuery = '';
 let sortMode = 'default';
 
-const CATEGORIES = [
+const GENDER = (window.RePluGGender && window.RePluGGender.get()) || 'men';
+
+const CATEGORIES_MEN = [
     'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
     'Pants', 'Shorts', 'Accesories', 'Watches',
     'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
     'Football', 'Basketball', 'Lego', 'MISC'
 ];
+const CATEGORIES_WOMEN = [
+    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
+    'Pants', 'Shorts/Skirts', 'Accesories', 'Bags',
+    'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
+    'Football', 'Basketball', 'Lego', 'MISC'
+];
+const CATEGORIES = GENDER === 'women' ? CATEGORIES_WOMEN : CATEGORIES_MEN;
 
 const CATEGORY_LABEL_FALLBACK = {
     'Football': 'Soccer',
@@ -35,7 +44,7 @@ function categoryLabel(cat) {
 }
 
 const HERO_OTHER = '__OTHER__';
-const HERO_TILES = [
+const HERO_TILES_MEN = [
     { id: 'Sneakers',           label: 'Sneakers' },
     { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
     { id: 'T-shirts',           label: 'T-shirts' },
@@ -46,6 +55,18 @@ const HERO_TILES = [
     { id: 'Watches',    label: 'Watches' },
     { id: HERO_OTHER,   label: 'Other' },
 ];
+const HERO_TILES_WOMEN = [
+    { id: 'Sneakers',           label: 'Sneakers' },
+    { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
+    { id: 'T-shirts',           label: 'T-shirts' },
+    { id: 'Jackets',       label: 'Jackets' },
+    { id: 'Pants',         label: 'Pants' },
+    { id: 'Shorts/Skirts', label: 'Shorts/Skirts' },
+    { id: 'Accesories',    label: 'Accessories' },
+    { id: 'Bags',          label: 'Bags' },
+    { id: HERO_OTHER,      label: 'Other' },
+];
+const HERO_TILES = GENDER === 'women' ? HERO_TILES_WOMEN : HERO_TILES_MEN;
 const HERO_MAIN_IDS = HERO_TILES.filter(t => t.id !== HERO_OTHER).map(t => t.id);
 
 function strongCategoryHint(name) {
@@ -358,7 +379,7 @@ function tagKey(link) {
 
 async function fetchProducts() {
     const [sheetRes, aiTags] = await Promise.all([
-        fetch('/api/sheet'),
+        fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}`),
         fetchTags(),
     ]);
     if (!sheetRes.ok) throw new Error(`HTTP ${sheetRes.status}`);

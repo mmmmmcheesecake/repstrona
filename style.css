@@ -94,6 +94,42 @@ button, input, select { font-family: inherit; color: inherit; }
 }
 .usfans-link:hover { background: var(--text); color: var(--bg); }
 
+.gender-toggle {
+    display: inline-flex;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 2px;
+    gap: 0;
+    overflow: hidden;
+}
+.gender-toggle .gender-opt {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    color: var(--text-muted);
+    transition: background 0.12s, color 0.12s;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.gender-toggle .gender-opt:hover { color: var(--text); }
+.gender-toggle .gender-opt.active {
+    background: var(--text);
+    color: var(--bg);
+}
+@media (max-width: 768px) {
+    .gender-toggle .gender-opt { padding: 4px 9px; font-size: 0.64rem; }
+}
+@media (max-width: 480px) {
+    .gender-toggle .gender-opt { padding: 4px 8px; font-size: 0.6rem; letter-spacing: 0.02em; }
+}
+
 .cur-select,
 .lang-select {
     height: 28px;

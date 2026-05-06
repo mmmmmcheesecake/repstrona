@@ -7,6 +7,8 @@
         en: {
             'nav.discord': 'Discord',
             'nav.usfans': 'Claim coupons',
+            'gender.men': 'Men',
+            'gender.women': 'Women',
             'nav.lang.label': 'Language',
             'nav.cur.label': 'Currency',
             'hero.headline.main': '2900+ products',
@@ -116,10 +118,14 @@
             'cat.MISC': 'MISC',
             'cat.Vests': 'Vests',
             'cat.Other': 'Other',
+            'cat.Shorts/Skirts': 'Shorts/Skirts',
+            'cat.Bags': 'Bags',
         },
         pl: {
             'nav.discord': 'Discord',
             'nav.usfans': 'Odbierz kupony',
+            'gender.men': 'Męskie',
+            'gender.women': 'Damskie',
             'nav.lang.label': 'Język',
             'nav.cur.label': 'Waluta',
             'hero.headline.main': '2900+ produktów',
@@ -229,6 +235,8 @@
             'cat.MISC': 'Różne',
             'cat.Vests': 'Kamizelki',
             'cat.Other': 'Inne',
+            'cat.Shorts/Skirts': 'Spodenki/Spódnice',
+            'cat.Bags': 'Torebki',
         },
     };
 

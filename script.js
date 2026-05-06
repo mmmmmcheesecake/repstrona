@@ -1,5 +1,60 @@
 document.documentElement.setAttribute('data-theme', 'light');
 
+// ===== GENDER (men/women catalog) =====
+(function () {
+    const KEY = 'repluG:gender';
+    function get() {
+        try { return localStorage.getItem(KEY) === 'women' ? 'women' : 'men'; }
+        catch { return 'men'; }
+    }
+    function set(g) {
+        try { localStorage.setItem(KEY, g === 'women' ? 'women' : 'men'); } catch {}
+    }
+    function T(k, fb) { return window.RePluGI18n ? window.RePluGI18n.t(k) : fb; }
+
+    function buildToggle() {
+        const nav = document.querySelector('.nav-right');
+        if (!nav || document.querySelector('.gender-toggle')) return;
+        const current = get();
+        const wrap = document.createElement('div');
+        wrap.className = 'gender-toggle';
+        wrap.innerHTML = `
+            <button type="button" class="gender-opt${current === 'men' ? ' active' : ''}" data-gender="men">
+                <span class="gender-label">${T('gender.men', 'Men')}</span>
+            </button>
+            <button type="button" class="gender-opt${current === 'women' ? ' active' : ''}" data-gender="women">
+                <span class="gender-label">${T('gender.women', 'Women')}</span>
+            </button>
+        `;
+        wrap.addEventListener('click', e => {
+            const btn = e.target.closest('[data-gender]');
+            if (!btn) return;
+            const next = btn.dataset.gender;
+            if (next === get()) return;
+            set(next);
+            location.reload();
+        });
+        nav.insertBefore(wrap, nav.firstChild);
+    }
+
+    function refreshLabels() {
+        document.querySelectorAll('.gender-toggle .gender-opt').forEach(btn => {
+            const g = btn.dataset.gender;
+            const span = btn.querySelector('.gender-label');
+            if (span) span.textContent = T(`gender.${g}`, g === 'men' ? 'Men' : 'Women');
+        });
+    }
+
+    window.RePluGGender = { get, set };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', buildToggle);
+    } else {
+        buildToggle();
+    }
+    if (window.RePluGI18n) window.RePluGI18n.onChange(refreshLabels);
+})();
+
 // ===== HELPER =====
 function set(id, text) {
     const el = document.getElementById(id);
