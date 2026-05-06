@@ -256,7 +256,36 @@ function dedupProducts(products) {
             batch: '',
         });
     }
-    return dedupByLink(merged);
+    return dedupByName(dedupByLink(merged));
+}
+
+function dedupByName(products) {
+    const seen = new Map();
+    let solo = 0;
+    const score = x => (x.imageOverride ? 8 : 0) + (x.tileImage ? 4 : 0) + (x.image ? 2 : 0) + (x.budgetLink ? 1 : 0);
+    for (const p of products) {
+        const key = normalizeNameKey(p.name);
+        if (!key) {
+            seen.set(`__solo_${solo++}`, p);
+            continue;
+        }
+        const existing = seen.get(key);
+        if (!existing) {
+            seen.set(key, p);
+            continue;
+        }
+        const better = score(p) > score(existing) ? p : existing;
+        seen.set(key, {
+            ...better,
+            image: better.image || existing.image || p.image,
+            imageOverride: better.imageOverride || existing.imageOverride || p.imageOverride,
+            tileImage: better.tileImage || existing.tileImage || p.tileImage,
+            budgetLink: better.budgetLink || existing.budgetLink || p.budgetLink,
+            name: stripBatchFromName(better.name),
+            batch: '',
+        });
+    }
+    return Array.from(seen.values());
 }
 
 function dedupByLink(products) {
