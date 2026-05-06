@@ -213,99 +213,6 @@ function detectCategory(name, description = '') {
 }
 
 const KNOWN_BATCHES = ['LJR', 'BD', 'DG', 'PK', 'UA', 'OG'];
-const BATCH_TOKEN_RE = /\b(LJR|BD|DG|PK|UA|OG|MAS|GD|REP|GP|G5|H12|TS|OWF|HC|BATCH)\b/gi;
-
-function normalizeNameKey(name) {
-    return (name || '')
-        .toLowerCase()
-        .replace(BATCH_TOKEN_RE, '')
-        .replace(/[^a-z0-9 ]+/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function stripBatchFromName(name) {
-    return (name || '')
-        .replace(BATCH_TOKEN_RE, '')
-        .replace(/\s{2,}/g, ' ')
-        .replace(/\s+([,.])/g, '$1')
-        .trim()
-        .replace(/[\s,;:-]+$/, '');
-}
-
-function dedupProducts(products) {
-    const groups = new Map();
-    let solo = 0;
-    for (const p of products) {
-        const img = (p.image || '').trim();
-        const link = (p.link || '').trim();
-        const key = img || link || `__solo_${solo++}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(p);
-    }
-    const merged = [];
-    for (const group of groups.values()) {
-        if (group.length === 1) {
-            merged.push(group[0]);
-            continue;
-        }
-        const rep = group.find(p => p.image) || group[0];
-        merged.push({
-            ...rep,
-            name: stripBatchFromName(rep.name),
-            batch: '',
-        });
-    }
-    return dedupByName(dedupByLink(merged));
-}
-
-function dedupByName(products) {
-    const seen = new Map();
-    let solo = 0;
-    const score = x => (x.imageOverride ? 8 : 0) + (x.tileImage ? 4 : 0) + (x.image ? 2 : 0) + (x.budgetLink ? 1 : 0);
-    for (const p of products) {
-        const key = normalizeNameKey(p.name);
-        if (!key) {
-            seen.set(`__solo_${solo++}`, p);
-            continue;
-        }
-        const existing = seen.get(key);
-        if (!existing) {
-            seen.set(key, p);
-            continue;
-        }
-        const better = score(p) > score(existing) ? p : existing;
-        seen.set(key, {
-            ...better,
-            image: better.image || existing.image || p.image,
-            imageOverride: better.imageOverride || existing.imageOverride || p.imageOverride,
-            tileImage: better.tileImage || existing.tileImage || p.tileImage,
-            budgetLink: better.budgetLink || existing.budgetLink || p.budgetLink,
-            name: stripBatchFromName(better.name),
-            batch: '',
-        });
-    }
-    return Array.from(seen.values());
-}
-
-function dedupByLink(products) {
-    const seen = new Map();
-    let solo = 0;
-    for (const p of products) {
-        const link = (p.link || '').trim();
-        if (!link) {
-            seen.set(`__solo_${solo++}`, p);
-            continue;
-        }
-        const existing = seen.get(link);
-        if (!existing) {
-            seen.set(link, p);
-        } else if (!existing.image && p.image) {
-            seen.set(link, p);
-        }
-    }
-    return Array.from(seen.values());
-}
 
 function batchClass(b) {
     const u = (b || '').trim().toUpperCase();
@@ -1065,7 +972,7 @@ window.addEventListener('pageshow', e => {
 
 async function init() {
     try {
-        allProducts = dedupProducts(await fetchProducts());
+        allProducts = await fetchProducts();
         document.getElementById('loadingState').style.display = 'none';
 
         const returnState = readCatalogState();
