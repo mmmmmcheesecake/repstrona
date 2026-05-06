@@ -5,10 +5,42 @@ function T(key, fallback, vars) {
     return fallback;
 }
 
+function weidianToUsfans(host, src) {
+    if (host !== 'weidian.com' && !host.endsWith('.weidian.com')) return null;
+    const id = src.searchParams.get('itemID') || src.searchParams.get('itemId');
+    if (!id) return null;
+    return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+}
+
+function convertToUsfans(url) {
+    if (!url || typeof url !== 'string') return url;
+    try {
+        const u = new URL(url);
+        const host = u.hostname.toLowerCase();
+
+        if (host === 'kakobuy.com' || host === 'www.kakobuy.com') {
+            const inner = u.searchParams.get('url');
+            if (inner) {
+                try {
+                    const src = new URL(inner);
+                    const conv = weidianToUsfans(src.hostname.toLowerCase(), src);
+                    if (conv) return conv;
+                } catch {}
+            }
+            return url;
+        }
+
+        const conv = weidianToUsfans(host, u);
+        if (conv) return conv;
+    } catch {}
+    return url;
+}
+
 function ensureRef(url) {
     if (!url || typeof url !== 'string') return null;
     url = url.trim();
     if (!url || url === '#') return null;
+    url = convertToUsfans(url);
     if (url.includes('ref=MGRSBE')) return url;
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }

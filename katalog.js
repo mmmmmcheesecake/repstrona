@@ -312,31 +312,43 @@ function batchClass(b) {
     return KNOWN_BATCHES.includes(u) ? `batch-${u}` : 'batch-other';
 }
 
-function convertKakobuyToUsfans(url) {
+function weidianToUsfans(host, src) {
+    if (host !== 'weidian.com' && !host.endsWith('.weidian.com')) return null;
+    const id = src.searchParams.get('itemID') || src.searchParams.get('itemId');
+    if (!id) return null;
+    return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+}
+
+function convertToUsfans(url) {
     if (!url || typeof url !== 'string') return url;
-    if (!/^https?:\/\/(www\.)?kakobuy\.com\//i.test(url)) return url;
     try {
         const u = new URL(url);
-        const inner = u.searchParams.get('url');
-        if (!inner) return url;
-        const src = new URL(inner);
-        const host = src.hostname.toLowerCase();
+        const host = u.hostname.toLowerCase();
 
-        if (host.includes('weidian.com')) {
-            const id = src.searchParams.get('itemID') || src.searchParams.get('itemId');
-            if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+        if (host === 'kakobuy.com' || host === 'www.kakobuy.com') {
+            const inner = u.searchParams.get('url');
+            if (inner) {
+                try {
+                    const src = new URL(inner);
+                    const innerHost = src.hostname.toLowerCase();
+                    const conv = weidianToUsfans(innerHost, src);
+                    if (conv) return conv;
+                } catch {}
+            }
+            return url;
         }
-        return url;
-    } catch {
-        return url;
-    }
+
+        const conv = weidianToUsfans(host, u);
+        if (conv) return conv;
+    } catch {}
+    return url;
 }
 
 function ensureRef(url) {
     if (!url || typeof url !== 'string') return null;
     url = url.trim();
     if (!url || url === '#') return null;
-    url = convertKakobuyToUsfans(url);
+    url = convertToUsfans(url);
     if (url.includes('ref=MGRSBE')) return url;
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
