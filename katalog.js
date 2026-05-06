@@ -256,7 +256,26 @@ function dedupProducts(products) {
             batch: '',
         });
     }
-    return merged;
+    return dedupByLink(merged);
+}
+
+function dedupByLink(products) {
+    const seen = new Map();
+    let solo = 0;
+    for (const p of products) {
+        const link = (p.link || '').trim();
+        if (!link) {
+            seen.set(`__solo_${solo++}`, p);
+            continue;
+        }
+        const existing = seen.get(link);
+        if (!existing) {
+            seen.set(link, p);
+        } else if (!existing.image && p.image) {
+            seen.set(link, p);
+        }
+    }
+    return Array.from(seen.values());
 }
 
 function batchClass(b) {
@@ -264,10 +283,31 @@ function batchClass(b) {
     return KNOWN_BATCHES.includes(u) ? `batch-${u}` : 'batch-other';
 }
 
+function convertKakobuyToUsfans(url) {
+    if (!url || typeof url !== 'string') return url;
+    if (!/^https?:\/\/(www\.)?kakobuy\.com\//i.test(url)) return url;
+    try {
+        const u = new URL(url);
+        const inner = u.searchParams.get('url');
+        if (!inner) return url;
+        const src = new URL(inner);
+        const host = src.hostname.toLowerCase();
+
+        if (host.includes('weidian.com')) {
+            const id = src.searchParams.get('itemID') || src.searchParams.get('itemId');
+            if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+        }
+        return url;
+    } catch {
+        return url;
+    }
+}
+
 function ensureRef(url) {
     if (!url || typeof url !== 'string') return null;
     url = url.trim();
     if (!url || url === '#') return null;
+    url = convertKakobuyToUsfans(url);
     if (url.includes('ref=MGRSBE')) return url;
     return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
 }
