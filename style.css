@@ -1390,16 +1390,16 @@ body.modal-open { overflow: hidden; }
 
     .info-tip-bubble {
         top: calc(100% + 8px);
-        left: auto;
-        right: 0;
+        left: 0;
+        right: auto;
         transform: translate(0, 2px);
-        max-width: 220px;
+        max-width: min(220px, calc(100vw - 32px));
     }
     .info-tip-bubble::after {
         top: auto;
         bottom: 100%;
-        right: 6px;
-        left: auto;
+        left: 6px;
+        right: auto;
         transform: none;
         border-right-color: transparent;
         border-bottom-color: var(--text);

@@ -645,12 +645,17 @@ function getStickyBottom() {
     return stickyTop + cat.offsetHeight;
 }
 
-function scrollToProducts(opts) {
+function scrollToProducts() {
     const target = document.getElementById('resultsInfo') || document.getElementById('productsGrid');
     if (!target) return;
-    const offset = getStickyBottom() + 8;
-    const top = target.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top: Math.max(0, top), behavior: (opts && opts.smooth) ? 'smooth' : 'auto' });
+    const apply = () => {
+        const offset = getStickyBottom() + 8;
+        const top = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+    };
+    apply();
+    requestAnimationFrame(apply);
+    setTimeout(apply, 80);
 }
 
 function selectCategory(cat) {
@@ -662,7 +667,7 @@ function selectCategory(cat) {
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
-    if (isMobile()) scrollToProducts({ smooth: true });
+    if (isMobile()) scrollToProducts();
 }
 
 function buildBrandTabs() {
@@ -718,14 +723,14 @@ function selectBrand(brand) {
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
-    if (isMobile()) scrollToProducts({ smooth: true });
+    if (isMobile()) scrollToProducts();
 }
 
 function selectModel(model) {
     activeModel = model;
     buildModelTabs();
     renderGrid();
-    if (isMobile()) scrollToProducts({ smooth: true });
+    if (isMobile()) scrollToProducts();
 }
 
 function productKey(p) {
