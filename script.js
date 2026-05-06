@@ -145,8 +145,8 @@ function shouldShowUsfansPopup() {
     return true;
 }
 
-function initUsfansPopup() {
-    if (!shouldShowUsfansPopup()) return;
+function showUsfansPopup() {
+    if (document.querySelector('.usfans-popup')) return;
 
     const T = (k, fb) => (window.RePluGI18n ? window.RePluGI18n.t(k) : fb);
     const HREF = 'https://www.usfans.com/register?ref=MGRSBE';
@@ -188,10 +188,31 @@ function initUsfansPopup() {
     requestAnimationFrame(() => wrap.classList.add('is-open'));
 }
 
+window.RePluGUsfansPopup = { show: showUsfansPopup };
+
+function initUsfansPopupAuto() {
+    if (shouldShowUsfansPopup()) showUsfansPopup();
+}
+
+function bindUsfansLinks() {
+    document.querySelectorAll('.usfans-link').forEach(el => {
+        if (el.dataset.popupBound === '1') return;
+        el.dataset.popupBound = '1';
+        el.addEventListener('click', e => {
+            e.preventDefault();
+            showUsfansPopup();
+        });
+    });
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(initUsfansPopup, 600));
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initUsfansPopupAuto, 600);
+        bindUsfansLinks();
+    });
 } else {
-    setTimeout(initUsfansPopup, 600);
+    setTimeout(initUsfansPopupAuto, 600);
+    bindUsfansLinks();
 }
 
 // ===== TRYB EDYCJI =====
