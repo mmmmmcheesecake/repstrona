@@ -13,11 +13,20 @@ let searchQuery = '';
 let sortMode = 'default';
 
 const CATEGORIES = [
-    'Sneakers', 'Hoodies/Crewnecks', 'Shorts', 'Underwear', 'Sport Clothing',
-    'Accesories', 'T-shirts', 'High-end', "Jersey's",
-    'Lego', 'Jackets', 'Vests',
-    'Pants', 'Watches', 'Football', 'Basketball'
+    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
+    'Pants', 'Shorts', 'Accesories', 'Watches',
+    'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
+    'Football', 'Basketball', 'Lego', 'MISC'
 ];
+
+const CATEGORY_LABELS = {
+    'Football': 'Soccer',
+    'Sport Clothing': 'Sports Clothing',
+    'Accesories': 'Accessories',
+};
+function categoryLabel(cat) {
+    return CATEGORY_LABELS[cat] || cat;
+}
 
 const HERO_OTHER = '__OTHER__';
 const HERO_TILES = [
@@ -625,7 +634,7 @@ function buildCategoryPills() {
         const brands = brandsForCategory(cat);
         if (!brands.length) return;
 
-        const btn = makeTab(cat, cat, activeCategory === cat);
+        const btn = makeTab(categoryLabel(cat), cat, activeCategory === cat);
         btn.addEventListener('click', () => { hideFlyout(); selectCategory(cat); });
         btn.addEventListener('mouseenter', () => showFlyout(btn, cat));
         btn.addEventListener('mouseleave', hideFlyoutSoon);
