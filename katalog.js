@@ -19,13 +19,19 @@ const CATEGORIES = [
     'Football', 'Basketball', 'Lego', 'MISC'
 ];
 
-const CATEGORY_LABELS = {
+const CATEGORY_LABEL_FALLBACK = {
     'Football': 'Soccer',
     'Sport Clothing': 'Sports Clothing',
     'Accesories': 'Accessories',
 };
 function categoryLabel(cat) {
-    return CATEGORY_LABELS[cat] || cat;
+    const lookupKey = cat === HERO_OTHER ? 'cat.Other' : ('cat.' + cat);
+    if (window.RePluGI18n) {
+        const v = window.RePluGI18n.t(lookupKey);
+        if (v && v !== lookupKey) return v;
+    }
+    if (cat === HERO_OTHER) return 'Other';
+    return CATEGORY_LABEL_FALLBACK[cat] || cat;
 }
 
 const HERO_OTHER = '__OTHER__';
@@ -598,12 +604,13 @@ function buildHeroTiles() {
         tile.dataset.cat = t.id;
 
         const img = findTileImage(t.id);
+        const label = categoryLabel(t.id);
         const imgHtml = img
-            ? `<img src="${img}" alt="${t.label}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+            ? `<img src="${img}" alt="${label}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
             : '';
         tile.innerHTML = `
             <div class="hero-tile-img${img ? '' : ' no-img'}">${imgHtml}</div>
-            <span class="hero-tile-label">${t.label}</span>
+            <span class="hero-tile-label">${label}</span>
         `;
 
         tile.addEventListener('click', () => {
@@ -1041,6 +1048,7 @@ document.getElementById('searchInput').addEventListener('input', e => {
 if (window.RePluGI18n) {
     window.RePluGI18n.onChange(() => {
         if (allProducts.length) {
+            buildHeroTiles();
             buildCategoryPills();
             buildBrandTabs();
             buildModelTabs();
