@@ -600,6 +600,36 @@ button, input, select { font-family: inherit; color: inherit; }
     .pd-gallery { position: static !important; }
     .pd-thumbs { display: none; }
     .pd-mobile-colors { display: block; margin-top: 6px; }
+    .pd-mobile-colors .pd-option-label { display: none; }
+    .pd-mobile-colors .pd-option-choices {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+        gap: 6px;
+    }
+    .pd-mobile-colors .pd-option-pill {
+        padding: 0;
+        border: 1px solid transparent;
+        background: var(--bg-image);
+        aspect-ratio: 1 / 1;
+        opacity: 0.6;
+        transition: opacity 0.15s, border-color 0.15s;
+    }
+    .pd-mobile-colors .pd-option-pill.with-image {
+        padding: 0;
+        gap: 0;
+        display: block;
+    }
+    .pd-mobile-colors .pd-option-pill.with-image img {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    .pd-mobile-colors .pd-option-pill.with-image span { display: none; }
+    .pd-mobile-colors .pd-option-pill:hover,
+    .pd-mobile-colors .pd-option-pill.active {
+        opacity: 1;
+        border-color: var(--text);
+    }
     .card-name { font-size: 0.75rem; }
 }
 
