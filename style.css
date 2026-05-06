@@ -259,7 +259,7 @@ button, input, select { font-family: inherit; color: inherit; }
 .filter-bar {
     padding: 8px 0 10px;
     position: sticky;
-    top: 109px;
+    top: 110px;
     z-index: 99;
     background: var(--bg);
     box-shadow: 0 -2px 0 0 var(--bg);
@@ -323,14 +323,14 @@ button, input, select { font-family: inherit; color: inherit; }
 /* ===== CATEGORY BAR ===== */
 .cat-bar {
     position: sticky;
-    top: 63px;
+    top: 64px;
     z-index: 99;
     background: var(--bg);
     padding: 4px 0 8px;
 }
 
 .cat-bar.cat-bar-main {
-    top: 63px;
+    top: 64px;
     z-index: 100;
     padding: 6px 0 8px;
     position: sticky;
@@ -589,7 +589,6 @@ button, input, select { font-family: inherit; color: inherit; }
     .container { padding: 0 18px; }
     .nav-inner { padding: 0 18px; }
     .products-grid { gap: 20px 12px; }
-    .cat-bar.cat-bar-main { top: 111px; }
     .cat-bar.cat-bar-brands { position: static; }
     .cat-bar-sub { position: static; }
     .cat-flyout { display: none !important; }
