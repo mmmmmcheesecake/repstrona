@@ -120,6 +120,7 @@ export async function onRequest(ctx) {
     const genderParam = new URL(ctx.request.url).searchParams.get('gender');
     const gender = genderParam === 'women' ? 'women' : 'men';
     const sheetId = SHEET_IDS[gender];
+    const hasHeaderRow = gender !== 'women';
 
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}` +
         `?fields=sheets.data.rowData.values(formattedValue,hyperlink)` +
@@ -133,7 +134,7 @@ export async function onRequest(ctx) {
 
     const rows = json?.sheets?.[0]?.data?.[0]?.rowData ?? [];
     const products = [];
-    let isHeader = true;
+    let isHeader = hasHeaderRow;
 
     for (const row of rows) {
         const cells = row.values ?? [];
