@@ -12,47 +12,32 @@ document.documentElement.setAttribute('data-theme', 'light');
     }
     function T(k, fb) { return window.RePluGI18n ? window.RePluGI18n.t(k) : fb; }
 
-    function buildToggle() {
-        const nav = document.querySelector('.nav-right');
-        if (!nav || document.querySelector('.gender-toggle')) return;
-        const current = get();
-        const wrap = document.createElement('div');
-        wrap.className = 'gender-toggle';
-        wrap.innerHTML = `
-            <button type="button" class="gender-opt${current === 'men' ? ' active' : ''}" data-gender="men">
-                <span class="gender-label">${T('gender.men', 'Men')}</span>
-            </button>
-            <button type="button" class="gender-opt${current === 'women' ? ' active' : ''}" data-gender="women">
-                <span class="gender-label">${T('gender.women', 'Women')}</span>
-            </button>
-        `;
-        wrap.addEventListener('click', e => {
-            const btn = e.target.closest('[data-gender]');
-            if (!btn) return;
-            const next = btn.dataset.gender;
-            if (next === get()) return;
-            set(next);
-            location.reload();
-        });
-        nav.insertBefore(wrap, nav.firstChild);
-    }
-
-    function refreshLabels() {
-        document.querySelectorAll('.gender-toggle .gender-opt').forEach(btn => {
-            const g = btn.dataset.gender;
-            const span = btn.querySelector('.gender-label');
-            if (span) span.textContent = T(`gender.${g}`, g === 'men' ? 'Men' : 'Women');
+    function bindToggles() {
+        document.querySelectorAll('.gender-toggle').forEach(wrap => {
+            if (wrap.dataset.bound === '1') return;
+            wrap.dataset.bound = '1';
+            const current = get();
+            wrap.querySelectorAll('[data-gender]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.gender === current);
+            });
+            wrap.addEventListener('click', e => {
+                const btn = e.target.closest('[data-gender]');
+                if (!btn) return;
+                const next = btn.dataset.gender;
+                if (next === get()) return;
+                set(next);
+                location.reload();
+            });
         });
     }
 
     window.RePluGGender = { get, set };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', buildToggle);
+        document.addEventListener('DOMContentLoaded', bindToggles);
     } else {
-        buildToggle();
+        bindToggles();
     }
-    if (window.RePluGI18n) window.RePluGI18n.onChange(refreshLabels);
 })();
 
 // ===== HELPER =====
