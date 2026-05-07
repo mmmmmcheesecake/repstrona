@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme', 'light');
             <button type="button" class="gender-opt" data-gender="men"><span class="gender-label">${T('gender.men', 'Men')}</span></button>
             <button type="button" class="gender-opt" data-gender="women"><span class="gender-label">${T('gender.women', 'Women')}</span></button>
         `;
-        nav.insertBefore(wrap, nav.firstChild);
+        nav.appendChild(wrap);
     }
 
     function bindToggles() {
