@@ -13,7 +13,6 @@ const submitBtn = document.getElementById('vsSubmit');
 const resetBtn = document.getElementById('vsReset');
 const statusEl = document.getElementById('vsStatus');
 const resultsEl = document.getElementById('vsResults');
-const pagerEl = document.getElementById('vsPagination');
 
 let currentFile = null;
 let currentImageId = null;
