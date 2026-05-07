@@ -213,7 +213,9 @@ form.addEventListener('submit', e => {
 });
 
 channelSel.addEventListener('change', () => {
-    if (currentFile || currentImageId) runSearch(1);
+    if (!currentFile && !currentImageId) return;
+    currentImageId = null;
+    runSearch(1);
 });
 
 const params = new URLSearchParams(location.search);
