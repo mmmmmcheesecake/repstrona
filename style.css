@@ -296,9 +296,6 @@ button, input, select { font-family: inherit; color: inherit; }
     gap: 14px;
     align-items: center;
 }
-.filter-inner .search-box { order: 1; }
-.filter-inner #sortSelect { order: 2; margin-left: auto; }
-.filter-inner .gender-toggle { order: 3; }
 
 .search-box {
     flex: 1;
@@ -624,7 +621,7 @@ button, input, select { font-family: inherit; color: inherit; }
     .filter-inner { flex-wrap: wrap; row-gap: 10px; }
     .filter-inner .search-box { flex: 1 1 100%; max-width: none; order: 1; }
     .filter-inner .gender-toggle { flex: 1 1 100%; order: 2; justify-content: center; }
-    .filter-inner #sortSelect { order: 3; margin-left: 0; }
+    .filter-inner #sortSelect { order: 3; }
     .gender-toggle .gender-opt { padding: 6px 16px; font-size: 0.7rem; }
     .product-detail { grid-template-columns: 1fr !important; }
     .pd-gallery { position: static !important; }
