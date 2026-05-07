@@ -321,14 +321,21 @@ button, input, select { font-family: inherit; color: inherit; }
 
 .vs-icon-btn {
     position: absolute;
-    right: 4px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
     cursor: pointer;
-    padding: 4px;
+    padding: 6px;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: color 0.12s;
+    z-index: 2;
+    line-height: 0;
 }
 .vs-icon-btn:hover { color: var(--text); }
+.vs-icon-btn svg { display: block; }
 
 .vs-page {
     padding: 28px 0 120px;
