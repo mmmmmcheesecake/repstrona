@@ -311,7 +311,7 @@ button, input, select { font-family: inherit; color: inherit; }
     align-items: center;
 }
 
-.search-box svg {
+.search-box > svg {
     position: absolute;
     left: 0;
     color: var(--text-subtle);
