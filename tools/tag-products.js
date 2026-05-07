@@ -29,7 +29,7 @@ if (!KEY) {
 
 const args = process.argv.slice(2);
 const FORCE = args.includes('--force');
-const SHEET_URL = (args.find(a => a.startsWith('--sheet=')) || '').split('=')[1] || 'https://repstrona.pages.dev/api/sheet';
+const SHEET_URL = (args.find(a => a.startsWith('--sheet=')) || '').split('=')[1] || 'https://replug24.com/api/sheet';
 const MODEL = (args.find(a => a.startsWith('--model=')) || '').split('=')[1] || 'claude-haiku-4-5-20251001';
 const BATCH_SIZE = 20;
 const THROTTLE_MS = 7000;
