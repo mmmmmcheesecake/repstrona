@@ -17,8 +17,6 @@ const pagerEl = document.getElementById('vsPagination');
 
 let currentFile = null;
 let currentImageId = null;
-let currentPage = 1;
-let totalPages = 1;
 
 function setStatus(text, kind) {
     statusEl.textContent = text || '';
@@ -117,10 +115,9 @@ function renderResults(data) {
     const list = data.results || [];
     if (!list.length) {
         setStatus(data.message || T('vs.empty', 'No matches found in this channel.'), 'empty');
-        pagerEl.hidden = true;
         return;
     }
-    setStatus(T('vs.results', `${data.total || list.length} matches`, { n: data.total || list.length }), 'ok');
+    setStatus(T('vs.results', `${list.length} matches`, { n: list.length }), 'ok');
 
     const frag = document.createDocumentFragment();
     list.forEach(r => {
@@ -138,42 +135,9 @@ function renderResults(data) {
         frag.appendChild(a);
     });
     resultsEl.appendChild(frag);
-
-    totalPages = data.totalPages || 1;
-    if (totalPages > 1) {
-        renderPager();
-    } else {
-        pagerEl.hidden = true;
-    }
 }
 
-function renderPager() {
-    pagerEl.hidden = false;
-    pagerEl.innerHTML = '';
-    const prev = document.createElement('button');
-    prev.type = 'button';
-    prev.className = 'card-btn';
-    prev.textContent = '←';
-    prev.disabled = currentPage <= 1;
-    prev.addEventListener('click', () => { if (currentPage > 1) runSearch(currentPage - 1); });
-
-    const info = document.createElement('span');
-    info.className = 'vs-page-info';
-    info.textContent = `${currentPage} / ${totalPages}`;
-
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.className = 'card-btn';
-    next.textContent = '→';
-    next.disabled = currentPage >= totalPages;
-    next.addEventListener('click', () => { if (currentPage < totalPages) runSearch(currentPage + 1); });
-
-    pagerEl.appendChild(prev);
-    pagerEl.appendChild(info);
-    pagerEl.appendChild(next);
-}
-
-async function runSearch(page = 1) {
+async function runSearch() {
     if (!currentFile && !currentImageId) {
         setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
         return;
@@ -181,13 +145,12 @@ async function runSearch(page = 1) {
     submitBtn.disabled = true;
     setStatus(T('vs.searching', 'Searching…'), 'loading');
     resultsEl.innerHTML = '';
-    pagerEl.hidden = true;
 
     const fd = new FormData();
     if (currentImageId) fd.append('imageId', currentImageId);
     else fd.append('image', currentFile);
     fd.append('channel', channelSel.value || '3');
-    fd.append('page', String(page));
+    fd.append('page', '1');
 
     try {
         const r = await fetch('/api/visual-search', { method: 'POST', body: fd });
@@ -197,9 +160,7 @@ async function runSearch(page = 1) {
             return;
         }
         if (data.imageId) currentImageId = data.imageId;
-        currentPage = page;
         renderResults(data);
-        if (page > 1) window.scrollTo({ top: 200, behavior: 'smooth' });
     } catch {
         setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
     } finally {
@@ -209,13 +170,13 @@ async function runSearch(page = 1) {
 
 form.addEventListener('submit', e => {
     e.preventDefault();
-    runSearch(1);
+    runSearch();
 });
 
 channelSel.addEventListener('change', () => {
     if (!currentFile && !currentImageId) return;
     currentImageId = null;
-    runSearch(1);
+    runSearch();
 });
 
 const params = new URLSearchParams(location.search);
