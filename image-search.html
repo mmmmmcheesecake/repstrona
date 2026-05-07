@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n-title="title.imageSearch">Image search — RePluG</title>
+    <link rel="stylesheet" href="style.css?v=56">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="logo">Re<span>PluG</span></a>
+            <div class="nav-right">
+                <a id="nav-discord" href="#" class="discord-link" data-i18n="nav.discord">Discord</a>
+                <a href="https://www.usfans.com/register?ref=MGRSBE" target="_blank" rel="noopener" class="usfans-link" data-i18n="nav.usfans">Sign up USFans</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="vs-page">
+        <div class="container">
+            <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link" data-i18n="pd.back">← Back</a>
+
+            <h1 class="vs-heading" data-i18n="vs.heading">Search by image</h1>
+            <p class="vs-subtitle" data-i18n="vs.subtitle">Upload a photo and find similar products on Weidian, Taobao or 1688.</p>
+
+            <form class="vs-form" id="vsForm">
+                <label class="vs-drop" id="vsDrop">
+                    <input type="file" id="vsFile" accept="image/*" hidden>
+                    <div class="vs-drop-empty" id="vsDropEmpty">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                        <span data-i18n="vs.drop">Drop an image here or click to upload</span>
+                    </div>
+                    <img class="vs-preview" id="vsPreview" alt="" hidden>
+                </label>
+
+                <div class="vs-form-row">
+                    <select id="vsChannel" class="vs-channel sort-select">
+                        <option value="3" data-i18n="vs.ch.weidian">Weidian</option>
+                        <option value="1" data-i18n="vs.ch.taobao">Taobao</option>
+                        <option value="2" data-i18n="vs.ch.alibaba">1688</option>
+                    </select>
+                    <button type="submit" class="card-btn primary" id="vsSubmit" data-i18n="vs.search">Search</button>
+                    <button type="button" class="card-btn" id="vsReset" data-i18n="vs.reset" hidden>Reset</button>
+                </div>
+            </form>
+
+            <div class="qc-status" id="vsStatus"></div>
+            <div class="vs-results" id="vsResults"></div>
+            <div class="vs-pagination" id="vsPagination" hidden></div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text" data-i18n="footer.text">© 2026 RePluG. For informational purposes only.</p>
+        </div>
+    </footer>
+
+    <script src="i18n.js?v=17"></script>
+    <script src="script.js?v=19"></script>
+    <script src="image-search.js?v=1"></script>
+</body>
+</html>
