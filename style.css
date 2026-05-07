@@ -95,17 +95,12 @@ button, input, select { font-family: inherit; color: inherit; }
 .usfans-link:hover { background: var(--text); color: var(--bg); }
 
 .gender-toggle {
-    display: inline-flex !important;
-    border: 2px solid red !important;
+    display: inline-flex;
+    border: 1px solid var(--hairline);
     border-radius: 999px;
     padding: 2px;
     gap: 0;
     overflow: hidden;
-    position: fixed !important;
-    top: 80px;
-    right: 20px;
-    z-index: 99999 !important;
-    background: yellow !important;
 }
 .gender-toggle .gender-opt {
     appearance: none;

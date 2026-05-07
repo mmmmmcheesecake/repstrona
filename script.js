@@ -12,7 +12,21 @@ document.documentElement.setAttribute('data-theme', 'light');
     }
     function T(k, fb) { return window.RePluGI18n ? window.RePluGI18n.t(k) : fb; }
 
+    function ensureToggleInNav() {
+        if (document.querySelector('.gender-toggle')) return;
+        const nav = document.querySelector('.nav-right');
+        if (!nav) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'gender-toggle';
+        wrap.innerHTML = `
+            <button type="button" class="gender-opt" data-gender="men"><span class="gender-label">${T('gender.men', 'Men')}</span></button>
+            <button type="button" class="gender-opt" data-gender="women"><span class="gender-label">${T('gender.women', 'Women')}</span></button>
+        `;
+        nav.insertBefore(wrap, nav.firstChild);
+    }
+
     function bindToggles() {
+        ensureToggleInNav();
         document.querySelectorAll('.gender-toggle').forEach(wrap => {
             if (wrap.dataset.bound === '1') return;
             wrap.dataset.bound = '1';
