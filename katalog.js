@@ -372,15 +372,27 @@ async function fetchTags() {
     }
 }
 
+async function fetchTileImages() {
+    try {
+        const r = await fetch('/content/tile-images.json');
+        if (!r.ok) return {};
+        const j = await r.json();
+        return j.tiles || {};
+    } catch {
+        return {};
+    }
+}
+
 function tagKey(link) {
     if (!link) return '';
     return link.split('?')[0].replace(/\/+$/, '');
 }
 
 async function fetchProducts() {
-    const [sheetRes, aiTags] = await Promise.all([
+    const [sheetRes, aiTags, tileImages] = await Promise.all([
         fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}`),
         fetchTags(),
+        fetchTileImages(),
     ]);
     if (!sheetRes.ok) throw new Error(`HTTP ${sheetRes.status}`);
     const data = await sheetRes.json();
@@ -393,7 +405,9 @@ async function fetchProducts() {
             return { category: c, brand, model };
         })();
 
-        const ai = aiTags[tagKey(p.link)] || {};
+        const key = tagKey(p.link);
+        const ai = aiTags[key] || {};
+        const aiTile = tileImages[key] || '';
 
         const hint = strongCategoryHint(p.name);
         const category = normalizeCategory(p.categoryOverride)
@@ -411,6 +425,7 @@ async function fetchProducts() {
             image: p.image || '',
             imageOverride: p.imageOverride || '',
             tileImage: p.tileImage || '',
+            aiTileImage: aiTile,
             description: p.description || '',
             budgetLink: ensureRef(p.budgetLink),
             brand,
@@ -436,6 +451,10 @@ function getDisplayPrice(p) {
 
 function getDisplayImage(p) {
     return p.imageOverride || p.liveImage || p.image || '';
+}
+
+function getCardImage(p) {
+    return p.imageOverride || p.aiTileImage || p.liveImage || p.image || '';
 }
 
 const SNEAKER_BRAND_ORDER = [
@@ -769,7 +788,7 @@ function escapeHtml(s) {
 }
 
 function cardHTML(p) {
-    const img = getDisplayImage(p);
+    const img = getCardImage(p);
     const imgTag = img
         ? `<img src="${img}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
@@ -897,7 +916,7 @@ function updateCard(p) {
         if (priceEl) priceEl.textContent = getDisplayPrice(p);
 
         const imgWrap = card.querySelector('.card-img');
-        const newImg = getDisplayImage(p);
+        const newImg = getCardImage(p);
         if (imgWrap && newImg) {
             const existing = imgWrap.querySelector('img');
             if (existing) {

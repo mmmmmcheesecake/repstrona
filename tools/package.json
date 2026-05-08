@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "tag": "node tag-products.js",
-    "tag:force": "node tag-products.js --force"
+    "tag:force": "node tag-products.js --force",
+    "tiles": "node pick-tile-images.js",
+    "tiles:force": "node pick-tile-images.js --force"
   }
 }

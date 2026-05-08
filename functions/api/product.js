@@ -8,15 +8,107 @@ function parseUsfans(rawUrl) {
     } catch { return null; }
 }
 
-export async function onRequest(ctx) {
-    const url = new URL(ctx.request.url).searchParams.get('url');
-    const full = new URL(ctx.request.url).searchParams.get('full') === '1';
+function parseKakobuy(rawUrl) {
+    try {
+        const u = new URL(rawUrl);
+        if (!/kakobuy\.com$/i.test(u.hostname)) return null;
+        const inner = u.searchParams.get('url');
+        if (!inner) return null;
+        const innerU = new URL(inner);
+        if (/(^|\.)weidian\.com$/i.test(innerU.hostname)) {
+            const itemId = innerU.searchParams.get('itemID') || innerU.searchParams.get('itemId');
+            if (itemId) return { source: 'weidian', itemId };
+        }
+        return null;
+    } catch { return null; }
+}
 
-    if (!url) return jsonError('missing url', 400);
+function decodeEntities(s) {
+    return s
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
+}
 
-    const parsed = parseUsfans(url);
-    if (!parsed) return jsonError('unsupported url', 400);
+async function fetchWeidianRocker(itemId) {
+    const r = await fetch(`https://weidian.com/item.html?itemID=${encodeURIComponent(itemId)}`, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot' },
+        cf: { cacheTtl: 3600, cacheEverything: true }
+    });
+    if (!r.ok) return null;
+    const html = await r.text();
+    const m = html.match(/id="__rocker-render-inject__"\s+data-obj="([^"]+)"/);
+    if (!m) return null;
+    try {
+        return JSON.parse(decodeEntities(m[1]));
+    } catch {
+        return null;
+    }
+}
 
+function shapeWeidian(j, full) {
+    const info = j?.result?.default_model?.item_info || {};
+    const skuProp = j?.result?.default_model?.sku_properties || {};
+    const shop = j?.result?.default_model?.shop_info || {};
+    const attr_list = Array.isArray(skuProp.attr_list) ? skuProp.attr_list : [];
+    const skuMap = skuProp.sku && typeof skuProp.sku === 'object' ? skuProp.sku : {};
+
+    const images = Array.isArray(info.imgs) ? info.imgs.slice(0, 8) : [];
+
+    const skuImagesSet = new Set();
+    for (const a of attr_list) {
+        for (const v of (a.attr_values || [])) if (v.img) skuImagesSet.add(v.img);
+    }
+    const skuImages = [...skuImagesSet].slice(0, 12);
+
+    let priceUsd = null;
+    if (typeof info.itemLowPrice === 'number' && info.itemLowPrice > 0) {
+        priceUsd = Math.round((info.itemLowPrice / 100 / 7.2) * 100) / 100;
+    }
+
+    const result = {
+        title: info.item_name || null,
+        image: images[0] || null,
+        images,
+        inHandImages: [],
+        skuImages,
+        priceUsd,
+        stock: typeof info.stock === 'number' ? info.stock : null,
+    };
+
+    if (full) {
+        result.description = '';
+        result.shopName = shop.shopName || null;
+        result.detailUrl = null;
+        result.properties = attr_list.map((a, idx) => ({
+            propId: idx,
+            propName: a.attr_title || `attr_${idx}`,
+            valuesList: (a.attr_values || []).map(v => ({
+                valueId: v.attr_id,
+                valueName: v.attr_value,
+                picUrl: v.img || null,
+            })),
+        }));
+        result.skuList = Object.entries(skuMap).map(([id, s]) => ({
+            skuId: s.id || id,
+            valueIds: typeof s.attr_ids === 'string'
+                ? s.attr_ids.split('-').map(x => parseInt(x, 10)).filter(Number.isFinite)
+                : [],
+            price: s.price,
+            convertedPrice: null,
+            stock: s.stock,
+            imgUrl: s.img || null,
+        }));
+    }
+
+    return result;
+}
+
+async function handleUsfans(parsed, full) {
     const api = `https://usfans.com/api/goods/info?channel=${parsed.channel}&goodsId=${encodeURIComponent(parsed.goodsId)}`;
 
     let upstream;
@@ -91,7 +183,37 @@ export async function onRequest(ctx) {
         })) : [];
     }
 
-    return new Response(JSON.stringify(result), {
+    return jsonOk(result);
+}
+
+async function handleWeidian(itemId, full) {
+    let j;
+    try {
+        j = await fetchWeidianRocker(itemId);
+    } catch {
+        return jsonError('upstream fetch failed', 502);
+    }
+    if (!j) return jsonError('upstream parse failed', 502);
+    return jsonOk(shapeWeidian(j, full));
+}
+
+export async function onRequest(ctx) {
+    const url = new URL(ctx.request.url).searchParams.get('url');
+    const full = new URL(ctx.request.url).searchParams.get('full') === '1';
+
+    if (!url) return jsonError('missing url', 400);
+
+    const usf = parseUsfans(url);
+    if (usf) return handleUsfans(usf, full);
+
+    const kako = parseKakobuy(url);
+    if (kako && kako.source === 'weidian') return handleWeidian(kako.itemId, full);
+
+    return jsonError('unsupported url', 400);
+}
+
+function jsonOk(obj) {
+    return new Response(JSON.stringify(obj), {
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
