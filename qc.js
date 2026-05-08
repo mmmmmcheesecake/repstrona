@@ -186,7 +186,18 @@ function renderResponse(data, rawInput) {
             img.loading = 'lazy';
             img.alt = '';
             img.draggable = false;
-            img.addEventListener('error', () => tile.remove());
+            img.addEventListener('error', () => {
+                console.warn('[qc] image failed:', p.url);
+                tile.classList.add('qc-tile-broken');
+                tile.disabled = true;
+                img.style.display = 'none';
+                if (!tile.querySelector('.qc-tile-broken-mark')) {
+                    const mark = document.createElement('span');
+                    mark.className = 'qc-tile-broken-mark';
+                    mark.textContent = '⚠️';
+                    tile.appendChild(mark);
+                }
+            });
             img.addEventListener('contextmenu', e => e.preventDefault());
             tile.appendChild(img);
 
@@ -214,9 +225,19 @@ async function runCheck(url) {
     setStatus(T('qc.checking', 'Searching for QC photos…'), 'loading');
     try {
         const r = await fetch(`/api/qc?url=${encodeURIComponent(trimmed)}`);
-        const data = await r.json();
+        const text = await r.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch (parseErr) {
+            console.error('[qc] non-JSON response', r.status, text.slice(0, 300));
+            if (lastQuery !== trimmed) return;
+            setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
+            appendUsfansFallback(trimmed);
+            return;
+        }
         if (lastQuery !== trimmed) return;
         if (!r.ok || data.error) {
+            console.warn('[qc] API error', r.status, data);
             if (data.error === 'unsupported' || data.error === 'invalid url') {
                 setStatus(T('qc.invalid', 'Could not recognize the product link.'), 'error');
             } else {
@@ -226,7 +247,8 @@ async function runCheck(url) {
             return;
         }
         renderResponse(data, trimmed);
-    } catch {
+    } catch (e) {
+        console.error('[qc] fetch failed', e);
         if (lastQuery !== trimmed) return;
         setStatus(T('qc.error', 'Failed to load QC photos. Try another link.'), 'error');
         appendUsfansFallback(trimmed);

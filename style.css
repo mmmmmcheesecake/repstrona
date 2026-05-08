@@ -946,6 +946,17 @@ button, input, select { font-family: inherit; color: inherit; }
     pointer-events: none;
 }
 .qc-tile:hover img { transform: scale(1.03); }
+.qc-tile-broken {
+    cursor: not-allowed;
+    opacity: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.qc-tile-broken-mark {
+    font-size: 28px;
+    pointer-events: none;
+}
 
 .qc-lightbox {
     position: fixed;
