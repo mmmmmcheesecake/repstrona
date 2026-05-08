@@ -385,6 +385,24 @@ async function fetchTileImages() {
 
 function tagKey(link) {
     if (!link) return '';
+    try {
+        const u = new URL(link);
+        if (/(^|\.)kakobuy\.com$/i.test(u.hostname)) {
+            const inner = u.searchParams.get('url');
+            if (inner) {
+                try {
+                    const innerU = new URL(inner);
+                    if (/(^|\.)weidian\.com$/i.test(innerU.hostname)) {
+                        const itemId = innerU.searchParams.get('itemID') || innerU.searchParams.get('itemId');
+                        if (itemId) return `kakobuy:weidian:${itemId}`;
+                    }
+                    return `kakobuy:${innerU.hostname}${innerU.pathname}${innerU.search}`;
+                } catch {
+                    return `kakobuy:${inner}`;
+                }
+            }
+        }
+    } catch {}
     return link.split('?')[0].replace(/\/+$/, '');
 }
 
