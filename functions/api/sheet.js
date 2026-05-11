@@ -178,7 +178,7 @@ export async function onRequest(ctx) {
         });
     }
 
-    const deduped = dedupByName(dedupByLink(groupByImageOrLink(products))).map(compact);
+    const deduped = dedupByLink(groupByImageOrLink(products)).map(compact);
 
     return new Response(JSON.stringify(deduped), {
         headers: {
