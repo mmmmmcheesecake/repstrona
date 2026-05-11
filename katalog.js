@@ -932,7 +932,12 @@ function pickLifestyleImage(data) {
     const main = Array.isArray(data.images) ? data.images : [];
     const sku = Array.isArray(data.skuImages) ? data.skuImages : [];
 
-    if (sku.length >= 3 && main.length >= 1) return main[0];
+    if (sku.length >= 3 && main.length >= 1) {
+        // For 2-photo listings, [0] is usually a size chart or seller banner —
+        // prefer [1] which tends to be the actual product shot.
+        if (main.length === 2) return main[1];
+        return main[0];
+    }
 
     const inHand = Array.isArray(data.inHandImages) ? data.inHandImages : [];
     if (inHand.length >= 6) return inHand[Math.floor(inHand.length / 2)];
