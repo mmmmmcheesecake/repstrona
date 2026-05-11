@@ -109,6 +109,19 @@ function cleanCellError(s) {
     return s;
 }
 
+function clusterByName(products) {
+    const groups = new Map();
+    let solo = 0;
+    for (const p of products) {
+        const key = normalizeNameKey(p.name) || `__solo_${solo++}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+    }
+    const out = [];
+    for (const arr of groups.values()) out.push(...arr);
+    return out;
+}
+
 function compact(p) {
     const out = {
         name: p.name,
@@ -178,7 +191,7 @@ export async function onRequest(ctx) {
         });
     }
 
-    const deduped = dedupByLink(groupByImageOrLink(products)).map(compact);
+    const deduped = clusterByName(dedupByLink(groupByImageOrLink(products))).map(compact);
 
     return new Response(JSON.stringify(deduped), {
         headers: {
