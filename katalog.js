@@ -555,14 +555,29 @@ function getFiltered() {
     if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(getDisplayPrice(a)) - parsePrice(getDisplayPrice(b)));
     else if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
     else if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
-    else if (activeCategory === 'all' || activeCategory === HERO_OTHER) {
+    else {
         items.sort((a, b) => {
             const ai = CATEGORIES.indexOf(a.category);
             const bi = CATEGORIES.indexOf(b.category);
-            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            const aC = ai === -1 ? 999 : ai;
+            const bC = bi === -1 ? 999 : bi;
+            if (aC !== bC) return aC - bC;
+            const aR = brandRank(a.category, a.brand);
+            const bR = brandRank(b.category, b.brand);
+            if (aR.idx !== bR.idx) return aR.idx - bR.idx;
+            return aR.name.localeCompare(bR.name);
         });
     }
     return items;
+}
+
+function brandRank(category, brand) {
+    const b = brand || '';
+    if (category === 'Sneakers' || category === 'Football' || category === 'Basketball') {
+        const i = SNEAKER_BRAND_ORDER.indexOf(b);
+        return { idx: i === -1 ? 999 : i, name: b };
+    }
+    return { idx: b === 'Other' ? 999 : 0, name: b };
 }
 
 let flyoutTimer = null;
