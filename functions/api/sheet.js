@@ -73,6 +73,25 @@ function dedupByLink(products) {
     });
 }
 
+function isKakobuyLink(link) {
+    return /(?:^|\/\/|\.)kakobuy\.com\//i.test(link || '');
+}
+
+function dropKakobuyDuplicates(products) {
+    const nonKakoNames = new Set();
+    for (const p of products) {
+        if (isKakobuyLink(p.link)) continue;
+        const key = normalizeNameKey(p.name);
+        if (key) nonKakoNames.add(key);
+    }
+    return products.filter(p => {
+        if (!isKakobuyLink(p.link)) return true;
+        const key = normalizeNameKey(p.name);
+        if (!key) return true;
+        return !nonKakoNames.has(key);
+    });
+}
+
 function dedupByName(products) {
     const seen = new Map();
     let solo = 0;
@@ -200,7 +219,7 @@ export async function onRequest(ctx) {
         });
     }
 
-    const deduped = clusterByName(dedupByLink(groupByImageOrLink(products))).map(compact);
+    const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(products)))).map(compact);
 
     return new Response(JSON.stringify(deduped), {
         headers: {
