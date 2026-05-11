@@ -21,10 +21,8 @@ const CATEGORIES_MEN = [
     'Football', 'Basketball', 'Lego', 'MISC'
 ];
 const CATEGORIES_WOMEN = [
-    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
-    'Pants', 'Shorts/Skirts', 'Accesories', 'Bags',
-    'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
-    'Football', 'Basketball', 'Lego', 'MISC'
+    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts',
+    'Shorts/Skirts', 'Bags', 'Accesories', 'Swimwear'
 ];
 const CATEGORIES = GENDER === 'women' ? CATEGORIES_WOMEN : CATEGORIES_MEN;
 
@@ -59,12 +57,11 @@ const HERO_TILES_WOMEN = [
     { id: 'Sneakers',           label: 'Sneakers' },
     { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
     { id: 'T-shirts',           label: 'T-shirts' },
-    { id: 'Jackets',       label: 'Jackets' },
-    { id: 'Pants',         label: 'Pants' },
-    { id: 'Shorts/Skirts', label: 'Shorts/Skirts' },
-    { id: 'Accesories',    label: 'Accessories' },
-    { id: 'Bags',          label: 'Bags' },
-    { id: HERO_OTHER,      label: 'Other' },
+    { id: 'Shorts/Skirts',      label: 'Shorts/Skirts' },
+    { id: 'Bags',               label: 'Bags' },
+    { id: 'Accesories',         label: 'Accessories' },
+    { id: 'Swimwear',           label: 'Swimwear' },
+    { id: HERO_OTHER,           label: 'Other' },
 ];
 const HERO_TILES = GENDER === 'women' ? HERO_TILES_WOMEN : HERO_TILES_MEN;
 const HERO_MAIN_IDS = HERO_TILES.filter(t => t.id !== HERO_OTHER).map(t => t.id);
@@ -115,6 +112,17 @@ const CATEGORY_ALIASES = {
     'sneaker': 'Sneakers',
     'shoes': 'Sneakers',
     'buty': 'Sneakers',
+    'sneakers/footwear': 'Sneakers',
+    'footwear': 'Sneakers',
+    'swimwear': 'Swimwear',
+    'strój kąpielowy': 'Swimwear',
+    'stroje kąpielowe': 'Swimwear',
+    'bikini': 'Swimwear',
+    'skirt': 'Shorts/Skirts',
+    'skirts': 'Shorts/Skirts',
+    'spódnica': 'Shorts/Skirts',
+    'spódnice': 'Shorts/Skirts',
+    'shorts/skirts': 'Shorts/Skirts',
     'hoodie': 'Hoodies/Crewnecks',
     'hoodies': 'Hoodies/Crewnecks',
     'bluza': 'Hoodies/Crewnecks',
@@ -194,9 +202,9 @@ function normalizeCategory(cat) {
     const c = String(cat).trim();
     if (!c) return null;
     const key = c.toLowerCase();
-    if (CATEGORY_ALIASES[key]) return CATEGORY_ALIASES[key];
     const canonical = CATEGORIES.find(x => x.toLowerCase() === key);
     if (canonical) return canonical;
+    if (CATEGORY_ALIASES[key]) return CATEGORY_ALIASES[key];
     return c;
 }
 

@@ -135,6 +135,7 @@
             'cat.Other': 'Other',
             'cat.Shorts/Skirts': 'Shorts/Skirts',
             'cat.Bags': 'Bags',
+            'cat.Swimwear': 'Swimwear',
         },
         pl: {
             'nav.discord': 'Discord',
@@ -267,6 +268,7 @@
             'cat.Other': 'Inne',
             'cat.Shorts/Skirts': 'Spodenki/Spódnice',
             'cat.Bags': 'Torebki',
+            'cat.Swimwear': 'Stroje kąpielowe',
         },
     };
 
