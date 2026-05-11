@@ -23,6 +23,15 @@ function stripBatchFromName(name) {
         .replace(/[\s,;:-]+$/, '');
 }
 
+function parsePriceNum(s) {
+    const n = parseFloat(String(s || '').replace(/[^0-9.]/g, ''));
+    return isFinite(n) && n > 0 ? n : Infinity;
+}
+
+function pickCheapest(group) {
+    return group.reduce((best, p) => parsePriceNum(p.price) < parsePriceNum(best.price) ? p : best, group[0]);
+}
+
 function groupByImageOrLink(products) {
     const groups = new Map();
     let solo = 0;
@@ -39,29 +48,29 @@ function groupByImageOrLink(products) {
             merged.push(group[0]);
             continue;
         }
-        const rep = group.find(p => p.image) || group[0];
+        const rep = pickCheapest(group);
         merged.push({ ...rep, name: stripBatchFromName(rep.name), batch: '' });
     }
     return merged;
 }
 
 function dedupByLink(products) {
-    const seen = new Map();
+    const groups = new Map();
     let solo = 0;
+    const order = [];
     for (const p of products) {
         const link = (p.link || '').trim();
-        if (!link) {
-            seen.set(`__solo_${solo++}`, p);
-            continue;
+        const key = link || `__solo_${solo++}`;
+        if (!groups.has(key)) {
+            groups.set(key, []);
+            order.push(key);
         }
-        const existing = seen.get(link);
-        if (!existing) {
-            seen.set(link, p);
-        } else if (!existing.image && p.image) {
-            seen.set(link, p);
-        }
+        groups.get(key).push(p);
     }
-    return Array.from(seen.values());
+    return order.map(k => {
+        const arr = groups.get(k);
+        return arr.length === 1 ? arr[0] : pickCheapest(arr);
+    });
 }
 
 function dedupByName(products) {
