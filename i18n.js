@@ -136,6 +136,7 @@
             'cat.Shorts/Skirts': 'Shorts/Skirts',
             'cat.Bags': 'Bags',
             'cat.Swimwear': 'Swimwear',
+            'cat.women.Sneakers': 'Sneakers/Footwear',
         },
         pl: {
             'nav.discord': 'Discord',
@@ -269,6 +270,7 @@
             'cat.Shorts/Skirts': 'Spodenki/Spódnice',
             'cat.Bags': 'Torebki',
             'cat.Swimwear': 'Stroje kąpielowe',
+            'cat.women.Sneakers': 'Buty/Obuwie',
         },
     };
 

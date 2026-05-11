@@ -32,10 +32,15 @@ const CATEGORY_LABEL_FALLBACK = {
     'Accesories': 'Accessories',
 };
 function categoryLabel(cat) {
-    const lookupKey = cat === HERO_OTHER ? 'cat.Other' : ('cat.' + cat);
+    const baseKey = cat === HERO_OTHER ? 'cat.Other' : ('cat.' + cat);
     if (window.RePluGI18n) {
-        const v = window.RePluGI18n.t(lookupKey);
-        if (v && v !== lookupKey) return v;
+        if (GENDER === 'women') {
+            const wKey = cat === HERO_OTHER ? 'cat.women.Other' : ('cat.women.' + cat);
+            const wv = window.RePluGI18n.t(wKey);
+            if (wv && wv !== wKey) return wv;
+        }
+        const v = window.RePluGI18n.t(baseKey);
+        if (v && v !== baseKey) return v;
     }
     if (cat === HERO_OTHER) return 'Other';
     return CATEGORY_LABEL_FALLBACK[cat] || cat;
