@@ -488,81 +488,6 @@ function getCardImage(p) {
     return p.imageOverride || p.aiTileImage || p.liveImage || p.image || '';
 }
 
-const DEDUPE_BATCH_RE = /\b(LJR|BD|DG|PK|UA|OG|MAS|GD|REP|GP|G5|H12|TS|OWF|HC|BATCH)\b/gi;
-function normalizeNameKey(name) {
-    return (name || '')
-        .toLowerCase()
-        .replace(DEDUPE_BATCH_RE, '')
-        .replace(/[^a-z0-9 ]+/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function dedupeKey(p) {
-    const img = p.imageOverride || p.aiTileImage || p.liveImage;
-    if (!img) return null;
-    const name = normalizeNameKey(p.name);
-    if (!name) return null;
-    return `${name}|${img}`;
-}
-
-function effectivePriceUsd(p) {
-    if (typeof p.livePrice === 'number' && p.livePrice > 0) return p.livePrice;
-    const n = parsePrice(p.price);
-    return n > 0 ? n : Infinity;
-}
-
-const dedupeIndex = new Map();
-const hiddenSet = new Set();
-
-function isHidden(p) {
-    return hiddenSet.has(productKey(p));
-}
-
-function hideAsDuplicate(p) {
-    const k = productKey(p);
-    if (hiddenSet.has(k)) return;
-    hiddenSet.add(k);
-    p.hiddenAsDuplicate = true;
-    const sel = `.product-card[data-key="${CSS.escape(k)}"]`;
-    document.querySelectorAll(sel).forEach(card => card.remove());
-}
-
-function unhide(p) {
-    const k = productKey(p);
-    if (!hiddenSet.has(k)) return;
-    hiddenSet.delete(k);
-    p.hiddenAsDuplicate = false;
-}
-
-function checkAndDedupe(p) {
-    const key = dedupeKey(p);
-    if (!key) return;
-    const myK = productKey(p);
-    const incumbentK = dedupeIndex.get(key);
-    if (!incumbentK || incumbentK === myK) {
-        dedupeIndex.set(key, myK);
-        if (hiddenSet.has(myK)) unhide(p);
-        return;
-    }
-    const incumbent = allProducts.find(x => productKey(x) === incumbentK);
-    if (!incumbent) {
-        dedupeIndex.set(key, myK);
-        return;
-    }
-    if (effectivePriceUsd(p) < effectivePriceUsd(incumbent)) {
-        hideAsDuplicate(incumbent);
-        dedupeIndex.set(key, myK);
-        if (hiddenSet.has(myK)) unhide(p);
-    } else {
-        hideAsDuplicate(p);
-    }
-}
-
-function visibleProducts() {
-    return allProducts.filter(p => !p.hiddenAsDuplicate);
-}
-
 const SNEAKER_BRAND_ORDER = [
     'Jordan 1', 'Jordan 3', 'Jordan 4', 'Jordan 5-13', 'Jordan (Other)',
     'Dunks', 'Off-White', 'Yeezy', 'Nike', 'Adidas', 'New Balance',
@@ -570,11 +495,10 @@ const SNEAKER_BRAND_ORDER = [
 ];
 
 function brandsForCategory(cat) {
-    const base = visibleProducts();
     let pool;
-    if (cat === 'all') pool = base;
-    else if (cat === HERO_OTHER) pool = base.filter(p => !HERO_MAIN_IDS.includes(p.category));
-    else pool = base.filter(p => p.category === cat);
+    if (cat === 'all') pool = allProducts;
+    else if (cat === HERO_OTHER) pool = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
+    else pool = allProducts.filter(p => p.category === cat);
     const brands = [...new Set(pool.map(p => p.brand))];
 
     if (cat === 'Sneakers' || cat === 'Football' || cat === 'Basketball') {
@@ -600,11 +524,10 @@ function brandsAvailable() {
 }
 
 function modelsForBrand(brand) {
-    const base = visibleProducts();
     let items;
-    if (activeCategory === 'all') items = base;
-    else if (activeCategory === HERO_OTHER) items = base.filter(p => !HERO_MAIN_IDS.includes(p.category));
-    else items = base.filter(p => p.category === activeCategory);
+    if (activeCategory === 'all') items = allProducts;
+    else if (activeCategory === HERO_OTHER) items = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
+    else items = allProducts.filter(p => p.category === activeCategory);
     if (brand !== 'all') items = items.filter(p => p.brand === brand);
     return [...new Set(items.map(p => p.model))].sort((a, b) => {
         if (a === 'Other') return 1;
@@ -617,7 +540,7 @@ function modelsForBrand(brand) {
 }
 
 function getFiltered() {
-    let items = visibleProducts();
+    let items = [...allProducts];
     if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
     if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
@@ -697,10 +620,9 @@ function hideFlyout() {
 }
 
 function getTileRepr(tileId) {
-    const base = visibleProducts();
     const inCat = tileId === HERO_OTHER
-        ? base.filter(p => !HERO_MAIN_IDS.includes(p.category))
-        : base.filter(p => p.category === tileId);
+        ? allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category))
+        : allProducts.filter(p => p.category === tileId);
 
     const curated = inCat.find(p => p.tileImage);
     if (curated) return { product: curated, source: 'curated' };
@@ -1015,10 +937,7 @@ function applyEnrichment(p, data) {
         p.liveImage = pick;
         changed = true;
     }
-    if (changed) {
-        updateCard(p);
-        checkAndDedupe(p);
-    }
+    if (changed) updateCard(p);
 }
 
 function updateCard(p) {
@@ -1125,9 +1044,6 @@ window.addEventListener('pageshow', e => {
 async function init() {
     try {
         allProducts = await fetchProducts();
-        for (const p of allProducts) {
-            if (p.imageOverride || p.aiTileImage) checkAndDedupe(p);
-        }
         document.getElementById('loadingState').style.display = 'none';
 
         const returnState = readCatalogState();
