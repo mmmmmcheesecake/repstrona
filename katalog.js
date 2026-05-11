@@ -553,8 +553,15 @@ function getFiltered() {
         );
     }
     if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(getDisplayPrice(a)) - parsePrice(getDisplayPrice(b)));
-    if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
-    if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
+    else if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
+    else if (activeCategory === 'all' || activeCategory === HERO_OTHER) {
+        items.sort((a, b) => {
+            const ai = CATEGORIES.indexOf(a.category);
+            const bi = CATEGORIES.indexOf(b.category);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        });
+    }
     return items;
 }
 
