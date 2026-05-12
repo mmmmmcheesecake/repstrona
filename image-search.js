@@ -17,6 +17,16 @@ const resultsEl = document.getElementById('vsResults');
 let currentFile = null;
 let currentImageId = null;
 
+function safeHttpUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const u = new URL(url, window.location.href);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
 function setStatus(text, kind) {
     statusEl.textContent = text || '';
     statusEl.className = 'qc-status' + (kind ? ` qc-status-${kind}` : '');
@@ -123,14 +133,32 @@ function renderResults(data) {
         const a = document.createElement('a');
         a.href = productHref(r);
         a.className = 'vs-card';
-        const img = r.image || '';
-        a.innerHTML = `
-            <div class="vs-card-img">${img ? `<img src="${img}" alt="" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">` : ''}</div>
-            <div class="vs-card-body">
-                <span class="vs-card-title">${(r.title || '').replace(/[<>]/g, '')}</span>
-                <span class="vs-card-price">${fmtPrice(r)}</span>
-            </div>
-        `;
+        const img = safeHttpUrl(r.image);
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'vs-card-img';
+        if (img) {
+            const image = document.createElement('img');
+            image.src = img;
+            image.alt = '';
+            image.loading = 'lazy';
+            image.onerror = function () {
+                imgWrap.classList.add('no-img');
+                this.remove();
+            };
+            imgWrap.appendChild(image);
+        }
+
+        const body = document.createElement('div');
+        body.className = 'vs-card-body';
+        const title = document.createElement('span');
+        title.className = 'vs-card-title';
+        title.textContent = r.title || '';
+        const price = document.createElement('span');
+        price.className = 'vs-card-price';
+        price.textContent = fmtPrice(r);
+        body.append(title, price);
+        a.append(imgWrap, body);
         frag.appendChild(a);
     });
     resultsEl.appendChild(frag);

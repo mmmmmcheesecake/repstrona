@@ -226,6 +226,7 @@ export async function onRequest(ctx) {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
             'Cache-Control': 'public, max-age=900',
+            'X-Content-Type-Options': 'nosniff',
         }
     });
 }

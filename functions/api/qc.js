@@ -9,7 +9,8 @@ function jsonOk(body) {
     return new Response(JSON.stringify(body), {
         headers: {
             'content-type': 'application/json',
-            'cache-control': 'public, max-age=600'
+            'cache-control': 'public, max-age=600',
+            'x-content-type-options': 'nosniff'
         }
     });
 }

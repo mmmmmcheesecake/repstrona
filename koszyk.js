@@ -31,6 +31,7 @@
     }
 
     function rowHTML(it, idx) {
+        it = { ...it, qty: Number.isFinite(Number(it.qty)) && Number(it.qty) > 0 ? Number(it.qty) : 1 };
         const img = it.image
             ? `<img src="${escapeHtml(it.image)}" alt="${escapeHtml(it.name)}" loading="lazy" onerror="this.style.display='none'">`
             : '';

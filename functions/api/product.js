@@ -218,6 +218,7 @@ function jsonOk(obj) {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
             'Cache-Control': 'public, max-age=3600',
+            'X-Content-Type-Options': 'nosniff',
         }
     });
 }

@@ -41,8 +41,25 @@ function ensureRef(url) {
     url = url.trim();
     if (!url || url === '#') return null;
     url = convertToUsfans(url);
-    if (url.includes('ref=MGRSBE')) return url;
-    return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
+    const safe = safeHttpUrl(url);
+    if (!safe) return null;
+    const u = new URL(safe);
+    u.searchParams.set('ref', 'MGRSBE');
+    return u.toString();
+}
+
+function safeHttpUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const u = new URL(url, window.location.href);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
+function safeImageUrl(url) {
+    return safeHttpUrl(url) || '';
 }
 
 const params = new URLSearchParams(window.location.search);
@@ -74,6 +91,7 @@ function el(id) { return document.getElementById(id); }
 
 function setMainImage(src) {
     const img = el('pdMainImg');
+    src = safeImageUrl(src);
     if (!src) { img.style.display = 'none'; return; }
     img.style.display = '';
     if (img.src !== src) img.src = src;
@@ -83,9 +101,15 @@ function buildThumbs(images) {
     const wrap = el('pdThumbs');
     wrap.innerHTML = '';
     images.forEach((src, i) => {
+        src = safeImageUrl(src);
+        if (!src) return;
         const t = document.createElement('button');
         t.className = 'pd-thumb' + (i === 0 ? ' active' : '');
-        t.innerHTML = `<img src="${src}" alt="" loading="lazy">`;
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = '';
+        img.loading = 'lazy';
+        t.appendChild(img);
         t.addEventListener('click', () => {
             wrap.querySelectorAll('.pd-thumb').forEach(x => x.classList.remove('active'));
             t.classList.add('active');
@@ -204,8 +228,18 @@ function buildOptions() {
             btn.dataset.valueId = v.valueId;
 
             if (v.picUrl) {
+                const safePic = safeImageUrl(v.picUrl);
                 btn.classList.add('with-image');
-                btn.innerHTML = `<img src="${v.picUrl}" alt="${v.valueName}" loading="lazy"><span>${v.valueName}</span>`;
+                if (safePic) {
+                    const img = document.createElement('img');
+                    img.src = safePic;
+                    img.alt = v.valueName || '';
+                    img.loading = 'lazy';
+                    btn.appendChild(img);
+                }
+                const span = document.createElement('span');
+                span.textContent = v.valueName || '';
+                btn.appendChild(span);
             } else {
                 btn.textContent = v.valueName;
             }
@@ -239,6 +273,10 @@ async function load() {
     }
 
     const ref = ensureRef(productUrl);
+    if (!ref) {
+        showError(T('state.errorProduct', 'Failed to load product.'));
+        return;
+    }
     el('pdBuy').href = ref;
     const qcBtn = el('pdQc');
     if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(productUrl)}`;
@@ -264,9 +302,14 @@ async function load() {
         const titleName = data.title || sheetName || 'Product';
         document.title = T('title.productNamed', `${titleName} — RePluG`, { name: titleName });
 
-        const meta = [];
-        if (sheetBatch) meta.push(`<span class="card-batch ${batchClass(sheetBatch)}">${sheetBatch}</span>`);
-        el('pdMeta').innerHTML = meta.join('');
+        const metaEl = el('pdMeta');
+        metaEl.textContent = '';
+        if (sheetBatch) {
+            const batch = document.createElement('span');
+            batch.className = `card-batch ${batchClass(sheetBatch)}`;
+            batch.textContent = sheetBatch;
+            metaEl.appendChild(batch);
+        }
 
         el('pdName').textContent = sheetName || data.title || 'Product';
 

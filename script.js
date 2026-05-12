@@ -48,7 +48,18 @@ function set(id, text) {
 
 function setHref(id, url) {
     const el = document.getElementById(id);
-    if (el) el.href = url;
+    const safe = safeHttpUrl(url);
+    if (el && safe) el.href = safe;
+}
+
+function safeHttpUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const u = new URL(url, window.location.href);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : null;
+    } catch {
+        return null;
+    }
 }
 
 // ===== ŁADOWANIE DANYCH =====
@@ -69,7 +80,7 @@ async function loadAll() {
     applySettings(settings);
     applyHero(hero);
     renderCategories(categories.items);
-    renderTrending(products.items);
+    renderTrendingSafe(products.items);
     applyDiscord(discord, settings.discordUrl);
 }
 
@@ -106,15 +117,29 @@ function renderCategories(items) {
     const grid = document.getElementById('categoriesGrid');
     if (!grid || !items) return;
 
-    grid.innerHTML = items.map(cat => `
-        <a href="katalog.html?kategoria=${cat.slug}" class="category-card">
-            <div class="cat-icon">${cat.icon}</div>
-            <div class="cat-info">
-                <h3>${cat.name}</h3>
-                <span>${cat.description}</span>
-            </div>
-        </a>
-    `).join('');
+    grid.textContent = '';
+    const frag = document.createDocumentFragment();
+    items.forEach(cat => {
+        const a = document.createElement('a');
+        a.href = `katalog.html?kategoria=${encodeURIComponent(cat.slug || '')}`;
+        a.className = 'category-card';
+
+        const icon = document.createElement('div');
+        icon.className = 'cat-icon';
+        icon.textContent = cat.icon || '';
+
+        const info = document.createElement('div');
+        info.className = 'cat-info';
+        const title = document.createElement('h3');
+        title.textContent = cat.name || '';
+        const desc = document.createElement('span');
+        desc.textContent = cat.description || '';
+        info.append(title, desc);
+
+        a.append(icon, info);
+        frag.appendChild(a);
+    });
+    grid.appendChild(frag);
 }
 
 // ===== TRENDING =====
@@ -125,6 +150,7 @@ function badgeHTML(badge) {
 }
 
 function renderTrending(items) {
+    return renderTrendingSafe(items);
     const grid = document.getElementById('trendingGrid');
     if (!grid || !items) return;
 
@@ -148,6 +174,69 @@ function renderTrending(items) {
             </div>
         </div>
     `).join('');
+}
+
+function renderTrendingSafe(items) {
+    const grid = document.getElementById('trendingGrid');
+    if (!grid || !items) return;
+
+    const trending = items.filter(p => p.trending).slice(0, 5);
+    if (!trending.length) return;
+
+    grid.textContent = '';
+    const frag = document.createDocumentFragment();
+    trending.forEach((p, i) => {
+        const card = document.createElement('div');
+        card.className = `product-card${i < 2 ? ' large' : ''}`;
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'product-img';
+        const img = document.createElement('img');
+        const safeImg = safeHttpUrl(p.image);
+        if (safeImg) img.src = safeImg;
+        img.alt = p.title || '';
+        img.loading = 'lazy';
+        imgWrap.appendChild(img);
+
+        if (p.badge) {
+            const badge = document.createElement('div');
+            badge.className = `product-badge ${String(p.badge).replace(/[^a-z0-9_-]/gi, '')}`;
+            badge.textContent = ({ hot: 'Hot', new: 'New', top: 'Top Pick' })[p.badge] || p.badge;
+            imgWrap.appendChild(badge);
+        }
+
+        const category = document.createElement('div');
+        category.className = 'product-category';
+        category.textContent = p.category || '';
+        imgWrap.appendChild(category);
+
+        const info = document.createElement('div');
+        info.className = 'product-info';
+        const title = document.createElement('h3');
+        title.textContent = p.title || '';
+        const desc = document.createElement('p');
+        desc.className = 'product-desc';
+        desc.textContent = p.description || '';
+
+        const footer = document.createElement('div');
+        footer.className = 'product-footer';
+        const price = document.createElement('span');
+        price.className = 'product-price';
+        price.textContent = p.price || '';
+        const link = document.createElement('a');
+        const safeLink = safeHttpUrl(p.link);
+        link.href = safeLink || '#';
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'btn-card';
+        link.textContent = 'View offer ->';
+        footer.append(price, link);
+
+        info.append(title, desc, footer);
+        card.append(imgWrap, info);
+        frag.appendChild(card);
+    });
+    grid.appendChild(frag);
 }
 
 // ===== DISCORD BANNER =====

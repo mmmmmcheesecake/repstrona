@@ -290,8 +290,25 @@ function ensureRef(url) {
     url = url.trim();
     if (!url || url === '#') return null;
     url = convertToUsfans(url);
-    if (url.includes('ref=MGRSBE')) return url;
-    return url.includes('?') ? url + '&ref=MGRSBE' : url + REF;
+    const safe = safeHttpUrl(url);
+    if (!safe) return null;
+    const u = new URL(safe);
+    u.searchParams.set('ref', 'MGRSBE');
+    return u.toString();
+}
+
+function safeHttpUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const u = new URL(url, window.location.href);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
+function safeImageUrl(url) {
+    return safeHttpUrl(url) || '';
 }
 
 const HIGH_END_BRANDS = ['louis vuitton', 'lv ', 'gucci', 'dior', 'hermes', 'chanel', 'prada', 'balenciaga', 'fendi', 'burberry', 'saint laurent', 'ysl', 'givenchy', 'valentino', 'rick owens', 'lanvin', 'amiri'];
@@ -481,11 +498,15 @@ function getDisplayPrice(p) {
 }
 
 function getDisplayImage(p) {
-    return p.imageOverride || p.liveImage || p.image || '';
+    return [p.imageOverride, p.liveImage, p.image]
+        .map(safeImageUrl)
+        .find(Boolean) || '';
 }
 
 function getCardImage(p) {
-    return p.imageOverride || p.aiTileImage || p.liveImage || p.image || '';
+    return [p.imageOverride, p.aiTileImage, p.liveImage, p.image]
+        .map(safeImageUrl)
+        .find(Boolean) || '';
 }
 
 const SNEAKER_BRAND_ORDER = [
@@ -659,7 +680,7 @@ function getTileRepr(tileId) {
 function findTileImage(tileId) {
     const repr = getTileRepr(tileId);
     if (!repr) return '';
-    if (repr.source === 'curated') return repr.product.tileImage;
+    if (repr.source === 'curated') return safeImageUrl(repr.product.tileImage);
     return getDisplayImage(repr.product);
 }
 
@@ -687,11 +708,11 @@ function buildHeroTiles() {
         const img = findTileImage(t.id);
         const label = categoryLabel(t.id);
         const imgHtml = img
-            ? `<img src="${img}" alt="${label}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+            ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(label)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
             : '';
         tile.innerHTML = `
             <div class="hero-tile-img${img ? '' : ' no-img'}">${imgHtml}</div>
-            <span class="hero-tile-label">${label}</span>
+            <span class="hero-tile-label">${escapeHtml(label)}</span>
         `;
 
         tile.addEventListener('click', () => {
@@ -843,22 +864,25 @@ function escapeHtml(s) {
 function cardHTML(p) {
     const img = getCardImage(p);
     const imgTag = img
-        ? `<img src="${img}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+        ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
 
     let detailHref = '#';
     if (p.link) {
-        const q = new URLSearchParams({ url: p.link, name: p.name, batch: p.batch || '' });
+        const safeLink = safeHttpUrl(p.link);
+        if (!safeLink) return '';
+        const q = new URLSearchParams({ url: safeLink, name: p.name, batch: p.batch || '' });
         if (p.budgetLink) q.set('budget', p.budgetLink);
-        if (p.imageOverride) q.set('img', p.imageOverride);
+        const safeOverride = safeImageUrl(p.imageOverride);
+        if (safeOverride) q.set('img', safeOverride);
         if (p.category) q.set('cat', p.category);
         detailHref = `produkt.html?${q.toString()}`;
     }
 
     return `
-    <a href="${detailHref}" class="product-card" data-key="${productKey(p).replace(/"/g, '&quot;')}">
+    <a href="${escapeHtml(detailHref)}" class="product-card" data-key="${escapeHtml(productKey(p))}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
-            ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${p.batch}</span>` : ''}
+            ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${escapeHtml(p.batch)}</span>` : ''}
         </div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(p.name)}</p>

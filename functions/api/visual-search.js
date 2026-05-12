@@ -6,6 +6,7 @@ function jsonError(message, status) {
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function onRequest(ctx) {
     if (ctx.request.method !== 'POST') {
@@ -22,7 +23,21 @@ export async function onRequest(ctx) {
     const fwd = new FormData();
     const allowed = new Set(['image', 'imageId', 'channel', 'page']);
     for (const [k, v] of body.entries()) {
-        if (allowed.has(k)) fwd.append(k, v);
+        if (!allowed.has(k)) continue;
+        if (k === 'image') {
+            if (!v || typeof v !== 'object' || !String(v.type || '').startsWith('image/')) {
+                return jsonError('invalid image type', 400);
+            }
+            if (typeof v.size === 'number' && v.size > MAX_IMAGE_BYTES) {
+                return jsonError('image too large', 413);
+            }
+        }
+        if (k === 'channel' && !['1', '2', '3'].includes(String(v))) continue;
+        if (k === 'page') {
+            const page = Number(v);
+            if (!Number.isInteger(page) || page < 1 || page > 10) continue;
+        }
+        fwd.append(k, v);
     }
     if (!fwd.has('channel')) fwd.append('channel', '3');
     if (!fwd.has('page')) fwd.append('page', '1');
@@ -50,7 +65,8 @@ export async function onRequest(ctx) {
     return new Response(JSON.stringify(data), {
         headers: {
             'content-type': 'application/json',
-            'cache-control': 'no-store'
+            'cache-control': 'no-store',
+            'x-content-type-options': 'nosniff'
         }
     });
 }

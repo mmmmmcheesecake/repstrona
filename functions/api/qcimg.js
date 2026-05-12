@@ -32,7 +32,7 @@ export async function onRequest(ctx) {
 
     let target;
     try { target = new URL(original); } catch { return new Response('invalid url', { status: 400 }); }
-    if (target.protocol !== 'https:' && target.protocol !== 'http:') {
+    if (target.protocol !== 'https:') {
         return new Response('forbidden protocol', { status: 403 });
     }
     if (!hostAllowed(target.hostname)) {
@@ -51,8 +51,16 @@ export async function onRequest(ctx) {
     if (!upstream.ok) return new Response('upstream error', { status: 502 });
 
     const headers = new Headers();
-    const ct = upstream.headers.get('content-type') || 'image/webp';
+    const ct = upstream.headers.get('content-type') || '';
+    if (!ct.toLowerCase().startsWith('image/')) {
+        return new Response('upstream is not an image', { status: 502 });
+    }
+    const len = Number(upstream.headers.get('content-length') || 0);
+    if (len > 15 * 1024 * 1024) {
+        return new Response('image too large', { status: 413 });
+    }
     headers.set('content-type', ct);
     headers.set('cache-control', 'public, max-age=86400, immutable');
+    headers.set('x-content-type-options', 'nosniff');
     return new Response(upstream.body, { status: 200, headers });
 }

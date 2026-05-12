@@ -15,6 +15,7 @@ export async function onRequest(ctx) {
                 'Content-Type': 'application/json; charset=utf-8',
                 'Access-Control-Allow-Origin': '*',
                 'Cache-Control': 'public, max-age=86400',
+                'X-Content-Type-Options': 'nosniff',
             }
         });
     } catch {
@@ -23,7 +24,10 @@ export async function onRequest(ctx) {
             rates: { USD: 1, PLN: 4.0, EUR: 0.92, GBP: 0.79, CNY: 7.2 },
             date: 'fallback',
         }), {
-            headers: { 'Content-Type': 'application/json; charset=utf-8' }
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'X-Content-Type-Options': 'nosniff',
+            }
         });
     }
 }
