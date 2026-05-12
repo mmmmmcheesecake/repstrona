@@ -1065,6 +1065,10 @@ window.addEventListener('pageshow', e => {
     if (e.persisted) {
         const s = readCatalogState();
         if (s && typeof s.scrollY === 'number') window.scrollTo(0, s.scrollY);
+        // iOS Safari sometimes clears the search input on bfcache restore even though
+        // the JS state (and therefore the filtered grid) is preserved — re-sync the DOM.
+        const inp = document.getElementById('searchInput');
+        if (inp && inp.value !== searchQuery) inp.value = searchQuery;
     }
 });
 

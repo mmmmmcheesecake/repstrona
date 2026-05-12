@@ -2014,3 +2014,13 @@ body.usfans-popup-open { overflow: hidden; }
         height: 38px;
     }
 }
+
+/* iOS Safari auto-zooms when focusing an input with font-size < 16px. */
+@media (max-width: 768px) {
+    .search-box input,
+    .sort-select,
+    .qc-input,
+    .cart-share-url input {
+        font-size: 16px;
+    }
+}
