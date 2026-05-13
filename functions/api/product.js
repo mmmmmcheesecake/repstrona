@@ -197,19 +197,96 @@ async function handleWeidian(itemId, full) {
     return jsonOk(shapeWeidian(j, full));
 }
 
-export async function onRequest(ctx) {
-    const url = new URL(ctx.request.url).searchParams.get('url');
-    const full = new URL(ctx.request.url).searchParams.get('full') === '1';
+async function fetchYupooAlbumImages(albumUrl) {
+    try {
+        const u = new URL(albumUrl);
+        if (!/\.yupoo\.com$/i.test(u.hostname)) return [];
+        const r = await fetch(albumUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 RePluG-Bot',
+                'Referer': `https://${u.hostname}/albums`,
+            },
+            cf: { cacheTtl: 3600, cacheEverything: true },
+        });
+        if (!r.ok) return [];
+        const html = await r.text();
+        const seen = new Set();
+        const photos = [];
+        const re = /https:\/\/photo\.yupoo\.com\/[^"\s]+\/[a-f0-9]+\/(?:big|medium|small)\.(?:jpg|jpeg|png|webp)/g;
+        const matches = html.match(re) || [];
+        for (const raw of matches) {
+            const idM = raw.match(/\/([a-f0-9]+)\/[a-z]+\.[a-z]+$/);
+            if (!idM) continue;
+            const id = idM[1];
+            if (seen.has(id)) continue;
+            seen.add(id);
+            photos.push(raw.replace(/\/(medium|small)\./, '/big.'));
+        }
+        return photos.slice(0, 16);
+    } catch { return []; }
+}
 
-    if (!url) return jsonError('missing url', 400);
+function emptyResult() {
+    return { title: null, image: null, images: [], inHandImages: [], skuImages: [], priceUsd: null, stock: null };
+}
 
+async function resolveByUrl(url, full) {
     const usf = parseUsfans(url);
-    if (usf) return handleUsfans(usf, full);
-
+    if (usf) {
+        const r = await handleUsfans(usf, full);
+        return r;
+    }
     const kako = parseKakobuy(url);
-    if (kako && kako.source === 'weidian') return handleWeidian(kako.itemId, full);
+    if (kako && kako.source === 'weidian') {
+        const r = await handleWeidian(kako.itemId, full);
+        return r;
+    }
+    return null;
+}
 
-    return jsonError('unsupported url', 400);
+async function readResponse(r) {
+    if (!r) return null;
+    try { return await r.clone().json(); }
+    catch { return null; }
+}
+
+export async function onRequest(ctx) {
+    const params = new URL(ctx.request.url).searchParams;
+    const url = params.get('url');
+    const full = params.get('full') === '1';
+    const yupoo = params.get('yupoo');
+
+    let result = null;
+    let upstreamErrorResponse = null;
+
+    if (url) {
+        const upstream = await resolveByUrl(url, full);
+        if (upstream && upstream.status >= 200 && upstream.status < 300) {
+            result = await readResponse(upstream);
+        } else if (upstream && !yupoo) {
+            return upstream;
+        } else if (!upstream && !yupoo) {
+            return jsonError('unsupported url', 400);
+        } else {
+            upstreamErrorResponse = upstream;
+        }
+    } else if (!yupoo) {
+        return jsonError('missing url', 400);
+    }
+
+    if (yupoo) {
+        const yupooImgs = await fetchYupooAlbumImages(yupoo);
+        if (!result) result = emptyResult();
+        const merged = [...new Set([...yupooImgs, ...(result.images || [])])];
+        result.images = merged.slice(0, 20);
+        if (!result.image && result.images.length) result.image = result.images[0];
+    }
+
+    if (!result) {
+        return upstreamErrorResponse || jsonError('no data', 502);
+    }
+
+    return jsonOk(result);
 }
 
 function jsonOk(obj) {

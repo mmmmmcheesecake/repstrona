@@ -484,6 +484,7 @@ async function fetchProducts() {
             liveImage: null,
             shopId: p.shopId || null,
             shopName: p.shopName || null,
+            yupooAlbumUrl: p.yupooAlbumUrl || null,
         };
     });
 }
@@ -927,6 +928,8 @@ function cardHTML(p) {
         const safeOverride = safeImageUrl(p.imageOverride);
         if (safeOverride) q.set('img', safeOverride);
         if (p.category) q.set('cat', p.category);
+        const safeYupoo = safeHttpUrl(p.yupooAlbumUrl);
+        if (safeYupoo) q.set('yupoo', safeYupoo);
         detailHref = `produkt.html?${q.toString()}`;
     }
 

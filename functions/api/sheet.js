@@ -168,6 +168,17 @@ function parseWeidianShopId(link) {
     } catch { return null; }
 }
 
+function extractYupooFromHtml(html) {
+    if (!html) return null;
+    const decoded = html.replace(/&#34;/g, '"').replace(/&amp;/g, '&').replace(/\\n/g, '\n');
+    const m = decoded.match(/[Yy]upoo[^a-zA-Z0-9]+(https?:\/\/[a-zA-Z0-9.-]+\.yupoo\.com[^\s"<,]*)/);
+    if (!m) return null;
+    try {
+        const u = new URL(m[1]);
+        return `https://${u.hostname}`;
+    } catch { return null; }
+}
+
 async function fetchWeidianShopMeta(shopId) {
     try {
         const r = await fetch(`https://weidian.com/?userid=${shopId}`, {
@@ -176,9 +187,10 @@ async function fetchWeidianShopMeta(shopId) {
         });
         if (!r.ok) return null;
         const html = await r.text();
-        const m = html.match(/&#34;shopName&#34;:&#34;([^&]+)&#34;/);
-        const name = m ? m[1].trim() : null;
-        return name ? { name } : null;
+        const nameM = html.match(/&#34;shopName&#34;:&#34;([^&]+)&#34;/);
+        const name = nameM ? nameM[1].trim() : null;
+        const yupooUrl = extractYupooFromHtml(html);
+        return (name || yupooUrl) ? { name, yupooUrl } : null;
     } catch { return null; }
 }
 
@@ -295,17 +307,13 @@ function weidianItemToProduct(item, cateName, shopId, shopName) {
     };
 }
 
-async function fetchWeidianShop(shopId) {
-    const [tree, meta] = await Promise.all([
-        thorGet('/decorate/itemCate.getCateTree/1.0', {
-            shopId: String(shopId),
-            from: 'h5',
-        }),
-        fetchWeidianShopMeta(shopId),
-    ]);
+async function fetchAllWeidianItems(shopId) {
+    const tree = await thorGet('/decorate/itemCate.getCateTree/1.0', {
+        shopId: String(shopId),
+        from: 'h5',
+    });
     const topCates = tree?.cateList || [];
     if (!topCates.length) return [];
-    const shopName = meta?.name || `Shop ${shopId}`;
 
     const perCate = await Promise.all(topCates.map(c =>
         fetchWeidianCategoryItems(shopId, c.cateId, c.speCateItemNum)
@@ -318,9 +326,234 @@ async function fetchWeidianShop(shopId) {
         for (const it of items) {
             if (!it?.itemId || seen.has(it.itemId)) continue;
             seen.add(it.itemId);
-            const p = weidianItemToProduct(it, cate.cateName, shopId, shopName);
-            if (p) out.push(p);
+            out.push({ ...it, _cateName: cate.cateName });
         }
+    }
+    return out;
+}
+
+function parseYupooTitle(rawTitle) {
+    let s = String(rawTitle || '').trim();
+    let priceCny = null;
+    const priceM = s.match(/^(\d+)\s*[¥￥]/);
+    if (priceM) {
+        priceCny = parseInt(priceM[1], 10);
+        s = s.slice(priceM[0].length).trim();
+    }
+    const batches = [];
+    s = s.replace(/【([^】]+)】/g, (_, b) => { batches.push(b.trim()); return ' '; });
+    const name = s.replace(/\s+/g, ' ').trim();
+    return { name, priceCny, batchRaw: batches[0] || '' };
+}
+
+function yupooBatchCode(rawBatch) {
+    const t = (rawBatch || '').toUpperCase();
+    if (/\bLJR\b/.test(t)) return 'LJR';
+    if (/\bPK\b/.test(t)) return 'PK';
+    if (/\bOG\b/.test(t)) return 'OG';
+    if (/\bBD\b/.test(t)) return 'BD';
+    if (/\bDG\b/.test(t)) return 'DG';
+    if (/\bUA\b/.test(t)) return 'UA';
+    return '';
+}
+
+function yupooBrandModel(name) {
+    const c = name.toLowerCase();
+    if (/jordan\s*1\b/.test(c)) return { brand: 'Jordan 1', model: 'Jordan 1' };
+    if (/jordan\s*3\b/.test(c)) return { brand: 'Jordan 3', model: 'Jordan 3' };
+    if (/jordan\s*4\b/.test(c)) return { brand: 'Jordan 4', model: 'Jordan 4' };
+    const jMid = c.match(/jordan\s*(5|6|7|8|9|10|11|12|13)\b/);
+    if (jMid) return { brand: 'Jordan 5-13', model: `Jordan ${jMid[1]}` };
+    if (/jordan/.test(c)) return { brand: 'Jordan (Other)', model: 'Other' };
+    if (/dunk/.test(c)) return { brand: 'Dunks', model: c.includes('low') ? 'Dunk Low' : (c.includes('high') ? 'Dunk High' : 'Dunk') };
+    if (/yeezy/.test(c)) {
+        const yM = c.match(/yeezy\s*(\d{3,4})/);
+        if (yM) return { brand: 'Yeezy', model: `Yeezy ${yM[1]}` };
+        if (c.includes('slide')) return { brand: 'Yeezy', model: 'Slide' };
+        if (c.includes('foam')) return { brand: 'Yeezy', model: 'Foam' };
+        return { brand: 'Yeezy', model: 'Other' };
+    }
+    if (/kobe/.test(c)) return { brand: 'Nike', model: 'Kobe' };
+    if (/air\s*max/.test(c)) return { brand: 'Nike', model: 'Air Max' };
+    if (/(air\s*force|af1)/.test(c)) return { brand: 'Nike', model: 'Air Force' };
+    if (/cortez/.test(c)) return { brand: 'Nike', model: 'Cortez' };
+    if (/vomero/.test(c)) return { brand: 'Nike', model: 'Vomero' };
+    if (/hot\s*step/.test(c)) return { brand: 'Nike', model: 'Hot Step' };
+    if (/nike|nocta|kd|kyrie|lebron|sb\s/.test(c)) return { brand: 'Nike', model: 'Other' };
+    if (/samba/.test(c)) return { brand: 'Adidas', model: 'Samba' };
+    if (/gazelle/.test(c)) return { brand: 'Adidas', model: 'Gazelle' };
+    if (/campus/.test(c)) return { brand: 'Adidas', model: 'Campus' };
+    if (/spezial/.test(c)) return { brand: 'Adidas', model: 'Spezial' };
+    if (/adidas/.test(c)) return { brand: 'Adidas', model: 'Other' };
+    if (/balenciaga|巴黎/.test(c)) return { brand: 'Balenciaga', model: 'Other' };
+    if (/louis\s*vuitton|\blv\b/.test(c)) return { brand: 'Louis Vuitton', model: 'Other' };
+    if (/dior/.test(c)) return { brand: 'Dior', model: 'Other' };
+    if (/bape/.test(c)) return { brand: 'Bape', model: 'Other' };
+    if (/new\s*balance|\bnb\b/.test(c)) {
+        const nbM = c.match(/(?:new\s*balance|\bnb\b)\s*(\d{3,4}r?)/);
+        return { brand: 'New Balance', model: nbM ? nbM[1].toUpperCase() : 'Other' };
+    }
+    if (/asics/.test(c)) return { brand: 'Asics', model: 'Other' };
+    if (/mcqueen/.test(c)) return { brand: 'Alexander McQueen', model: 'Other' };
+    if (/off-?white/.test(c)) return { brand: 'Off-White', model: 'Other' };
+    if (/amiri/.test(c)) return { brand: 'Amiri', model: 'Other' };
+    if (/burberry/.test(c)) return { brand: 'Burberry', model: 'Other' };
+    if (/ugg/.test(c)) return { brand: 'UGG', model: 'Other' };
+    if (/timberland/.test(c)) return { brand: 'Timberland', model: 'Other' };
+    if (/bottega/.test(c)) return { brand: 'Bottega Veneta', model: 'Other' };
+    if (/louboutin/.test(c)) return { brand: 'Christian Louboutin', model: 'Other' };
+    if (/birkenstock/.test(c)) return { brand: 'Birkenstock', model: 'Other' };
+    if (/mihara|\bmmy\b/.test(c)) return { brand: 'Maison Mihara Yasuhiro', model: 'Other' };
+    if (/golden\s*goose/.test(c)) return { brand: 'Golden Goose', model: 'Other' };
+    if (/lanvin/.test(c)) return { brand: 'Lanvin', model: 'Other' };
+    if (/rick\s*owens/.test(c)) return { brand: 'Rick Owens', model: 'Other' };
+    if (/on\s*cloud/.test(c)) return { brand: 'On Running', model: 'Other' };
+    if (/loewe/.test(c)) return { brand: 'Loewe', model: 'Other' };
+    if (/puma|p6000/.test(c)) return { brand: 'Puma', model: 'Other' };
+    if (/crocs/.test(c)) return { brand: 'Crocs', model: 'Other' };
+    return { brand: 'Other', model: 'Other' };
+}
+
+function parseYupooAlbums(html, base) {
+    const out = [];
+    const re = /class="album__main"([\s\S]*?)<\/a>/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+        const block = m[1];
+        const titleM = block.match(/title="([^"]+)"/);
+        const hrefM = block.match(/href="\/albums\/(\d+)/);
+        const imgM = block.match(/src="(https:\/\/photo\.yupoo\.com\/[^"]+)"/);
+        const photoCountM = block.match(/album__photonumber"[^>]*>(\d+)/);
+        if (!titleM || !hrefM) continue;
+        const id = hrefM[1];
+        out.push({
+            id,
+            title: titleM[1],
+            cover: imgM?.[1] || '',
+            photoCount: photoCountM ? parseInt(photoCountM[1], 10) : null,
+            url: `${base}/albums/${id}?uid=1`,
+        });
+    }
+    return out;
+}
+
+async function fetchYupooAlbums(yupooBaseUrl) {
+    const base = yupooBaseUrl.replace(/\/+$/, '');
+    const MAX_PAGES = 15;
+    const fetches = [];
+    for (let p = 1; p <= MAX_PAGES; p++) {
+        fetches.push(
+            fetch(`${base}/albums?tab=gallery&page=${p}`, {
+                headers: { 'User-Agent': WEIDIAN_UA },
+                cf: { cacheTtl: 1800, cacheEverything: true },
+            }).then(r => r.ok ? r.text() : '').catch(() => '')
+        );
+    }
+    const pages = await Promise.all(fetches);
+    const seen = new Set();
+    const all = [];
+    for (const html of pages) {
+        if (!html) continue;
+        const albums = parseYupooAlbums(html, base);
+        for (const a of albums) {
+            if (seen.has(a.id)) continue;
+            seen.add(a.id);
+            all.push(a);
+        }
+    }
+    return all;
+}
+
+function normalizeForMatch(s) {
+    return String(s || '')
+        .toLowerCase()
+        .replace(/[*]+/g, '')
+        .replace(/系列合集|综合链接|系列|合集|链接\d*|新配色/g, '')
+        .replace(/【[^】]+】/g, '')
+        .replace(/^\d+\s*[¥￥]/, '')
+        .replace(/[^a-z0-9一-鿿]+/g, '');
+}
+
+function buildWeidianMatcher(weidianItems) {
+    const norm = [];
+    for (const it of weidianItems) {
+        const key = normalizeForMatch(it.itemName);
+        if (key.length >= 4) norm.push({ item: it, key });
+    }
+    return (yupooName) => {
+        const yKey = normalizeForMatch(yupooName);
+        if (yKey.length < 4) return null;
+        for (const x of norm) if (x.key === yKey) return x.item;
+        for (const x of norm) {
+            if (x.key.length >= 6 && yKey.includes(x.key)) return x.item;
+            if (yKey.length >= 6 && x.key.includes(yKey)) return x.item;
+        }
+        for (const x of norm) {
+            const stripped = x.key.slice(1);
+            if (stripped.length >= 6 && yKey.endsWith(stripped)) return x.item;
+        }
+        return null;
+    };
+}
+
+function yupooAlbumToProduct(album, parsed, shopId, shopName, weidianMatch, fallbackShopUrl) {
+    const { name, priceCny, batchRaw } = parsed;
+    if (!name) return null;
+    const bm = yupooBrandModel(name);
+    const usd = priceCny && priceCny > 0 ? Math.round(priceCny / CNY_PER_USD) : null;
+    const tileImg = album.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+    const buyLink = weidianMatch
+        ? `https://weidian.com/item.html?itemID=${weidianMatch.itemId}`
+        : fallbackShopUrl;
+    return {
+        name,
+        batch: yupooBatchCode(batchRaw) || '',
+        link: normalizeRef(buyLink),
+        price: usd != null ? `$${usd}` : '',
+        livePrice: usd,
+        image: tileImg,
+        description: '',
+        budgetLink: null,
+        categoryOverride: 'Sellers',
+        brandOverride: bm.brand,
+        modelOverride: bm.model,
+        imageOverride: tileImg,
+        tileImage: null,
+        shopId: String(shopId),
+        shopName: shopName || null,
+        yupooAlbumUrl: album.url,
+    };
+}
+
+async function fetchWeidianShop(shopId) {
+    const meta = await fetchWeidianShopMeta(shopId);
+    const shopName = meta?.name || `Shop ${shopId}`;
+    const yupooUrl = meta?.yupooUrl || null;
+    const fallbackShopUrl = `https://weidian.com/?userid=${shopId}`;
+
+    if (yupooUrl) {
+        const [albums, weidianItems] = await Promise.all([
+            fetchYupooAlbums(yupooUrl),
+            fetchAllWeidianItems(shopId),
+        ]);
+        if (albums.length) {
+            const matcher = buildWeidianMatcher(weidianItems);
+            const out = [];
+            for (const a of albums) {
+                const parsed = parseYupooTitle(a.title);
+                const wMatch = matcher(parsed.name);
+                const p = yupooAlbumToProduct(a, parsed, shopId, shopName, wMatch, fallbackShopUrl);
+                if (p) out.push(p);
+            }
+            return out;
+        }
+    }
+
+    const weidianItems = await fetchAllWeidianItems(shopId);
+    const out = [];
+    for (const it of weidianItems) {
+        const p = weidianItemToProduct(it, it._cateName, shopId, shopName);
+        if (p) out.push(p);
     }
     return out;
 }
@@ -343,6 +576,7 @@ function compact(p) {
     if (p.livePrice != null) out.livePrice = p.livePrice;
     if (p.shopId) out.shopId = p.shopId;
     if (p.shopName) out.shopName = p.shopName;
+    if (p.yupooAlbumUrl) out.yupooAlbumUrl = p.yupooAlbumUrl;
     return out;
 }
 

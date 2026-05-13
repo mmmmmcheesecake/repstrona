@@ -69,6 +69,7 @@ const sheetBatch = params.get('batch') || '';
 const budgetUrl = params.get('budget') ? ensureRef(params.get('budget')) : null;
 const imageOverride = params.get('img') || '';
 const productCategory = params.get('cat') || '';
+const yupooAlbumUrl = safeHttpUrl(params.get('yupoo')) || '';
 
 const state = {
     properties: [],
@@ -294,7 +295,9 @@ async function load() {
         .catch(() => {});
 
     try {
-        const r = await fetch(`/api/product?url=${encodeURIComponent(productUrl)}&full=1`);
+        const apiQs = new URLSearchParams({ url: productUrl, full: '1' });
+        if (yupooAlbumUrl) apiQs.set('yupoo', yupooAlbumUrl);
+        const r = await fetch(`/api/product?${apiQs.toString()}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (data.error) throw new Error(data.error);
