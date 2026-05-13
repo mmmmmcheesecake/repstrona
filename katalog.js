@@ -529,7 +529,7 @@ const shopFetchCache = new Map();
 async function loadShopProducts(shopId) {
     if (shopFetchCache.has(shopId)) return shopFetchCache.get(shopId);
     const promise = (async () => {
-        const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}`);
+        const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}&v=2`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (!Array.isArray(data)) throw new Error('Bad shop response');

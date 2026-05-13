@@ -776,12 +776,12 @@ export async function onRequest(ctx) {
     if (shopParam) {
         if (/^\d+$/.test(shopParam)) {
             const products = await fetchWeidianShop(shopParam);
-            return jsonResponse(products.map(compact), 3600);
+            return jsonResponse(products.map(compact), 300);
         }
         const ypMatch = shopParam.match(/^yp-([a-zA-Z0-9-]+)$/);
         if (ypMatch) {
             const products = await fetchYupooShop(ypMatch[1]);
-            return jsonResponse(products.map(compact), 3600);
+            return jsonResponse(products.map(compact), 300);
         }
     }
 
