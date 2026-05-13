@@ -261,19 +261,20 @@ function weidianItemToProduct(item, cateName) {
     const bm = weidianBrandModel(cateName);
     const cnyNum = parseFloat(item.price);
     const usd = isFinite(cnyNum) && cnyNum > 0 ? Math.round(cnyNum / CNY_PER_USD) : null;
+    const img = item.itemImg || '';
     return {
         name,
         batch: '',
         link: normalizeRef(item.itemUrl || `https://weidian.com/item.html?itemID=${item.itemId}`),
         price: usd != null ? `$${usd}` : '',
         livePrice: usd,
-        image: item.itemImg || '',
+        image: img,
         description: '',
         budgetLink: null,
         categoryOverride: 'Sellers',
         brandOverride: bm.brand,
         modelOverride: bm.model,
-        imageOverride: null,
+        imageOverride: img || null,
         tileImage: null,
     };
 }
