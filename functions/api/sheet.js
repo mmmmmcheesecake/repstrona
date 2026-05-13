@@ -181,7 +181,7 @@ function parseWeidianShopId(link) {
     } catch { return null; }
 }
 
-async function fetchSpreadfindsShopIds() {
+async function fetchSpreadfindsSellers() {
     try {
         const r = await fetch('https://api.spreadfinds.com/trusted-sellers', {
             headers: { 'User-Agent': WEIDIAN_UA, 'Accept': 'application/json' },
@@ -190,15 +190,18 @@ async function fetchSpreadfindsShopIds() {
         if (!r.ok) return [];
         const data = await r.json();
         const items = Array.isArray(data?.items) ? data.items : [];
-        const ids = [];
+        const out = [];
         const seen = new Set();
         for (const it of items) {
             const shopId = parseWeidianShopId(it?.store_url);
             if (!shopId || seen.has(shopId)) continue;
             seen.add(shopId);
-            ids.push(shopId);
+            out.push({
+                shopId,
+                bestKnownFor: (it?.best_known_for || '').trim() || null,
+            });
         }
-        return ids;
+        return out;
     } catch { return []; }
 }
 
@@ -595,13 +598,15 @@ function compact(p) {
     if (p.yupooAlbumUrl) out.yupooAlbumUrl = p.yupooAlbumUrl;
     if (p.productCount) out.productCount = p.productCount;
     if (p.isShopStub) out.isShopStub = true;
+    if (p.bestKnownFor) out.bestKnownFor = p.bestKnownFor;
     return out;
 }
 
-async function fetchShopStub(shopId) {
+async function fetchShopStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl;
+    const bestKnownFor = extras?.bestKnownFor || null;
 
     let cover = null;
     let productCount = null;
@@ -640,6 +645,7 @@ async function fetchShopStub(shopId) {
         shopId: String(shopId),
         shopName,
         productCount,
+        bestKnownFor,
         isShopStub: true,
     };
 }
@@ -719,10 +725,11 @@ export async function onRequest(ctx) {
     if (!data) return new Response('Sheets API error', { status: 502 });
 
     if (params.get('sellers') === '1') {
-        const spreadfindsIds = await fetchSpreadfindsShopIds();
-        const merged = [...new Set([...data.shopIds, ...spreadfindsIds])];
+        const spreadfinds = await fetchSpreadfindsSellers();
+        const extrasByShopId = new Map(spreadfinds.map(s => [s.shopId, { bestKnownFor: s.bestKnownFor }]));
+        const merged = [...new Set([...data.shopIds, ...spreadfinds.map(s => s.shopId)])];
         const stubs = merged.length
-            ? (await Promise.all(merged.map(fetchShopStub))).map(compact)
+            ? (await Promise.all(merged.map(id => fetchShopStub(id, extrasByShopId.get(id))))).map(compact)
             : [];
         return jsonResponse(stubs, 1800);
     }

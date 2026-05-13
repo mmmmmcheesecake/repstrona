@@ -483,6 +483,7 @@ function mapApiProduct(p) {
         yupooAlbumUrl: p.yupooAlbumUrl || null,
         productCount: p.productCount || null,
         isShopStub: !!p.isShopStub,
+        bestKnownFor: p.bestKnownFor || null,
     };
 }
 
@@ -642,7 +643,17 @@ function getFiltered() {
     else if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
     else if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
     else {
+        let bkfKw = [];
+        if (activeCategory === 'Sellers' && activeSeller) {
+            const seller = uniqueSellers().find(s => s.shopId === activeSeller);
+            bkfKw = bkfKeywords(seller?.bestKnownFor);
+        }
         items.sort((a, b) => {
+            if (bkfKw.length) {
+                const sa = bkfRelevance(a, bkfKw);
+                const sb = bkfRelevance(b, bkfKw);
+                if (sa !== sb) return sb - sa;
+            }
             const ai = CATEGORIES.indexOf(a.category);
             const bi = CATEGORIES.indexOf(b.category);
             const aC = ai === -1 ? 999 : ai;
@@ -916,6 +927,7 @@ function uniqueSellers() {
                 shopName: p.shopName || `Shop ${p.shopId}`,
                 cover: '',
                 productCount: 0,
+                bestKnownFor: null,
                 products: [],
             });
         }
@@ -923,11 +935,34 @@ function uniqueSellers() {
         s.products.push(p);
         if (!s.cover) s.cover = p.imageOverride || p.image || '';
         if (p.isShopStub && p.productCount) s.productCount = p.productCount;
+        if (p.bestKnownFor && !s.bestKnownFor) s.bestKnownFor = p.bestKnownFor;
     }
     for (const s of map.values()) {
         if (!s.productCount) s.productCount = s.products.filter(p => !p.isShopStub).length;
     }
     return [...map.values()];
+}
+
+const BKF_STOPWORDS = new Set([
+    'and', 'or', 'the', 'for', 'with', 'huge', 'cataloge', 'catalogue', 'more',
+    'high', 'quality', 'good', 'best', 'top', 'cheap', 'great', 'big',
+    'items', 'goods', 'stuff', 'batches', 'batch', 'shop',
+]);
+
+function bkfKeywords(bkf) {
+    if (!bkf) return [];
+    return bkf
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(w => w.length >= 3 && !BKF_STOPWORDS.has(w));
+}
+
+function bkfRelevance(product, keywords) {
+    if (!keywords.length) return 0;
+    const hay = `${product.name || ''} ${product.brand || ''} ${product.model || ''}`.toLowerCase();
+    let score = 0;
+    for (const k of keywords) if (hay.includes(k)) score++;
+    return score;
 }
 
 function buildBrandTabs() {
