@@ -198,6 +198,7 @@ async function fetchSpreadfindsSellers() {
             seen.add(shopId);
             out.push({
                 shopId,
+                name: (it?.name || '').trim() || null,
                 bestKnownFor: (it?.best_known_for || '').trim() || null,
             });
         }
@@ -604,7 +605,7 @@ function compact(p) {
 
 async function fetchShopStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
-    const shopName = meta?.name || `Shop ${shopId}`;
+    const shopName = (extras?.name) || meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl;
     const bestKnownFor = extras?.bestKnownFor || null;
 
@@ -726,7 +727,7 @@ export async function onRequest(ctx) {
 
     if (params.get('sellers') === '1') {
         const spreadfinds = await fetchSpreadfindsSellers();
-        const extrasByShopId = new Map(spreadfinds.map(s => [s.shopId, { bestKnownFor: s.bestKnownFor }]));
+        const extrasByShopId = new Map(spreadfinds.map(s => [s.shopId, { name: s.name, bestKnownFor: s.bestKnownFor }]));
         const merged = [...new Set([...data.shopIds, ...spreadfinds.map(s => s.shopId)])];
         const stubs = merged.length
             ? (await Promise.all(merged.map(id => fetchShopStub(id, extrasByShopId.get(id))))).map(compact)
