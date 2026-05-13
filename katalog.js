@@ -16,10 +16,10 @@ let sortMode = 'default';
 const GENDER = (window.RePluGGender && window.RePluGGender.get()) || 'men';
 
 const CATEGORIES_MEN = [
-    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
+    'Sneakers', 'Sellers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
     'Pants', 'Shorts', 'Accesories', 'Watches',
     'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
-    'Football', 'Basketball', 'Lego', 'MISC', 'Sellers'
+    'Football', 'Basketball', 'Lego', 'MISC'
 ];
 const CATEGORIES_WOMEN = [
     'Sneakers', 'Hoodies/Crewnecks', 'T-shirts',
