@@ -2024,3 +2024,30 @@ body.usfans-popup-open { overflow: hidden; }
         font-size: 16px;
     }
 }
+
+.seller-card {
+    cursor: pointer;
+}
+.seller-card .card-name {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.seller-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    padding: 4px 0;
+    margin: 6px 0 10px;
+    cursor: pointer;
+    transition: color 0.12s;
+}
+.seller-back:hover {
+    color: var(--text);
+}

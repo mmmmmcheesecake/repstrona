@@ -168,6 +168,20 @@ function parseWeidianShopId(link) {
     } catch { return null; }
 }
 
+async function fetchWeidianShopMeta(shopId) {
+    try {
+        const r = await fetch(`https://weidian.com/?userid=${shopId}`, {
+            headers: { 'User-Agent': WEIDIAN_UA },
+            cf: { cacheTtl: 1800, cacheEverything: true },
+        });
+        if (!r.ok) return null;
+        const html = await r.text();
+        const m = html.match(/&#34;shopName&#34;:&#34;([^&]+)&#34;/);
+        const name = m ? m[1].trim() : null;
+        return name ? { name } : null;
+    } catch { return null; }
+}
+
 async function thorGet(path, params) {
     const url = `https://thor.weidian.com${path}?param=${encodeURIComponent(JSON.stringify(params))}`;
     try {
@@ -255,7 +269,7 @@ function weidianBrandModel(cateName) {
     return { brand: 'Other', model: 'Other' };
 }
 
-function weidianItemToProduct(item, cateName) {
+function weidianItemToProduct(item, cateName, shopId, shopName) {
     const name = cleanWeidianName(item.itemName);
     if (!name) return null;
     const bm = weidianBrandModel(cateName);
@@ -276,16 +290,22 @@ function weidianItemToProduct(item, cateName) {
         modelOverride: bm.model,
         imageOverride: img || null,
         tileImage: null,
+        shopId: String(shopId),
+        shopName: shopName || null,
     };
 }
 
 async function fetchWeidianShop(shopId) {
-    const tree = await thorGet('/decorate/itemCate.getCateTree/1.0', {
-        shopId: String(shopId),
-        from: 'h5',
-    });
+    const [tree, meta] = await Promise.all([
+        thorGet('/decorate/itemCate.getCateTree/1.0', {
+            shopId: String(shopId),
+            from: 'h5',
+        }),
+        fetchWeidianShopMeta(shopId),
+    ]);
     const topCates = tree?.cateList || [];
     if (!topCates.length) return [];
+    const shopName = meta?.name || `Shop ${shopId}`;
 
     const perCate = await Promise.all(topCates.map(c =>
         fetchWeidianCategoryItems(shopId, c.cateId, c.speCateItemNum)
@@ -298,7 +318,7 @@ async function fetchWeidianShop(shopId) {
         for (const it of items) {
             if (!it?.itemId || seen.has(it.itemId)) continue;
             seen.add(it.itemId);
-            const p = weidianItemToProduct(it, cate.cateName);
+            const p = weidianItemToProduct(it, cate.cateName, shopId, shopName);
             if (p) out.push(p);
         }
     }
@@ -321,6 +341,8 @@ function compact(p) {
     if (p.imageOverride) out.imageOverride = p.imageOverride;
     if (p.tileImage) out.tileImage = p.tileImage;
     if (p.livePrice != null) out.livePrice = p.livePrice;
+    if (p.shopId) out.shopId = p.shopId;
+    if (p.shopName) out.shopName = p.shopName;
     return out;
 }
 

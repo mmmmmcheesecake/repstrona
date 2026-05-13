@@ -9,6 +9,7 @@ let allProducts = [];
 let activeBrand = 'all';
 let activeModel = 'all';
 let activeCategory = 'all';
+let activeSeller = null;
 let searchQuery = '';
 let sortMode = 'default';
 
@@ -481,6 +482,8 @@ async function fetchProducts() {
             category,
             livePrice: p.livePrice ?? null,
             liveImage: null,
+            shopId: p.shopId || null,
+            shopName: p.shopName || null,
         };
     });
 }
@@ -520,6 +523,7 @@ function brandsForCategory(cat) {
     if (cat === 'all') pool = allProducts;
     else if (cat === HERO_OTHER) pool = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else pool = allProducts.filter(p => p.category === cat);
+    if (cat === 'Sellers' && activeSeller) pool = pool.filter(p => p.shopId === activeSeller);
     const brands = [...new Set(pool.map(p => p.brand))];
 
     if (cat === 'Sneakers' || cat === 'Football' || cat === 'Basketball') {
@@ -549,6 +553,7 @@ function modelsForBrand(brand) {
     if (activeCategory === 'all') items = allProducts;
     else if (activeCategory === HERO_OTHER) items = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else items = allProducts.filter(p => p.category === activeCategory);
+    if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
     if (brand !== 'all') items = items.filter(p => p.brand === brand);
     return [...new Set(items.map(p => p.model))].sort((a, b) => {
         if (a === 'Other') return 1;
@@ -564,6 +569,7 @@ function getFiltered() {
     let items = [...allProducts];
     if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
+    if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
     if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
     if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
     if (searchQuery) {
@@ -780,6 +786,7 @@ function selectCategory(cat) {
     activeCategory = cat;
     activeBrand = 'all';
     activeModel = 'all';
+    activeSeller = null;
     buildHeroTiles();
     buildCategoryPills();
     buildBrandTabs();
@@ -788,9 +795,53 @@ function selectCategory(cat) {
     if (isMobile()) scrollToProducts();
 }
 
+function selectSeller(shopId) {
+    activeSeller = shopId;
+    activeBrand = 'all';
+    activeModel = 'all';
+    buildBrandTabs();
+    buildModelTabs();
+    renderGrid();
+    if (isMobile()) scrollToProducts();
+}
+
+function clearSeller() {
+    activeSeller = null;
+    activeBrand = 'all';
+    activeModel = 'all';
+    buildBrandTabs();
+    buildModelTabs();
+    renderGrid();
+}
+
+function uniqueSellers() {
+    const map = new Map();
+    for (const p of allProducts) {
+        if (p.category !== 'Sellers' || !p.shopId) continue;
+        if (!map.has(p.shopId)) {
+            map.set(p.shopId, {
+                shopId: p.shopId,
+                shopName: p.shopName || `Shop ${p.shopId}`,
+                products: [],
+            });
+        }
+        map.get(p.shopId).products.push(p);
+    }
+    return [...map.values()];
+}
+
 function buildBrandTabs() {
     const tabs = document.getElementById('brandTabs') || document.getElementById('categoryTabs');
     if (!tabs) return;
+    const bar = tabs.parentElement?.parentElement;
+
+    if (activeCategory === 'Sellers' && !activeSeller) {
+        if (bar) bar.style.display = 'none';
+        tabs.innerHTML = '';
+        return;
+    }
+    if (bar) bar.style.display = '';
+
     tabs.innerHTML = '';
 
     const allBtn = makeTab(T('tab.all', 'All'), 'all', activeBrand === 'all');
@@ -891,11 +942,95 @@ function cardHTML(p) {
     </a>`;
 }
 
+function sellerCardHTML(s) {
+    const previewImg = s.products[0]?.imageOverride || s.products[0]?.image || '';
+    const imgTag = previewImg
+        ? `<img src="${escapeHtml(previewImg)}" alt="${escapeHtml(s.shopName)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
+        : '';
+    const itemsLabel = T('sellers.items', `${s.products.length} items`, { n: s.products.length });
+    return `
+    <a class="product-card seller-card" role="button" tabindex="0" data-shop="${escapeHtml(s.shopId)}">
+        <div class="card-img ${!previewImg ? 'no-img' : ''}">${imgTag}</div>
+        <div class="card-body">
+            <p class="card-name">${escapeHtml(s.shopName)}</p>
+            <span class="card-price">${escapeHtml(itemsLabel)}</span>
+        </div>
+    </a>`;
+}
+
+function renderSellerTiles() {
+    const grid = document.getElementById('productsGrid');
+    const empty = document.getElementById('emptyState');
+    const info = document.getElementById('resultsInfo');
+    const count = document.getElementById('resultsCount');
+    const back = document.getElementById('sellerBack');
+    if (back) back.style.display = 'none';
+
+    const sellers = uniqueSellers();
+
+    count.textContent = T('sellers.count', `${sellers.length} sellers`, { n: sellers.length });
+    info.style.display = 'block';
+
+    if (!sellers.length) {
+        grid.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    empty.style.display = 'none';
+    grid.style.display = 'grid';
+    grid.innerHTML = sellers.map(sellerCardHTML).join('');
+
+    grid.querySelectorAll('.seller-card').forEach(el => {
+        const go = () => selectSeller(el.dataset.shop);
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+        });
+    });
+}
+
+function ensureSellerBack() {
+    let el = document.getElementById('sellerBack');
+    if (el) return el;
+    const main = document.querySelector('.shop-main .container');
+    const info = document.getElementById('resultsInfo');
+    if (!main || !info) return null;
+    el = document.createElement('button');
+    el.id = 'sellerBack';
+    el.className = 'seller-back';
+    el.style.display = 'none';
+    el.addEventListener('click', () => { selectCategory('Sellers'); });
+    main.insertBefore(el, info);
+    return el;
+}
+
+function updateSellerBack() {
+    const el = ensureSellerBack();
+    if (!el) return;
+    if (activeCategory === 'Sellers' && activeSeller) {
+        const s = uniqueSellers().find(s => s.shopId === activeSeller);
+        const label = s?.shopName || 'Sellers';
+        el.textContent = `← ${T('sellers.back', 'All sellers')} · ${label}`;
+        el.style.display = '';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
 function renderGrid() {
     const grid = document.getElementById('productsGrid');
     const empty = document.getElementById('emptyState');
     const info = document.getElementById('resultsInfo');
     const count = document.getElementById('resultsCount');
+
+    updateSellerBack();
+
+    if (activeCategory === 'Sellers' && !activeSeller) {
+        renderSellerTiles();
+        return;
+    }
+
     const items = getFiltered();
 
     count.textContent = T('results.count', `${items.length} products`, { n: items.length });
@@ -1057,7 +1192,7 @@ if ('scrollRestoration' in history) {
 function saveCatalogState() {
     try {
         sessionStorage.setItem(CATALOG_STATE_KEY, JSON.stringify({
-            activeCategory, activeBrand, activeModel,
+            activeCategory, activeBrand, activeModel, activeSeller,
             searchQuery, sortMode,
             scrollY: window.scrollY || window.pageYOffset || 0,
             path: location.pathname,
@@ -1109,6 +1244,7 @@ async function init() {
             if (returnState.activeCategory) activeCategory = returnState.activeCategory;
             if (returnState.activeBrand) activeBrand = returnState.activeBrand;
             if (returnState.activeModel) activeModel = returnState.activeModel;
+            if (returnState.activeSeller) activeSeller = returnState.activeSeller;
             if (returnState.sortMode) {
                 sortMode = returnState.sortMode;
                 const sel = document.getElementById('sortSelect');
