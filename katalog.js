@@ -916,6 +916,7 @@ function uniqueSellers() {
                 shopName: p.shopName || `Shop ${p.shopId}`,
                 cover: '',
                 productCount: 0,
+                description: null,
                 products: [],
             });
         }
@@ -923,6 +924,7 @@ function uniqueSellers() {
         s.products.push(p);
         if (!s.cover) s.cover = p.imageOverride || p.image || '';
         if (p.isShopStub && p.productCount) s.productCount = p.productCount;
+        if (p.isShopStub && p.description && !s.description) s.description = p.description;
     }
     for (const s of map.values()) {
         if (!s.productCount) s.productCount = s.products.filter(p => !p.isShopStub).length;
@@ -1052,11 +1054,15 @@ function sellerCardHTML(s) {
     const subtitle = s.productCount
         ? T('sellers.items', `${s.productCount} items`, { n: s.productCount })
         : T('sellers.view', 'View shop →');
+    const descHtml = s.description
+        ? `<p class="seller-desc">${escapeHtml(s.description)}</p>`
+        : '';
     return `
     <a class="product-card seller-card" role="button" tabindex="0" data-shop="${escapeHtml(s.shopId)}">
         <div class="card-img ${!previewImg ? 'no-img' : ''}">${imgTag}</div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(s.shopName)}</p>
+            ${descHtml}
             <span class="card-price">${escapeHtml(subtitle)}</span>
         </div>
     </a>`;

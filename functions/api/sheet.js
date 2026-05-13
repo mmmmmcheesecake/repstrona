@@ -618,7 +618,7 @@ async function fetchYupooFirstPageMeta(base) {
     } catch { return { cover: null, productCount: null }; }
 }
 
-async function fetchWeidianStub(shopId) {
+async function fetchWeidianStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl;
@@ -628,12 +628,14 @@ async function fetchWeidianStub(shopId) {
     if (yupooUrl) {
         ({ cover, productCount } = await fetchYupooFirstPageMeta(yupooUrl.replace(/\/+$/, '')));
     }
+    const finalCover = extras?.image || cover;
 
     return {
         name: shopName,
         link: `https://weidian.com/?userid=${shopId}`,
-        image: cover || '',
-        imageOverride: cover || null,
+        image: finalCover || '',
+        imageOverride: finalCover || null,
+        description: extras?.description || null,
         categoryOverride: 'Sellers',
         brandOverride: 'Other',
         modelOverride: 'Other',
@@ -644,15 +646,17 @@ async function fetchWeidianStub(shopId) {
     };
 }
 
-async function fetchYupooStub(subdomain) {
+async function fetchYupooStub(subdomain, extras) {
     const base = `https://${subdomain}.x.yupoo.com`;
     const { cover, productCount } = await fetchYupooFirstPageMeta(base);
+    const finalCover = extras?.image || cover;
     const shopName = subdomain;
     return {
         name: shopName,
         link: base,
-        image: cover || '',
-        imageOverride: cover || null,
+        image: finalCover || '',
+        imageOverride: finalCover || null,
+        description: extras?.description || null,
         categoryOverride: 'Sellers',
         brandOverride: 'Other',
         modelOverride: 'Other',
@@ -663,10 +667,10 @@ async function fetchYupooStub(subdomain) {
     };
 }
 
-function fetchShopStub(shopId) {
+function fetchShopStub(shopId, extras) {
     const ypMatch = shopId.match(/^yp-([a-zA-Z0-9-]+)$/);
-    if (ypMatch) return fetchYupooStub(ypMatch[1]);
-    return fetchWeidianStub(shopId);
+    if (ypMatch) return fetchYupooStub(ypMatch[1], extras);
+    return fetchWeidianStub(shopId, extras);
 }
 
 async function fetchYupooShop(subdomain) {
@@ -733,6 +737,7 @@ async function readSheet(apiKey, gender) {
 
     const products = [];
     const shopIds = new Set();
+    const sellerExtras = new Map();
     let isHeader = hasHeaderRow;
     for (const row of rows) {
         const cells = row.values ?? [];
@@ -743,7 +748,12 @@ async function readSheet(apiKey, gender) {
         if (!link) continue;
         if (!name) {
             const shopId = parseShopFromLink(link);
-            if (shopId) shopIds.add(shopId);
+            if (shopId) {
+                shopIds.add(shopId);
+                const image = cleanCellError(get(4).hyperlink || (get(4).formattedValue || '').trim()) || null;
+                const description = (get(5).formattedValue || '').trim() || null;
+                if (image || description) sellerExtras.set(shopId, { image, description });
+            }
             continue;
         }
         products.push({
@@ -761,7 +771,7 @@ async function readSheet(apiKey, gender) {
             tileImage:        cleanCellError(get(11).hyperlink || (get(11).formattedValue || '').trim()) || null,
         });
     }
-    return { products, shopIds: [...shopIds] };
+    return { products, shopIds: [...shopIds], sellerExtras };
 }
 
 export async function onRequest(ctx) {
@@ -792,7 +802,7 @@ export async function onRequest(ctx) {
 
     if (params.get('sellers') === '1') {
         const stubs = data.shopIds.length
-            ? (await Promise.all(data.shopIds.map(fetchShopStub))).map(compact)
+            ? (await Promise.all(data.shopIds.map(id => fetchShopStub(id, data.sellerExtras.get(id))))).map(compact)
             : [];
         return jsonResponse(stubs, 1800);
     }
