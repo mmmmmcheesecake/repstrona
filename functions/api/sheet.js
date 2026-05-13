@@ -591,7 +591,66 @@ function compact(p) {
     if (p.shopId) out.shopId = p.shopId;
     if (p.shopName) out.shopName = p.shopName;
     if (p.yupooAlbumUrl) out.yupooAlbumUrl = p.yupooAlbumUrl;
+    if (p.productCount) out.productCount = p.productCount;
+    if (p.isShopStub) out.isShopStub = true;
     return out;
+}
+
+async function fetchShopStub(shopId) {
+    const meta = await fetchWeidianShopMeta(shopId);
+    const shopName = meta?.name || `Shop ${shopId}`;
+    const yupooUrl = meta?.yupooUrl;
+
+    let cover = null;
+    let productCount = null;
+
+    if (yupooUrl) {
+        try {
+            const r = await fetch(`${yupooUrl.replace(/\/+$/, '')}/albums?tab=gallery&page=1`, {
+                headers: { 'User-Agent': WEIDIAN_UA },
+                cf: { cacheTtl: 3600, cacheEverything: true },
+            });
+            if (r.ok) {
+                const html = await r.text();
+                const albums = parseYupooAlbums(html, yupooUrl.replace(/\/+$/, ''));
+                if (albums.length) {
+                    const firstCover = albums[0].cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+                    cover = proxyYupooImage(firstCover);
+                }
+                let maxPage = 1;
+                for (const pm of html.matchAll(/pagination__number[^>]*>(\d+)</g)) {
+                    const n = parseInt(pm[1], 10);
+                    if (n > maxPage) maxPage = n;
+                }
+                productCount = maxPage > 1 ? maxPage * 120 : albums.length;
+            }
+        } catch {}
+    }
+
+    return {
+        name: shopName,
+        link: `https://weidian.com/?userid=${shopId}`,
+        image: cover || '',
+        imageOverride: cover || null,
+        categoryOverride: 'Sellers',
+        brandOverride: 'Other',
+        modelOverride: 'Other',
+        shopId: String(shopId),
+        shopName,
+        productCount,
+        isShopStub: true,
+    };
+}
+
+function jsonResponse(body, maxAge = 900) {
+    return new Response(JSON.stringify(body), {
+        headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': `public, max-age=${maxAge}`,
+            'X-Content-Type-Options': 'nosniff',
+        }
+    });
 }
 
 export async function onRequest(ctx) {
@@ -600,7 +659,14 @@ export async function onRequest(ctx) {
         return new Response('Brak GOOGLE_API_KEY w env', { status: 500 });
     }
 
-    const genderParam = new URL(ctx.request.url).searchParams.get('gender');
+    const params = new URL(ctx.request.url).searchParams;
+    const shopParam = params.get('shop');
+    if (shopParam && /^\d+$/.test(shopParam)) {
+        const products = await fetchWeidianShop(shopParam);
+        return jsonResponse(products.map(compact), 3600);
+    }
+
+    const genderParam = params.get('gender');
     const gender = genderParam === 'women' ? 'women' : 'men';
     const sheetId = SHEET_IDS[gender];
     const hasHeaderRow = gender !== 'women';
@@ -653,16 +719,9 @@ export async function onRequest(ctx) {
 
     const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(products)))).map(compact);
 
-    const sellerProducts = shopIds.size
-        ? (await Promise.all([...shopIds].map(fetchWeidianShop))).flat().map(compact)
+    const sellerStubs = shopIds.size
+        ? (await Promise.all([...shopIds].map(fetchShopStub))).map(compact)
         : [];
 
-    return new Response(JSON.stringify([...deduped, ...sellerProducts]), {
-        headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=900',
-            'X-Content-Type-Options': 'nosniff',
-        }
-    });
+    return jsonResponse([...deduped, ...sellerStubs], 900);
 }

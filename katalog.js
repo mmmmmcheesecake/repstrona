@@ -437,6 +437,55 @@ function tagKey(link) {
     return link.split('?')[0].replace(/\/+$/, '');
 }
 
+let cachedAiTags = null;
+let cachedTileImages = null;
+
+function mapApiProduct(p) {
+    const aiTags = cachedAiTags || {};
+    const tileImages = cachedTileImages || {};
+
+    const auto = (() => {
+        const c = detectCategory(p.name, p.description);
+        const { brand, model } = detectBrandModel(p.name, c);
+        return { category: c, brand, model };
+    })();
+
+    const key = tagKey(p.link);
+    const ai = aiTags[key] || {};
+    const aiTile = tileImages[key] || '';
+
+    const hint = strongCategoryHint(p.name);
+    const category = normalizeCategory(p.categoryOverride)
+        || hint
+        || normalizeCategory(ai.category)
+        || auto.category;
+    const brand    = (p.brandOverride && p.brandOverride.trim()) || ai.brand || auto.brand;
+    const model    = (p.modelOverride && p.modelOverride.trim()) || ai.model || auto.model;
+
+    return {
+        name: p.name,
+        batch: p.batch || '',
+        link: ensureRef(p.link),
+        price: p.price || '',
+        image: p.image || '',
+        imageOverride: p.imageOverride || '',
+        tileImage: p.tileImage || '',
+        aiTileImage: aiTile,
+        description: p.description || '',
+        budgetLink: ensureRef(p.budgetLink),
+        brand,
+        model,
+        category,
+        livePrice: p.livePrice ?? null,
+        liveImage: null,
+        shopId: p.shopId || null,
+        shopName: p.shopName || null,
+        yupooAlbumUrl: p.yupooAlbumUrl || null,
+        productCount: p.productCount || null,
+        isShopStub: !!p.isShopStub,
+    };
+}
+
 async function fetchProducts() {
     const [sheetRes, aiTags, tileImages] = await Promise.all([
         fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}`),
@@ -447,46 +496,29 @@ async function fetchProducts() {
     const data = await sheetRes.json();
     if (!Array.isArray(data)) throw new Error('Błędna odpowiedź');
 
-    return data.map(p => {
-        const auto = (() => {
-            const c = detectCategory(p.name, p.description);
-            const { brand, model } = detectBrandModel(p.name, c);
-            return { category: c, brand, model };
-        })();
+    cachedAiTags = aiTags;
+    cachedTileImages = tileImages;
 
-        const key = tagKey(p.link);
-        const ai = aiTags[key] || {};
-        const aiTile = tileImages[key] || '';
+    return data.map(mapApiProduct);
+}
 
-        const hint = strongCategoryHint(p.name);
-        const category = normalizeCategory(p.categoryOverride)
-            || hint
-            || normalizeCategory(ai.category)
-            || auto.category;
-        const brand    = (p.brandOverride && p.brandOverride.trim()) || ai.brand || auto.brand;
-        const model    = (p.modelOverride && p.modelOverride.trim()) || ai.model || auto.model;
-
-        return {
-            name: p.name,
-            batch: p.batch || '',
-            link: ensureRef(p.link),
-            price: p.price || '',
-            image: p.image || '',
-            imageOverride: p.imageOverride || '',
-            tileImage: p.tileImage || '',
-            aiTileImage: aiTile,
-            description: p.description || '',
-            budgetLink: ensureRef(p.budgetLink),
-            brand,
-            model,
-            category,
-            livePrice: p.livePrice ?? null,
-            liveImage: null,
-            shopId: p.shopId || null,
-            shopName: p.shopName || null,
-            yupooAlbumUrl: p.yupooAlbumUrl || null,
-        };
-    });
+const shopFetchCache = new Map();
+async function loadShopProducts(shopId) {
+    if (shopFetchCache.has(shopId)) return shopFetchCache.get(shopId);
+    const promise = (async () => {
+        const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!Array.isArray(data)) throw new Error('Bad shop response');
+        return data.map(mapApiProduct);
+    })();
+    shopFetchCache.set(shopId, promise);
+    try {
+        return await promise;
+    } catch (e) {
+        shopFetchCache.delete(shopId);
+        throw e;
+    }
 }
 
 function parsePrice(str) {
@@ -524,6 +556,7 @@ function brandsForCategory(cat) {
     if (cat === 'all') pool = allProducts;
     else if (cat === HERO_OTHER) pool = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else pool = allProducts.filter(p => p.category === cat);
+    if (cat === 'Sellers') pool = pool.filter(p => !p.isShopStub);
     if (cat === 'Sellers' && activeSeller) pool = pool.filter(p => p.shopId === activeSeller);
     const brands = [...new Set(pool.map(p => p.brand))];
 
@@ -554,6 +587,7 @@ function modelsForBrand(brand) {
     if (activeCategory === 'all') items = allProducts;
     else if (activeCategory === HERO_OTHER) items = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else items = allProducts.filter(p => p.category === activeCategory);
+    if (activeCategory === 'Sellers') items = items.filter(p => !p.isShopStub);
     if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
     if (brand !== 'all') items = items.filter(p => p.brand === brand);
     return [...new Set(items.map(p => p.model))].sort((a, b) => {
@@ -570,6 +604,7 @@ function getFiltered() {
     let items = [...allProducts];
     if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
     else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
+    if (activeCategory === 'Sellers') items = items.filter(p => !p.isShopStub);
     if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
     if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
     if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
@@ -747,8 +782,13 @@ function buildCategoryPills() {
     wrap.appendChild(allBtn);
 
     CATEGORIES.forEach(cat => {
-        const brands = brandsForCategory(cat);
-        if (!brands.length) return;
+        if (cat === 'Sellers') {
+            const hasSellers = allProducts.some(p => p.category === 'Sellers' && p.shopId);
+            if (!hasSellers) return;
+        } else {
+            const brands = brandsForCategory(cat);
+            if (!brands.length) return;
+        }
 
         const btn = makeTab(categoryLabel(cat), cat, activeCategory === cat);
         btn.addEventListener('click', () => { hideFlyout(); selectCategory(cat); });
@@ -796,14 +836,42 @@ function selectCategory(cat) {
     if (isMobile()) scrollToProducts();
 }
 
-function selectSeller(shopId) {
+async function selectSeller(shopId) {
     activeSeller = shopId;
     activeBrand = 'all';
     activeModel = 'all';
+
+    const hasRealProducts = allProducts.some(p => p.shopId === shopId && !p.isShopStub);
+    if (!hasRealProducts) {
+        renderShopLoading();
+        try {
+            const products = await loadShopProducts(shopId);
+            allProducts = allProducts.filter(p => !(p.shopId === shopId && p.isShopStub));
+            for (const p of products) allProducts.push(p);
+        } catch (e) {
+            console.error(e);
+            showError(T('state.errorProducts', 'Failed to load products.'));
+            return;
+        }
+    }
+
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
     if (isMobile()) scrollToProducts();
+}
+
+function renderShopLoading() {
+    updateSellerBack();
+    const grid = document.getElementById('productsGrid');
+    const empty = document.getElementById('emptyState');
+    const info = document.getElementById('resultsInfo');
+    if (info) info.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (grid) {
+        grid.style.display = 'block';
+        grid.innerHTML = `<div class="spinner" style="margin: 60px auto;"></div>`;
+    }
 }
 
 function clearSeller() {
@@ -823,10 +891,18 @@ function uniqueSellers() {
             map.set(p.shopId, {
                 shopId: p.shopId,
                 shopName: p.shopName || `Shop ${p.shopId}`,
+                cover: '',
+                productCount: 0,
                 products: [],
             });
         }
-        map.get(p.shopId).products.push(p);
+        const s = map.get(p.shopId);
+        s.products.push(p);
+        if (!s.cover) s.cover = p.imageOverride || p.image || '';
+        if (p.isShopStub && p.productCount) s.productCount = p.productCount;
+    }
+    for (const s of map.values()) {
+        if (!s.productCount) s.productCount = s.products.filter(p => !p.isShopStub).length;
     }
     return [...map.values()];
 }
@@ -946,17 +1022,19 @@ function cardHTML(p) {
 }
 
 function sellerCardHTML(s) {
-    const previewImg = s.products[0]?.imageOverride || s.products[0]?.image || '';
+    const previewImg = s.cover || '';
     const imgTag = previewImg
         ? `<img src="${escapeHtml(previewImg)}" alt="${escapeHtml(s.shopName)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
-    const itemsLabel = T('sellers.items', `${s.products.length} items`, { n: s.products.length });
+    const subtitle = s.productCount
+        ? T('sellers.items', `${s.productCount} items`, { n: s.productCount })
+        : T('sellers.view', 'View shop →');
     return `
     <a class="product-card seller-card" role="button" tabindex="0" data-shop="${escapeHtml(s.shopId)}">
         <div class="card-img ${!previewImg ? 'no-img' : ''}">${imgTag}</div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(s.shopName)}</p>
-            <span class="card-price">${escapeHtml(itemsLabel)}</span>
+            <span class="card-price">${escapeHtml(subtitle)}</span>
         </div>
     </a>`;
 }
@@ -1065,7 +1143,7 @@ const enrichCache = new Map();
 const enrichPromises = new Map();
 
 async function enrichProduct(p) {
-    if (!p.link) return;
+    if (!p.link || p.isShopStub) return;
     const key = p.link;
     if (enrichCache.has(key)) {
         applyEnrichment(p, enrichCache.get(key));
