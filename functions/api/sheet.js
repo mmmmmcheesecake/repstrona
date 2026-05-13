@@ -181,6 +181,19 @@ function parseWeidianShopId(link) {
     } catch { return null; }
 }
 
+function stripHan(s) {
+    return String(s || '').replace(/\p{Script=Han}+/gu, '').replace(/[（）()]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function parseYupooSubdomain(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        const m = u.hostname.match(/^([a-zA-Z0-9-]+)\.x\.yupoo\.com$/i);
+        return m ? m[1].toLowerCase() : null;
+    } catch { return null; }
+}
+
 async function fetchSpreadfindsSellers() {
     try {
         const r = await fetch('https://api.spreadfinds.com/trusted-sellers', {
@@ -193,14 +206,25 @@ async function fetchSpreadfindsSellers() {
         const out = [];
         const seen = new Set();
         for (const it of items) {
-            const shopId = parseWeidianShopId(it?.store_url);
-            if (!shopId || seen.has(shopId)) continue;
-            seen.add(shopId);
-            out.push({
-                shopId,
-                name: (it?.name || '').trim() || null,
-                bestKnownFor: (it?.best_known_for || '').trim() || null,
-            });
+            const url = it?.store_url;
+            const name = (it?.name || '').trim() || null;
+            const bestKnownFor = (it?.best_known_for || '').trim() || null;
+
+            const weidianId = parseWeidianShopId(url);
+            if (weidianId) {
+                const key = weidianId;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ shopId: key, type: 'weidian', name, bestKnownFor });
+                continue;
+            }
+            const yupooSub = parseYupooSubdomain(url);
+            if (yupooSub) {
+                const key = `yp-${yupooSub}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ shopId: key, type: 'yupoo', name, bestKnownFor, yupooSubdomain: yupooSub });
+            }
         }
         return out;
     } catch { return []; }
@@ -274,7 +298,6 @@ async function fetchWeidianCategoryItems(shopId, cateId, total) {
 function cleanWeidianName(name) {
     let n = String(name || '');
     n = n.replace(/【[^】]*】/g, ' ');
-    n = n.replace(/系列合集|综合链接|系列|合集|链接\d*|新配色/g, ' ');
     n = n.replace(/\*ordan/gi, 'Jordan');
     n = n.replace(/Tr\*vis/gi, 'Travis');
     n = n.replace(/Sc\*tt/gi, 'Scott');
@@ -284,7 +307,8 @@ function cleanWeidianName(name) {
     n = n.replace(/\*ike/gi, 'Nike');
     n = n.replace(/\*ir\s*[jJ]/g, 'Air J');
     n = n.replace(/\*ir/gi, 'Air');
-    n = n.replace(/[一-鿿]+/g, ' ');
+    n = n.replace(/\p{Script=Han}+/gu, ' ');
+    n = n.replace(/[（）()【】]+/g, ' ');
     n = n.replace(/\*/g, '');
     n = n.replace(/\s+/g, ' ').trim();
     return n;
@@ -400,6 +424,7 @@ function parseYupooTitle(rawTitle) {
     }
     const batches = [];
     s = s.replace(/【([^】]+)】/g, (_, b) => { batches.push(b.trim()); return ' '; });
+    s = s.replace(/\p{Script=Han}+/gu, ' ').replace(/[（）()【】]+/g, ' ');
     const name = s.replace(/\s+/g, ' ').trim();
     return { name, priceCny, batchRaw: batches[0] || '' };
 }
@@ -605,7 +630,8 @@ function compact(p) {
 
 async function fetchShopStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
-    const shopName = (extras?.name) || meta?.name || `Shop ${shopId}`;
+    let shopName = stripHan((extras?.name) || meta?.name || '');
+    if (!shopName) shopName = `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl;
     const bestKnownFor = extras?.bestKnownFor || null;
 
@@ -649,6 +675,164 @@ async function fetchShopStub(shopId, extras) {
         bestKnownFor,
         isShopStub: true,
     };
+}
+
+async function fetchYupooShopStub(subdomain, extras) {
+    const base = `https://${subdomain}.x.yupoo.com`;
+    let cover = null;
+    let productCount = null;
+    try {
+        const r = await fetch(`${base}/albums?tab=gallery&page=1`, {
+            headers: { 'User-Agent': WEIDIAN_UA },
+            cf: { cacheTtl: 3600, cacheEverything: true },
+        });
+        if (r.ok) {
+            const html = await r.text();
+            const albums = parseYupooAlbums(html, base);
+            if (albums.length) {
+                const firstCover = albums[0].cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+                cover = proxyYupooImage(firstCover);
+            }
+            let maxPage = 1;
+            for (const pm of html.matchAll(/pagination__number[^>]*>(\d+)</g)) {
+                const n = parseInt(pm[1], 10);
+                if (n > maxPage) maxPage = n;
+            }
+            productCount = maxPage > 1 ? maxPage * 120 : albums.length;
+        }
+    } catch {}
+
+    let shopName = stripHan(extras?.name || subdomain);
+    if (!shopName) shopName = subdomain;
+    const shopId = `yp-${subdomain}`;
+
+    return {
+        name: shopName,
+        link: base,
+        image: cover || '',
+        imageOverride: cover || null,
+        categoryOverride: 'Sellers',
+        brandOverride: 'Other',
+        modelOverride: 'Other',
+        shopId,
+        shopName,
+        productCount,
+        bestKnownFor: extras?.bestKnownFor || null,
+        isShopStub: true,
+    };
+}
+
+function extractAlbumItemRef(html) {
+    if (!html) return null;
+    const matches = html.matchAll(/\/external\?url=([^"&<>\s]+)/g);
+    for (const m of matches) {
+        let decoded = m[1];
+        for (let i = 0; i < 3 && /%/.test(decoded); i++) {
+            try { decoded = decodeURIComponent(decoded); } catch { break; }
+        }
+        const ref = parseExternalItemUrl(decoded);
+        if (ref) return ref;
+    }
+    const direct = html.match(/weidian\.com\/item\.html\?[^"<>\s]*itemID=(\d+)/i);
+    if (direct) return { source: 'weidian', itemId: direct[1] };
+    const taobao = html.match(/(?:item\.taobao\.com|tmall\.com)\/item\.htm\?[^"<>\s]*id=(\d+)/i);
+    if (taobao) return { source: 'taobao', itemId: taobao[1] };
+    const e1688 = html.match(/(?:detail\.)?1688\.com\/offer\/(\d+)\.html/i);
+    if (e1688) return { source: '1688', itemId: e1688[1] };
+    return null;
+}
+
+function parseExternalItemUrl(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+        const u = new URL(raw);
+        const host = u.hostname.toLowerCase();
+        if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+            const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
+            if (id && /^\d+$/.test(id)) return { source: 'weidian', itemId: id };
+        }
+        if (host === 'taobao.com' || host.endsWith('.taobao.com') || host === 'tmall.com' || host.endsWith('.tmall.com')) {
+            const id = u.searchParams.get('id');
+            if (id && /^\d+$/.test(id)) return { source: 'taobao', itemId: id };
+        }
+        if (host === '1688.com' || host.endsWith('.1688.com')) {
+            const m = u.pathname.match(/\/offer\/(\d+)\.html/);
+            if (m) return { source: '1688', itemId: m[1] };
+        }
+    } catch {}
+    return null;
+}
+
+const USFANS_CHANNEL = { '1688': 1, taobao: 2, tmall: 2, weidian: 3 };
+
+function refToBuyUrl(ref) {
+    const ch = USFANS_CHANNEL[ref.source];
+    if (!ch) return null;
+    return `https://www.usfans.com/product/${ch}/${ref.itemId}?ref=MGRSBE`;
+}
+
+async function fetchYupooAlbumItemRef(album) {
+    try {
+        const u = new URL(album.url);
+        const r = await fetch(album.url, {
+            headers: {
+                'User-Agent': WEIDIAN_UA,
+                'Referer': `https://${u.hostname}/albums`,
+            },
+            cf: { cacheTtl: 86400, cacheEverything: true },
+        });
+        if (!r.ok) return null;
+        const html = await r.text();
+        return extractAlbumItemRef(html);
+    } catch { return null; }
+}
+
+async function fetchYupooShop(subdomain, extras) {
+    const base = `https://${subdomain}.x.yupoo.com`;
+    const albums = await fetchYupooAlbums(base);
+    if (!albums.length) return [];
+
+    const shopName = stripHan(extras?.name || subdomain) || subdomain;
+    const shopId = `yp-${subdomain}`;
+
+    const refs = await Promise.all(albums.map(a => fetchYupooAlbumItemRef(a)));
+
+    const out = [];
+    for (let i = 0; i < albums.length; i++) {
+        const a = albums[i];
+        const ref = refs[i];
+        if (!ref) continue;
+        const buyUrl = refToBuyUrl(ref);
+        if (!buyUrl) continue;
+
+        const parsed = parseYupooTitle(a.title);
+        if (!parsed.name) continue;
+        const bm = yupooBrandModel(parsed.name);
+        const usd = parsed.priceCny && parsed.priceCny > 0
+            ? Math.round(parsed.priceCny / CNY_PER_USD) : null;
+        const rawTile = a.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+        const tileImg = proxyYupooImage(rawTile);
+
+        out.push({
+            name: parsed.name,
+            batch: yupooBatchCode(parsed.batchRaw) || '',
+            link: buyUrl,
+            price: usd != null ? `$${usd}` : '',
+            livePrice: usd,
+            image: tileImg,
+            description: '',
+            budgetLink: null,
+            categoryOverride: 'Sellers',
+            brandOverride: bm.brand,
+            modelOverride: bm.model,
+            imageOverride: tileImg,
+            tileImage: null,
+            shopId,
+            shopName,
+            yupooAlbumUrl: a.url,
+        });
+    }
+    return out;
 }
 
 function jsonResponse(body, maxAge = 900) {
@@ -715,9 +899,18 @@ export async function onRequest(ctx) {
     const params = new URL(ctx.request.url).searchParams;
 
     const shopParam = params.get('shop');
-    if (shopParam && /^\d+$/.test(shopParam)) {
-        const products = await fetchWeidianShop(shopParam);
-        return jsonResponse(products.map(compact), 3600);
+    if (shopParam) {
+        if (/^\d+$/.test(shopParam)) {
+            const products = await fetchWeidianShop(shopParam);
+            return jsonResponse(products.map(compact), 3600);
+        }
+        const ypMatch = shopParam.match(/^yp-([a-zA-Z0-9-]+)$/);
+        if (ypMatch) {
+            const spreadfinds = await fetchSpreadfindsSellers();
+            const meta = spreadfinds.find(s => s.shopId === shopParam) || {};
+            const products = await fetchYupooShop(ypMatch[1], { name: meta.name });
+            return jsonResponse(products.map(compact), 3600);
+        }
     }
 
     const genderParam = params.get('gender');
@@ -727,12 +920,16 @@ export async function onRequest(ctx) {
 
     if (params.get('sellers') === '1') {
         const spreadfinds = await fetchSpreadfindsSellers();
-        const extrasByShopId = new Map(spreadfinds.map(s => [s.shopId, { name: s.name, bestKnownFor: s.bestKnownFor }]));
-        const merged = [...new Set([...data.shopIds, ...spreadfinds.map(s => s.shopId)])];
-        const stubs = merged.length
-            ? (await Promise.all(merged.map(id => fetchShopStub(id, extrasByShopId.get(id))))).map(compact)
-            : [];
-        return jsonResponse(stubs, 1800);
+        const extrasByShopId = new Map(spreadfinds.map(s => [s.shopId, s]));
+        const sheetIds = data.shopIds;
+        const allIds = [...new Set([...sheetIds, ...spreadfinds.map(s => s.shopId)])];
+        const stubs = await Promise.all(allIds.map(id => {
+            const extras = extrasByShopId.get(id);
+            const ypMatch = id.match(/^yp-([a-zA-Z0-9-]+)$/);
+            if (ypMatch) return fetchYupooShopStub(ypMatch[1], extras);
+            return fetchShopStub(id, extras);
+        }));
+        return jsonResponse(stubs.map(compact), 1800);
     }
 
     const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(data.products)))).map(compact);
