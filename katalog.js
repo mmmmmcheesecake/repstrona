@@ -847,6 +847,9 @@ function scrollToProducts() {
 }
 
 function selectCategory(cat) {
+    if (activeSeller && history.state && history.state.view === 'seller') {
+        try { history.replaceState(null, ''); } catch {}
+    }
     activeCategory = cat;
     activeBrand = 'all';
     activeModel = 'all';
@@ -859,10 +862,14 @@ function selectCategory(cat) {
     if (isMobile()) scrollToProducts();
 }
 
-async function selectSeller(shopId) {
+async function selectSeller(shopId, opts = {}) {
     activeSeller = shopId;
     activeBrand = 'all';
     activeModel = 'all';
+
+    if (!opts.fromHistory) {
+        try { history.pushState({ view: 'seller', shopId }, ''); } catch {}
+    }
 
     const hasRealProducts = allProducts.some(p => p.shopId === shopId && !p.isShopStub);
     if (!hasRealProducts) {
@@ -1110,7 +1117,13 @@ function ensureSellerBack() {
     el.id = 'sellerBack';
     el.className = 'seller-back';
     el.style.display = 'none';
-    el.addEventListener('click', () => { selectCategory('Sellers'); });
+    el.addEventListener('click', () => {
+        if (history.state && history.state.view === 'seller') {
+            history.back();
+        } else {
+            selectCategory('Sellers');
+        }
+    });
     main.insertBefore(el, info);
     return el;
 }
@@ -1326,6 +1339,30 @@ window.addEventListener('pagehide', saveCatalogState);
 window.addEventListener('beforeunload', saveCatalogState);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') saveCatalogState();
+});
+
+window.addEventListener('popstate', e => {
+    const st = e.state;
+    if (st && st.view === 'seller' && st.shopId) {
+        if (activeCategory !== 'Sellers' || activeSeller !== st.shopId) {
+            activeCategory = 'Sellers';
+            activeSeller = st.shopId;
+            activeBrand = 'all';
+            activeModel = 'all';
+            buildHeroTiles();
+            buildCategoryPills();
+            buildBrandTabs();
+            buildModelTabs();
+            renderGrid();
+        }
+    } else if (activeSeller) {
+        activeSeller = null;
+        activeBrand = 'all';
+        activeModel = 'all';
+        buildBrandTabs();
+        buildModelTabs();
+        renderGrid();
+    }
 });
 
 window.addEventListener('pageshow', e => {
