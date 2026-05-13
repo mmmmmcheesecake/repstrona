@@ -175,10 +175,27 @@ function parseWeidianShopId(link) {
         if (/item\.html/i.test(u.pathname)) return null;
         const userid = u.searchParams.get('userid');
         if (userid && /^\d+$/.test(userid)) return userid;
-        const m = u.hostname.match(/^shop(\d+)\.weidian\.com$/i);
+        const m = u.hostname.match(/^shop(\d+)(?:\.v)?\.weidian\.com$/i);
         if (m) return m[1];
         return null;
     } catch { return null; }
+}
+
+function parseYupooSubdomain(link) {
+    if (!link) return null;
+    try {
+        const u = new URL(link);
+        const m = u.hostname.match(/^([a-zA-Z0-9-]+)\.x\.yupoo\.com$/i);
+        return m ? m[1].toLowerCase() : null;
+    } catch { return null; }
+}
+
+function parseShopFromLink(link) {
+    const weidianId = parseWeidianShopId(link);
+    if (weidianId) return weidianId;
+    const yupooSub = parseYupooSubdomain(link);
+    if (yupooSub) return `yp-${yupooSub}`;
+    return null;
 }
 
 function extractYupooFromHtml(html) {
@@ -577,35 +594,39 @@ function compact(p) {
     return out;
 }
 
-async function fetchShopStub(shopId) {
+async function fetchYupooFirstPageMeta(base) {
+    try {
+        const r = await fetch(`${base}/albums?tab=gallery&page=1`, {
+            headers: { 'User-Agent': WEIDIAN_UA },
+            cf: { cacheTtl: 3600, cacheEverything: true },
+        });
+        if (!r.ok) return { cover: null, productCount: null };
+        const html = await r.text();
+        const albums = parseYupooAlbums(html, base);
+        let cover = null;
+        if (albums.length) {
+            const firstCover = albums[0].cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+            cover = proxyYupooImage(firstCover);
+        }
+        let maxPage = 1;
+        for (const pm of html.matchAll(/pagination__number[^>]*>(\d+)</g)) {
+            const n = parseInt(pm[1], 10);
+            if (n > maxPage) maxPage = n;
+        }
+        const productCount = maxPage > 1 ? maxPage * 120 : albums.length;
+        return { cover, productCount };
+    } catch { return { cover: null, productCount: null }; }
+}
+
+async function fetchWeidianStub(shopId) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl;
 
     let cover = null;
     let productCount = null;
-
     if (yupooUrl) {
-        try {
-            const r = await fetch(`${yupooUrl.replace(/\/+$/, '')}/albums?tab=gallery&page=1`, {
-                headers: { 'User-Agent': WEIDIAN_UA },
-                cf: { cacheTtl: 3600, cacheEverything: true },
-            });
-            if (r.ok) {
-                const html = await r.text();
-                const albums = parseYupooAlbums(html, yupooUrl.replace(/\/+$/, ''));
-                if (albums.length) {
-                    const firstCover = albums[0].cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
-                    cover = proxyYupooImage(firstCover);
-                }
-                let maxPage = 1;
-                for (const pm of html.matchAll(/pagination__number[^>]*>(\d+)</g)) {
-                    const n = parseInt(pm[1], 10);
-                    if (n > maxPage) maxPage = n;
-                }
-                productCount = maxPage > 1 ? maxPage * 120 : albums.length;
-            }
-        } catch {}
+        ({ cover, productCount } = await fetchYupooFirstPageMeta(yupooUrl.replace(/\/+$/, '')));
     }
 
     return {
@@ -621,6 +642,71 @@ async function fetchShopStub(shopId) {
         productCount,
         isShopStub: true,
     };
+}
+
+async function fetchYupooStub(subdomain) {
+    const base = `https://${subdomain}.x.yupoo.com`;
+    const { cover, productCount } = await fetchYupooFirstPageMeta(base);
+    const shopName = subdomain;
+    return {
+        name: shopName,
+        link: base,
+        image: cover || '',
+        imageOverride: cover || null,
+        categoryOverride: 'Sellers',
+        brandOverride: 'Other',
+        modelOverride: 'Other',
+        shopId: `yp-${subdomain}`,
+        shopName,
+        productCount,
+        isShopStub: true,
+    };
+}
+
+function fetchShopStub(shopId) {
+    const ypMatch = shopId.match(/^yp-([a-zA-Z0-9-]+)$/);
+    if (ypMatch) return fetchYupooStub(ypMatch[1]);
+    return fetchWeidianStub(shopId);
+}
+
+async function fetchYupooShop(subdomain) {
+    const base = `https://${subdomain}.x.yupoo.com`;
+    const albums = await fetchYupooAlbums(base);
+    if (!albums.length) return [];
+
+    const shopId = `yp-${subdomain}`;
+    const shopName = subdomain;
+
+    const out = [];
+    for (const a of albums) {
+        const parsed = parseYupooTitle(a.title);
+        if (!parsed.name) continue;
+        const bm = yupooBrandModel(parsed.name);
+        const usd = parsed.priceCny && parsed.priceCny > 0
+            ? Math.round(parsed.priceCny / CNY_PER_USD) : null;
+        const rawTile = a.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+        const tileImg = proxyYupooImage(rawTile);
+
+        out.push({
+            name: parsed.name,
+            batch: yupooBatchCode(parsed.batchRaw) || '',
+            link: a.url,
+            price: usd != null ? `$${usd}` : '',
+            livePrice: usd,
+            image: tileImg,
+            description: '',
+            budgetLink: null,
+            categoryOverride: 'Sellers',
+            brandOverride: bm.brand,
+            modelOverride: bm.model,
+            imageOverride: tileImg,
+            tileImage: null,
+            shopId,
+            shopName,
+            yupooAlbumUrl: a.url,
+        });
+    }
+    return out;
 }
 
 function jsonResponse(body, maxAge = 900) {
@@ -656,7 +742,7 @@ async function readSheet(apiKey, gender) {
         const link = get(2).hyperlink || null;
         if (!link) continue;
         if (!name) {
-            const shopId = parseWeidianShopId(link);
+            const shopId = parseShopFromLink(link);
             if (shopId) shopIds.add(shopId);
             continue;
         }
@@ -687,9 +773,16 @@ export async function onRequest(ctx) {
     const params = new URL(ctx.request.url).searchParams;
 
     const shopParam = params.get('shop');
-    if (shopParam && /^\d+$/.test(shopParam)) {
-        const products = await fetchWeidianShop(shopParam);
-        return jsonResponse(products.map(compact), 3600);
+    if (shopParam) {
+        if (/^\d+$/.test(shopParam)) {
+            const products = await fetchWeidianShop(shopParam);
+            return jsonResponse(products.map(compact), 3600);
+        }
+        const ypMatch = shopParam.match(/^yp-([a-zA-Z0-9-]+)$/);
+        if (ypMatch) {
+            const products = await fetchYupooShop(ypMatch[1]);
+            return jsonResponse(products.map(compact), 3600);
+        }
     }
 
     const genderParam = params.get('gender');

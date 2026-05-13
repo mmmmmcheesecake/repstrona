@@ -302,6 +302,11 @@ async function load() {
         const data = await r.json();
         if (data.error) throw new Error(data.error);
 
+        if (data.usfansUrl) {
+            const safeUsfans = safeHttpUrl(data.usfansUrl);
+            if (safeUsfans) el('pdBuy').href = safeUsfans;
+        }
+
         const titleName = data.title || sheetName || 'Product';
         document.title = T('title.productNamed', `${titleName} — RePluG`, { name: titleName });
 

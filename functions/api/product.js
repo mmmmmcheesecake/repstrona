@@ -205,10 +205,84 @@ function proxyYupooImage(url) {
     return `/api/qcimg?u=${b64urlEncode(url)}`;
 }
 
-async function fetchYupooAlbumImages(albumUrl) {
+const AGENT_PLATFORM_TO_CHANNEL = { WEIDIAN: 3, TAOBAO: 2, TMALL: 2, '1688': 1, ALIBABA: 1 };
+
+function refToUsfans(ref) {
+    if (!ref) return null;
+    const channel = ref.source === 'weidian' ? 3
+        : (ref.source === 'taobao' || ref.source === 'tmall') ? 2
+        : ref.source === '1688' ? 1
+        : null;
+    if (!channel) return null;
+    return `https://www.usfans.com/product/${channel}/${ref.itemId}?ref=MGRSBE`;
+}
+
+function parseAgentUrl(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+        const u = new URL(raw);
+        const host = u.hostname.toLowerCase();
+        if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+            const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
+            if (id && /^\d+$/.test(id)) return { source: 'weidian', itemId: id };
+        }
+        if (host === 'taobao.com' || host.endsWith('.taobao.com')) {
+            const id = u.searchParams.get('id');
+            if (id && /^\d+$/.test(id)) return { source: 'taobao', itemId: id };
+        }
+        if (host === 'tmall.com' || host.endsWith('.tmall.com')) {
+            const id = u.searchParams.get('id');
+            if (id && /^\d+$/.test(id)) return { source: 'tmall', itemId: id };
+        }
+        if (host === '1688.com' || host.endsWith('.1688.com')) {
+            const m = u.pathname.match(/\/offer\/(\d+)\.html/);
+            if (m) return { source: '1688', itemId: m[1] };
+        }
+        const nested = u.searchParams.get('url');
+        if (nested) {
+            const inner = parseAgentUrl(nested);
+            if (inner) return inner;
+        }
+        const platform = (u.searchParams.get('platform') || '').toUpperCase();
+        const id = u.searchParams.get('id') || u.searchParams.get('itemId') || u.searchParams.get('itemID');
+        if (platform && id && /^\d+$/.test(id) && AGENT_PLATFORM_TO_CHANNEL[platform]) {
+            const source = platform === 'WEIDIAN' ? 'weidian'
+                : platform === 'TAOBAO' ? 'taobao'
+                : platform === 'TMALL' ? 'tmall'
+                : '1688';
+            return { source, itemId: id };
+        }
+    } catch {}
+    return null;
+}
+
+function extractAlbumItemRef(html) {
+    if (!html) return null;
+    const weidianM = html.match(/\bweidian\.com\/item\.html\?[^"'<>\s]*\bitem[Ii][Dd]=(\d+)/i);
+    if (weidianM) return { source: 'weidian', itemId: weidianM[1] };
+    const tmallM = html.match(/\b(?:detail\.)?tmall\.com\/item\.htm\?[^"'<>\s]*\bid=(\d+)/i);
+    if (tmallM) return { source: 'tmall', itemId: tmallM[1] };
+    const taobaoM = html.match(/\b(?:item\.|world\.|m\.)?taobao\.com\/item(?:\.htm|\.html)?\?[^"'<>\s]*\bid=(\d+)/i);
+    if (taobaoM) return { source: 'taobao', itemId: taobaoM[1] };
+    const e1688M = html.match(/\b(?:detail\.|world\.)?1688\.com\/offer\/(\d+)\.html/i);
+    if (e1688M) return { source: '1688', itemId: e1688M[1] };
+
+    const externals = html.matchAll(/\/external\?url=([^"&<>\s]+)/g);
+    for (const m of externals) {
+        let decoded = m[1];
+        for (let i = 0; i < 3 && /%/.test(decoded); i++) {
+            try { decoded = decodeURIComponent(decoded); } catch { break; }
+        }
+        const ref = parseAgentUrl(decoded);
+        if (ref) return ref;
+    }
+    return null;
+}
+
+async function fetchYupooAlbumData(albumUrl) {
     try {
         const u = new URL(albumUrl);
-        if (!/\.yupoo\.com$/i.test(u.hostname)) return [];
+        if (!/\.yupoo\.com$/i.test(u.hostname)) return { images: [], usfansUrl: null };
         const r = await fetch(albumUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 RePluG-Bot',
@@ -216,8 +290,9 @@ async function fetchYupooAlbumImages(albumUrl) {
             },
             cf: { cacheTtl: 3600, cacheEverything: true },
         });
-        if (!r.ok) return [];
+        if (!r.ok) return { images: [], usfansUrl: null };
         const html = await r.text();
+
         const seen = new Set();
         const photos = [];
         const re = /https:\/\/photo\.yupoo\.com\/[^"\s]+\/[a-f0-9]+\/(?:big|medium|small)\.(?:jpg|jpeg|png|webp)/g;
@@ -231,8 +306,11 @@ async function fetchYupooAlbumImages(albumUrl) {
             const big = raw.replace(/\/(medium|small)\./, '/big.');
             photos.push(proxyYupooImage(big));
         }
-        return photos.slice(0, 16);
-    } catch { return []; }
+
+        const usfansUrl = refToUsfans(extractAlbumItemRef(html));
+
+        return { images: photos.slice(0, 16), usfansUrl };
+    } catch { return { images: [], usfansUrl: null }; }
 }
 
 function emptyResult() {
@@ -284,11 +362,12 @@ export async function onRequest(ctx) {
     }
 
     if (yupoo) {
-        const yupooImgs = await fetchYupooAlbumImages(yupoo);
+        const { images: yupooImgs, usfansUrl } = await fetchYupooAlbumData(yupoo);
         if (!result) result = emptyResult();
         const merged = [...new Set([...yupooImgs, ...(result.images || [])])];
         result.images = merged.slice(0, 20);
         if (!result.image && result.images.length) result.image = result.images[0];
+        if (usfansUrl) result.usfansUrl = usfansUrl;
     }
 
     if (!result) {
