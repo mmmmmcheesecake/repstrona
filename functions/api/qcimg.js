@@ -6,6 +6,7 @@ const ALLOWED_HOST_SUFFIXES = [
     '.cnfans.com',
     '.uufinds.com',
     '.oopbuy.com',
+    '.yupoo.com',
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
@@ -39,10 +40,15 @@ export async function onRequest(ctx) {
         return new Response('host not allowed', { status: 403 });
     }
 
+    const upstreamHeaders = { 'User-Agent': UA, 'Accept': 'image/*' };
+    if (/\.yupoo\.com$/i.test(target.hostname)) {
+        upstreamHeaders['Referer'] = `https://${target.hostname}/`;
+    }
+
     let upstream;
     try {
         upstream = await fetch(target.href, {
-            headers: { 'User-Agent': UA, 'Accept': 'image/*' },
+            headers: upstreamHeaders,
             cf: { cacheTtl: 86400, cacheEverything: true }
         });
     } catch {

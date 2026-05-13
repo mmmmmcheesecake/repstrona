@@ -154,6 +154,19 @@ const WEIDIAN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 const WEIDIAN_REFERER = 'https://h5.weidian.com/';
 const CNY_PER_USD = 7.2;
 
+function b64urlEncode(s) {
+    return btoa(unescape(encodeURIComponent(s)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function proxyYupooImage(url) {
+    if (!url) return url;
+    try {
+        const u = new URL(url);
+        if (!/\.yupoo\.com$/i.test(u.hostname)) return url;
+        return `/api/qcimg?u=${b64urlEncode(url)}`;
+    } catch { return url; }
+}
+
 function parseWeidianShopId(link) {
     if (!link) return null;
     try {
@@ -501,7 +514,8 @@ function yupooAlbumToProduct(album, parsed, shopId, shopName, weidianMatch, fall
     if (!name) return null;
     const bm = yupooBrandModel(name);
     const usd = priceCny && priceCny > 0 ? Math.round(priceCny / CNY_PER_USD) : null;
-    const tileImg = album.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+    const rawTile = album.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+    const tileImg = proxyYupooImage(rawTile);
     const buyLink = weidianMatch
         ? `https://weidian.com/item.html?itemID=${weidianMatch.itemId}`
         : fallbackShopUrl;

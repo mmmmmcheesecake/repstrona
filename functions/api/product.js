@@ -197,6 +197,14 @@ async function handleWeidian(itemId, full) {
     return jsonOk(shapeWeidian(j, full));
 }
 
+function b64urlEncode(s) {
+    return btoa(unescape(encodeURIComponent(s)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function proxyYupooImage(url) {
+    return `/api/qcimg?u=${b64urlEncode(url)}`;
+}
+
 async function fetchYupooAlbumImages(albumUrl) {
     try {
         const u = new URL(albumUrl);
@@ -220,7 +228,8 @@ async function fetchYupooAlbumImages(albumUrl) {
             const id = idM[1];
             if (seen.has(id)) continue;
             seen.add(id);
-            photos.push(raw.replace(/\/(medium|small)\./, '/big.'));
+            const big = raw.replace(/\/(medium|small)\./, '/big.');
+            photos.push(proxyYupooImage(big));
         }
         return photos.slice(0, 16);
     } catch { return []; }
