@@ -1135,7 +1135,14 @@ function renderSellerTiles() {
     const back = document.getElementById('sellerBack');
     if (back) back.style.display = 'none';
 
-    const sellers = uniqueSellers();
+    let sellers = uniqueSellers();
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        sellers = sellers.filter(s =>
+            (s.shopName || '').toLowerCase().includes(q) ||
+            (s.description || '').toLowerCase().includes(q)
+        );
+    }
 
     count.textContent = T('sellers.count', `${sellers.length} sellers`, { n: sellers.length });
     info.style.display = 'block';
@@ -1208,7 +1215,7 @@ function renderGrid() {
 
     updateSellerBack();
 
-    if (!searchQuery && activeCategory === 'Sellers' && !activeSeller) {
+    if (activeCategory === 'Sellers' && !activeSeller) {
         renderSellerTiles();
         return;
     }
