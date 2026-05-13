@@ -294,16 +294,35 @@ function weidianBrandModel(cateName) {
     return { brand: 'Other', model: 'Other' };
 }
 
-function weidianItemToProduct(item, cateName, shopId, shopName) {
-    const name = cleanWeidianName(item.itemName);
+function weidianItemToProduct(item, cateName, shopId, shopName, yMatch) {
+    const yParsed = yMatch?.parsed;
+    const yAlbum = yMatch?.album;
+
+    const name = (yParsed?.name) || cleanWeidianName(item.itemName);
     if (!name) return null;
-    const bm = weidianBrandModel(cateName);
-    const cnyNum = parseFloat(item.price);
-    const usd = isFinite(cnyNum) && cnyNum > 0 ? Math.round(cnyNum / CNY_PER_USD) : null;
-    const img = item.itemImg || '';
+
+    const bm = yParsed ? yupooBrandModel(yParsed.name) : weidianBrandModel(cateName);
+
+    const cnyFromYupoo = yParsed?.priceCny;
+    const cnyFromWeidian = parseFloat(item.price);
+    const cny = (cnyFromYupoo && cnyFromYupoo > 0)
+        ? cnyFromYupoo
+        : (isFinite(cnyFromWeidian) && cnyFromWeidian > 0 ? cnyFromWeidian : null);
+    const usd = cny != null ? Math.round(cny / CNY_PER_USD) : null;
+
+    const batch = yParsed ? yupooBatchCode(yParsed.batchRaw) : '';
+
+    let img = '';
+    if (yAlbum?.cover) {
+        const raw = yAlbum.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+        img = proxyYupooImage(raw);
+    } else if (item.itemImg) {
+        img = item.itemImg;
+    }
+
     return {
         name,
-        batch: '',
+        batch,
         link: normalizeRef(item.itemUrl || `https://weidian.com/item.html?itemID=${item.itemId}`),
         price: usd != null ? `$${usd}` : '',
         livePrice: usd,
@@ -317,6 +336,7 @@ function weidianItemToProduct(item, cateName, shopId, shopName) {
         tileImage: null,
         shopId: String(shopId),
         shopName: shopName || null,
+        yupooAlbumUrl: yAlbum?.url || null,
     };
 }
 
@@ -487,55 +507,28 @@ function normalizeForMatch(s) {
         .replace(/[^a-z0-9一-鿿]+/g, '');
 }
 
-function buildWeidianMatcher(weidianItems) {
+function buildAlbumMatcher(albums) {
     const norm = [];
-    for (const it of weidianItems) {
-        const key = normalizeForMatch(it.itemName);
-        if (key.length >= 4) norm.push({ item: it, key });
+    for (const a of albums) {
+        const parsed = parseYupooTitle(a.title);
+        const key = normalizeForMatch(parsed.name);
+        if (key.length >= 4) norm.push({ album: a, parsed, key });
     }
-    return (yupooName) => {
-        const yKey = normalizeForMatch(yupooName);
-        if (yKey.length < 4) return null;
-        for (const x of norm) if (x.key === yKey) return x.item;
+    return (weidianName) => {
+        const wKey = normalizeForMatch(weidianName);
+        if (wKey.length < 4) return null;
+        for (const x of norm) if (x.key === wKey) return x;
         for (const x of norm) {
-            if (x.key.length >= 6 && yKey.includes(x.key)) return x.item;
-            if (yKey.length >= 6 && x.key.includes(yKey)) return x.item;
+            if (x.key.length >= 6 && wKey.includes(x.key)) return x;
+            if (wKey.length >= 6 && x.key.includes(wKey)) return x;
         }
-        for (const x of norm) {
-            const stripped = x.key.slice(1);
-            if (stripped.length >= 6 && yKey.endsWith(stripped)) return x.item;
+        const wStripped = wKey.slice(1);
+        if (wStripped.length >= 6) {
+            for (const x of norm) {
+                if (x.key.endsWith(wStripped) || x.key.includes(wStripped)) return x;
+            }
         }
         return null;
-    };
-}
-
-function yupooAlbumToProduct(album, parsed, shopId, shopName, weidianMatch, fallbackShopUrl) {
-    const { name, priceCny, batchRaw } = parsed;
-    if (!name) return null;
-    const bm = yupooBrandModel(name);
-    const usd = priceCny && priceCny > 0 ? Math.round(priceCny / CNY_PER_USD) : null;
-    const rawTile = album.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
-    const tileImg = proxyYupooImage(rawTile);
-    const buyLink = weidianMatch
-        ? `https://weidian.com/item.html?itemID=${weidianMatch.itemId}`
-        : fallbackShopUrl;
-    return {
-        name,
-        batch: yupooBatchCode(batchRaw) || '',
-        link: normalizeRef(buyLink),
-        price: usd != null ? `$${usd}` : '',
-        livePrice: usd,
-        image: tileImg,
-        description: '',
-        budgetLink: null,
-        categoryOverride: 'Sellers',
-        brandOverride: bm.brand,
-        modelOverride: bm.model,
-        imageOverride: tileImg,
-        tileImage: null,
-        shopId: String(shopId),
-        shopName: shopName || null,
-        yupooAlbumUrl: album.url,
     };
 }
 
@@ -543,30 +536,18 @@ async function fetchWeidianShop(shopId) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl || null;
-    const fallbackShopUrl = `https://weidian.com/?userid=${shopId}`;
 
-    if (yupooUrl) {
-        const [albums, weidianItems] = await Promise.all([
-            fetchYupooAlbums(yupooUrl),
-            fetchAllWeidianItems(shopId),
-        ]);
-        if (albums.length) {
-            const matcher = buildWeidianMatcher(weidianItems);
-            const out = [];
-            for (const a of albums) {
-                const parsed = parseYupooTitle(a.title);
-                const wMatch = matcher(parsed.name);
-                const p = yupooAlbumToProduct(a, parsed, shopId, shopName, wMatch, fallbackShopUrl);
-                if (p) out.push(p);
-            }
-            return out;
-        }
-    }
+    const [weidianItems, albums] = await Promise.all([
+        fetchAllWeidianItems(shopId),
+        yupooUrl ? fetchYupooAlbums(yupooUrl) : Promise.resolve([]),
+    ]);
 
-    const weidianItems = await fetchAllWeidianItems(shopId);
+    const matcher = albums.length ? buildAlbumMatcher(albums) : null;
+
     const out = [];
     for (const it of weidianItems) {
-        const p = weidianItemToProduct(it, it._cateName, shopId, shopName);
+        const yMatch = matcher ? matcher(it.itemName) : null;
+        const p = weidianItemToProduct(it, it._cateName, shopId, shopName, yMatch);
         if (p) out.push(p);
     }
     return out;
