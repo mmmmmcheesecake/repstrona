@@ -1359,6 +1359,10 @@ window.addEventListener('popstate', e => {
         activeSeller = null;
         activeBrand = 'all';
         activeModel = 'all';
+        fetchSellerStubs().then(stubs => {
+            mergeSellerStubs(stubs);
+            if (!activeSeller && activeCategory === 'Sellers') renderGrid();
+        });
         buildBrandTabs();
         buildModelTabs();
         renderGrid();
@@ -1430,7 +1434,7 @@ async function init() {
         setupLazyEnrichment();
         eagerEnrichTileReprs();
 
-        if (!inSellersView) {
+        if (!inSellersView || activeSeller) {
             stubsPromise.then(stubs => {
                 mergeSellerStubs(stubs);
                 buildCategoryPills();
