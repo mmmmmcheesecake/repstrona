@@ -1358,6 +1358,23 @@ async function init() {
         setupLazyEnrichment();
         eagerEnrichTileReprs();
 
+        if (activeSeller) {
+            const hasReal = allProducts.some(p => p.shopId === activeSeller && !p.isShopStub);
+            if (!hasReal) {
+                try {
+                    const products = await loadShopProducts(activeSeller);
+                    allProducts = allProducts.filter(p => !(p.shopId === activeSeller && p.isShopStub));
+                    for (const p of products) allProducts.push(p);
+                    buildBrandTabs();
+                    buildModelTabs();
+                    renderGrid();
+                    if (returnState && typeof returnState.scrollY === 'number') {
+                        window.scrollTo(0, returnState.scrollY);
+                    }
+                } catch (e) { console.error(e); }
+            }
+        }
+
         if (returnState && typeof returnState.scrollY === 'number') {
             const targetY = returnState.scrollY;
             const tryScroll = () => window.scrollTo(0, targetY);
