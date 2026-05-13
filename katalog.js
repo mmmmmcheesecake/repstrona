@@ -544,6 +544,29 @@ async function loadShopProducts(shopId) {
     }
 }
 
+let allSellerProductsPromise = null;
+function fetchAllSellerProducts() {
+    if (allSellerProductsPromise) return allSellerProductsPromise;
+    allSellerProductsPromise = (async () => {
+        const stubs = await fetchSellerStubs();
+        mergeSellerStubs(stubs);
+        const shopIds = [...new Set(stubs.map(s => s.shopId).filter(Boolean))];
+        const results = await Promise.all(
+            shopIds.map(id => loadShopProducts(id).catch(() => []))
+        );
+        const haveLinks = new Set(allProducts.filter(p => !p.isShopStub).map(p => p.link));
+        for (const arr of results) {
+            for (const p of arr) {
+                if (p.link && !haveLinks.has(p.link)) {
+                    allProducts.push(p);
+                    haveLinks.add(p.link);
+                }
+            }
+        }
+    })().catch(() => { allSellerProductsPromise = null; });
+    return allSellerProductsPromise;
+}
+
 function parsePrice(str) {
     return parseFloat((str || '0').replace(/[^0-9.]/g, '')) || 0;
 }
@@ -624,19 +647,20 @@ function modelsForBrand(brand) {
 }
 
 function getFiltered() {
-    let items = [...allProducts];
-    if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
-    else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
-    if (activeCategory === 'Sellers') items = items.filter(p => !p.isShopStub);
-    if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
-    if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
-    if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
+    let items = [...allProducts].filter(p => !p.isShopStub);
     if (searchQuery) {
+        if (activeSeller) items = items.filter(p => p.shopId === activeSeller);
         const q = searchQuery.toLowerCase();
         items = items.filter(p =>
             p.name.toLowerCase().includes(q) ||
             p.batch.toLowerCase().includes(q)
         );
+    } else {
+        if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
+        else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
+        if (activeCategory === 'Sellers' && activeSeller) items = items.filter(p => p.shopId === activeSeller);
+        if (activeBrand !== 'all') items = items.filter(p => p.brand === activeBrand);
+        if (activeModel !== 'all') items = items.filter(p => p.model === activeModel);
     }
     if (sortMode === 'price-asc') items.sort((a, b) => parsePrice(getDisplayPrice(a)) - parsePrice(getDisplayPrice(b)));
     else if (sortMode === 'price-desc') items.sort((a, b) => parsePrice(getDisplayPrice(b)) - parsePrice(getDisplayPrice(a)));
@@ -1149,7 +1173,7 @@ function renderGrid() {
 
     updateSellerBack();
 
-    if (activeCategory === 'Sellers' && !activeSeller) {
+    if (!searchQuery && activeCategory === 'Sellers' && !activeSeller) {
         renderSellerTiles();
         return;
     }
@@ -1477,6 +1501,11 @@ async function init() {
 document.getElementById('searchInput').addEventListener('input', e => {
     searchQuery = e.target.value.trim();
     renderGrid();
+    if (searchQuery) {
+        fetchAllSellerProducts().then(() => {
+            if (searchQuery) renderGrid();
+        });
+    }
 });
 
 if (window.RePluGI18n) {
