@@ -502,6 +502,29 @@ async function fetchProducts() {
     return data.map(mapApiProduct);
 }
 
+let sellerStubsPromise = null;
+function fetchSellerStubs() {
+    if (sellerStubsPromise) return sellerStubsPromise;
+    sellerStubsPromise = (async () => {
+        try {
+            const r = await fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}&sellers=1`);
+            if (!r.ok) return [];
+            const data = await r.json();
+            if (!Array.isArray(data)) return [];
+            return data.map(mapApiProduct);
+        } catch { return []; }
+    })();
+    return sellerStubsPromise;
+}
+
+function mergeSellerStubs(stubs) {
+    if (!stubs.length) return;
+    const have = new Set(allProducts.filter(p => p.isShopStub).map(p => p.shopId));
+    for (const s of stubs) {
+        if (!have.has(s.shopId)) allProducts.push(s);
+    }
+}
+
 const shopFetchCache = new Map();
 async function loadShopProducts(shopId) {
     if (shopFetchCache.has(shopId)) return shopFetchCache.get(shopId);
@@ -1314,6 +1337,7 @@ window.addEventListener('pageshow', e => {
 
 async function init() {
     try {
+        const stubsPromise = fetchSellerStubs();
         allProducts = await fetchProducts();
         document.getElementById('loadingState').style.display = 'none';
 
@@ -1350,6 +1374,11 @@ async function init() {
             }
         }
 
+        const inSellersView = activeCategory === 'Sellers';
+        if (inSellersView && !activeSeller) {
+            mergeSellerStubs(await stubsPromise);
+        }
+
         buildHeroTiles();
         buildCategoryPills();
         buildBrandTabs();
@@ -1357,6 +1386,13 @@ async function init() {
         renderGrid();
         setupLazyEnrichment();
         eagerEnrichTileReprs();
+
+        if (!inSellersView) {
+            stubsPromise.then(stubs => {
+                mergeSellerStubs(stubs);
+                buildCategoryPills();
+            });
+        }
 
         if (activeSeller) {
             const hasReal = allProducts.some(p => p.shopId === activeSeller && !p.isShopStub);

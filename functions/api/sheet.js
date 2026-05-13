@@ -634,54 +634,32 @@ function jsonResponse(body, maxAge = 900) {
     });
 }
 
-export async function onRequest(ctx) {
-    const apiKey = ctx.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-        return new Response('Brak GOOGLE_API_KEY w env', { status: 500 });
-    }
-
-    const params = new URL(ctx.request.url).searchParams;
-    const shopParam = params.get('shop');
-    if (shopParam && /^\d+$/.test(shopParam)) {
-        const products = await fetchWeidianShop(shopParam);
-        return jsonResponse(products.map(compact), 3600);
-    }
-
-    const genderParam = params.get('gender');
-    const gender = genderParam === 'women' ? 'women' : 'men';
+async function readSheet(apiKey, gender) {
     const sheetId = SHEET_IDS[gender];
     const hasHeaderRow = gender !== 'women';
-
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}` +
         `?fields=sheets.data.rowData.values(formattedValue,hyperlink)` +
         `&includeGridData=true&key=${apiKey}`;
-
     const r = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-    if (!r.ok) {
-        return new Response(`Sheets API error: ${r.status}`, { status: 502 });
-    }
+    if (!r.ok) return null;
     const json = await r.json();
-
     const rows = json?.sheets?.[0]?.data?.[0]?.rowData ?? [];
+
     const products = [];
     const shopIds = new Set();
     let isHeader = hasHeaderRow;
-
     for (const row of rows) {
         const cells = row.values ?? [];
         if (isHeader) { isHeader = false; continue; }
         const get = (i) => cells[i] || {};
         const name = (get(0).formattedValue || '').trim();
         const link = get(2).hyperlink || null;
-
         if (!link) continue;
-
         if (!name) {
             const shopId = parseWeidianShopId(link);
             if (shopId) shopIds.add(shopId);
             continue;
         }
-
         products.push({
             name,
             batch:       (get(1).formattedValue || '').trim(),
@@ -697,12 +675,35 @@ export async function onRequest(ctx) {
             tileImage:        cleanCellError(get(11).hyperlink || (get(11).formattedValue || '').trim()) || null,
         });
     }
+    return { products, shopIds: [...shopIds] };
+}
 
-    const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(products)))).map(compact);
+export async function onRequest(ctx) {
+    const apiKey = ctx.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+        return new Response('Brak GOOGLE_API_KEY w env', { status: 500 });
+    }
 
-    const sellerStubs = shopIds.size
-        ? (await Promise.all([...shopIds].map(fetchShopStub))).map(compact)
-        : [];
+    const params = new URL(ctx.request.url).searchParams;
 
-    return jsonResponse([...deduped, ...sellerStubs], 900);
+    const shopParam = params.get('shop');
+    if (shopParam && /^\d+$/.test(shopParam)) {
+        const products = await fetchWeidianShop(shopParam);
+        return jsonResponse(products.map(compact), 3600);
+    }
+
+    const genderParam = params.get('gender');
+    const gender = genderParam === 'women' ? 'women' : 'men';
+    const data = await readSheet(apiKey, gender);
+    if (!data) return new Response('Sheets API error', { status: 502 });
+
+    if (params.get('sellers') === '1') {
+        const stubs = data.shopIds.length
+            ? (await Promise.all(data.shopIds.map(fetchShopStub))).map(compact)
+            : [];
+        return jsonResponse(stubs, 1800);
+    }
+
+    const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(data.products)))).map(compact);
+    return jsonResponse(deduped, 900);
 }
