@@ -23,5 +23,8 @@
 /*.css
   Cache-Control: public, max-age=300
 
+/content/*
+  Cache-Control: public, max-age=600
+
 /api/*
   Cache-Control: public, max-age=300

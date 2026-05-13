@@ -520,9 +520,11 @@ function fetchSellerStubs() {
 function mergeSellerStubs(stubs) {
     if (!stubs.length) return;
     const have = new Set(allProducts.filter(p => p.isShopStub).map(p => p.shopId));
+    let added = 0;
     for (const s of stubs) {
-        if (!have.has(s.shopId)) allProducts.push(s);
+        if (!have.has(s.shopId)) { allProducts.push(s); added++; }
     }
+    if (added) bumpProductsVersion();
 }
 
 const shopFetchCache = new Map();
@@ -555,14 +557,17 @@ function fetchAllSellerProducts() {
             shopIds.map(id => loadShopProducts(id).catch(() => []))
         );
         const haveLinks = new Set(allProducts.filter(p => !p.isShopStub).map(p => p.link));
+        let added = 0;
         for (const arr of results) {
             for (const p of arr) {
                 if (p.link && !haveLinks.has(p.link)) {
                     allProducts.push(p);
                     haveLinks.add(p.link);
+                    added++;
                 }
             }
         }
+        if (added) bumpProductsVersion();
     })().catch(() => { allSellerProductsPromise = null; });
     return allSellerProductsPromise;
 }
@@ -597,7 +602,26 @@ const SNEAKER_BRAND_ORDER = [
     'Asics', 'UGG', 'Timberland', 'Puma', 'Crocs', 'High-End', 'Other'
 ];
 
+let productsVersion = 0;
+function bumpProductsVersion() {
+    productsVersion++;
+    brandsCache.clear();
+    productKeyMap = null;
+}
+const brandsCache = new Map();
+
+let productKeyMap = null;
+function getProductByKey(key) {
+    if (!productKeyMap) {
+        productKeyMap = new Map();
+        for (const p of allProducts) productKeyMap.set(productKey(p), p);
+    }
+    return productKeyMap.get(key);
+}
+
 function brandsForCategory(cat) {
+    const cacheKey = cat + '|' + (cat === 'Sellers' ? (activeSeller || '') : '');
+    if (brandsCache.has(cacheKey)) return brandsCache.get(cacheKey);
     let pool;
     if (cat === 'all') pool = allProducts;
     else if (cat === HERO_OTHER) pool = allProducts.filter(p => !HERO_MAIN_IDS.includes(p.category));
@@ -606,8 +630,9 @@ function brandsForCategory(cat) {
     if (cat === 'Sellers' && activeSeller) pool = pool.filter(p => p.shopId === activeSeller);
     const brands = [...new Set(pool.map(p => p.brand))];
 
+    let sorted;
     if (cat === 'Sneakers' || cat === 'Football' || cat === 'Basketball') {
-        return brands.sort((a, b) => {
+        sorted = brands.sort((a, b) => {
             const ai = SNEAKER_BRAND_ORDER.indexOf(a);
             const bi = SNEAKER_BRAND_ORDER.indexOf(b);
             const aa = ai === -1 ? 999 : ai;
@@ -615,13 +640,15 @@ function brandsForCategory(cat) {
             if (aa !== bb) return aa - bb;
             return a.localeCompare(b);
         });
+    } else {
+        sorted = brands.sort((a, b) => {
+            if (a === 'Other') return 1;
+            if (b === 'Other') return -1;
+            return a.localeCompare(b);
+        });
     }
-
-    return brands.sort((a, b) => {
-        if (a === 'Other') return 1;
-        if (b === 'Other') return -1;
-        return a.localeCompare(b);
-    });
+    brandsCache.set(cacheKey, sorted);
+    return sorted;
 }
 
 function brandsAvailable() {
@@ -902,6 +929,7 @@ async function selectSeller(shopId, opts = {}) {
             const products = await loadShopProducts(shopId);
             allProducts = allProducts.filter(p => !(p.shopId === shopId && p.isShopStub));
             for (const p of products) allProducts.push(p);
+            bumpProductsVersion();
         } catch (e) {
             console.error(e);
             showError(T('state.errorProducts', 'Failed to load products.'));
@@ -1165,6 +1193,13 @@ function updateSellerBack() {
     }
 }
 
+const RENDER_INITIAL = 60;
+const RENDER_BATCH = 80;
+let renderToken = 0;
+const scheduleIdle = window.requestIdleCallback
+    ? (cb) => window.requestIdleCallback(cb, { timeout: 200 })
+    : (cb) => setTimeout(cb, 16);
+
 function renderGrid() {
     const grid = document.getElementById('productsGrid');
     const empty = document.getElementById('emptyState');
@@ -1179,23 +1214,40 @@ function renderGrid() {
     }
 
     const items = getFiltered();
+    const myToken = ++renderToken;
 
     count.textContent = T('results.count', `${items.length} products`, { n: items.length });
     info.style.display = 'block';
 
     if (!items.length) {
         grid.style.display = 'none';
+        grid.innerHTML = '';
         empty.style.display = 'block';
         return;
     }
 
     empty.style.display = 'none';
     grid.style.display = 'grid';
-    grid.innerHTML = items.map(cardHTML).join('');
 
-    grid.querySelectorAll('[data-stop]').forEach(el => {
-        el.addEventListener('click', e => e.stopPropagation());
-    });
+    const initial = items.slice(0, RENDER_INITIAL);
+    grid.innerHTML = initial.map(cardHTML).join('');
+
+    if (items.length > RENDER_INITIAL) {
+        let i = RENDER_INITIAL;
+        const mountNext = () => {
+            if (myToken !== renderToken) return;
+            const chunk = items.slice(i, i + RENDER_BATCH);
+            if (!chunk.length) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = chunk.map(cardHTML).join('');
+            const frag = document.createDocumentFragment();
+            while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+            grid.appendChild(frag);
+            i += RENDER_BATCH;
+            if (i < items.length) scheduleIdle(mountNext);
+        };
+        scheduleIdle(mountNext);
+    }
 }
 
 function showError(msg) {
@@ -1307,25 +1359,30 @@ function setupLazyEnrichment() {
         entries.forEach(entry => {
             if (!entry.isIntersecting) return;
             const key = entry.target.dataset.key;
-            const p = allProducts.find(x => productKey(x) === key);
+            const p = getProductByKey(key);
             if (p) enrichProduct(p);
             observer.unobserve(entry.target);
         });
     }, { rootMargin: '300px' });
 
-    const watch = () => {
-        document.querySelectorAll('.product-card[data-key]').forEach(el => {
-            if (!el.dataset.observed) {
-                el.dataset.observed = '1';
-                observer.observe(el);
-            }
-        });
+    const observeEl = (el) => {
+        if (el && el.dataset && el.dataset.key && !el.dataset.observed) {
+            el.dataset.observed = '1';
+            observer.observe(el);
+        }
     };
-    watch();
+    document.querySelectorAll('.product-card[data-key]').forEach(observeEl);
 
     const grid = document.getElementById('productsGrid');
     if (grid) {
-        const mo = new MutationObserver(watch);
+        const mo = new MutationObserver(muts => {
+            for (const m of muts) {
+                m.addedNodes.forEach(n => {
+                    if (n.nodeType !== 1) return;
+                    if (n.classList && n.classList.contains('product-card')) observeEl(n);
+                });
+            }
+        });
         mo.observe(grid, { childList: true });
     }
 }
@@ -1410,6 +1467,7 @@ async function init() {
     try {
         const stubsPromise = fetchSellerStubs();
         allProducts = await fetchProducts();
+        bumpProductsVersion();
         document.getElementById('loadingState').style.display = 'none';
 
         const returnState = readCatalogState();
@@ -1472,6 +1530,7 @@ async function init() {
                     const products = await loadShopProducts(activeSeller);
                     allProducts = allProducts.filter(p => !(p.shopId === activeSeller && p.isShopStub));
                     for (const p of products) allProducts.push(p);
+                    bumpProductsVersion();
                     buildBrandTabs();
                     buildModelTabs();
                     renderGrid();
@@ -1498,14 +1557,19 @@ async function init() {
     }
 }
 
+let searchDebounceTimer = null;
 document.getElementById('searchInput').addEventListener('input', e => {
-    searchQuery = e.target.value.trim();
-    renderGrid();
-    if (searchQuery) {
-        fetchAllSellerProducts().then(() => {
-            if (searchQuery) renderGrid();
-        });
-    }
+    const val = e.target.value.trim();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        searchQuery = val;
+        renderGrid();
+        if (searchQuery) {
+            fetchAllSellerProducts().then(() => {
+                if (searchQuery) renderGrid();
+            });
+        }
+    }, 180);
 });
 
 if (window.RePluGI18n) {
