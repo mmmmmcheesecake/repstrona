@@ -18,7 +18,7 @@ const CATEGORIES_MEN = [
     'Sneakers', 'Hoodies/Crewnecks', 'T-shirts', 'Jackets',
     'Pants', 'Shorts', 'Accesories', 'Watches',
     'High-end', 'Underwear', 'Sport Clothing', "Jersey's",
-    'Football', 'Basketball', 'Lego', 'MISC'
+    'Football', 'Basketball', 'Lego', 'MISC', 'Sellers'
 ];
 const CATEGORIES_WOMEN = [
     'Sneakers', 'Hoodies/Crewnecks', 'T-shirts',
@@ -479,7 +479,7 @@ async function fetchProducts() {
             brand,
             model,
             category,
-            livePrice: null,
+            livePrice: p.livePrice ?? null,
             liveImage: null,
         };
     });

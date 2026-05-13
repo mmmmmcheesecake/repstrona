@@ -150,6 +150,160 @@ function clusterByName(products) {
     return out;
 }
 
+const WEIDIAN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
+const WEIDIAN_REFERER = 'https://h5.weidian.com/';
+const CNY_PER_USD = 7.2;
+
+function parseWeidianShopId(link) {
+    if (!link) return null;
+    try {
+        const u = new URL(link);
+        if (!/(^|\.)weidian\.com$/i.test(u.hostname)) return null;
+        if (/item\.html/i.test(u.pathname)) return null;
+        const userid = u.searchParams.get('userid');
+        if (userid && /^\d+$/.test(userid)) return userid;
+        const m = u.hostname.match(/^shop(\d+)\.weidian\.com$/i);
+        if (m) return m[1];
+        return null;
+    } catch { return null; }
+}
+
+async function thorGet(path, params) {
+    const url = `https://thor.weidian.com${path}?param=${encodeURIComponent(JSON.stringify(params))}`;
+    try {
+        const r = await fetch(url, {
+            headers: { 'Referer': WEIDIAN_REFERER, 'User-Agent': WEIDIAN_UA },
+            cf: { cacheTtl: 600, cacheEverything: true },
+        });
+        if (!r.ok) return null;
+        const data = await r.json();
+        if (data?.status?.code !== 0) return null;
+        return data.result;
+    } catch { return null; }
+}
+
+async function fetchWeidianCategoryItems(shopId, cateId, total) {
+    const limit = 20;
+    const pages = Math.max(1, Math.ceil((total || limit) / limit));
+    const fetches = [];
+    for (let i = 0; i < pages; i++) {
+        fetches.push(thorGet('/decorate/itemCate.getCateItemList/1.0', {
+            cateId: String(cateId),
+            shopId: String(shopId),
+            offset: i * limit,
+            limit,
+            sortField: 'all',
+            sortType: 'desc',
+            from: 'h5',
+            isQdFx: false,
+            isHideSold: false,
+        }));
+    }
+    const pageResults = await Promise.all(fetches);
+    const items = [];
+    for (const res of pageResults) {
+        if (res?.itemList) items.push(...res.itemList);
+    }
+    return items;
+}
+
+function cleanWeidianName(name) {
+    let n = String(name || '');
+    n = n.replace(/【[^】]*】/g, ' ');
+    n = n.replace(/系列合集|综合链接|系列|合集|链接\d*|新配色/g, ' ');
+    n = n.replace(/\*ordan/gi, 'Jordan');
+    n = n.replace(/Tr\*vis/gi, 'Travis');
+    n = n.replace(/Sc\*tt/gi, 'Scott');
+    n = n.replace(/D\*\*r/gi, 'Dior');
+    n = n.replace(/\*alenciaga/gi, 'Balenciaga');
+    n = n.replace(/\*eezy/gi, 'Yeezy');
+    n = n.replace(/\*ike/gi, 'Nike');
+    n = n.replace(/\*ir\s*[jJ]/g, 'Air J');
+    n = n.replace(/\*ir/gi, 'Air');
+    n = n.replace(/[一-鿿]+/g, ' ');
+    n = n.replace(/\*/g, '');
+    n = n.replace(/\s+/g, ' ').trim();
+    return n;
+}
+
+function weidianBrandModel(cateName) {
+    const c = String(cateName || '').toLowerCase();
+    if (c.includes('jordan')) return { brand: 'Jordan', model: 'Other' };
+    if (c.includes('air max')) return { brand: 'Nike', model: 'Air Max' };
+    if (c.includes('nike') || c.includes('dunk') || c.includes('af1') || c.includes('kobe')) return { brand: 'Nike', model: 'Other' };
+    if (c.includes('balenciaga') || c.includes('巴黎')) return { brand: 'Balenciaga', model: 'Other' };
+    if (c.includes('louis vuitton') || /\blv\b/.test(c)) return { brand: 'Louis Vuitton', model: 'Other' };
+    if (c.includes('dior')) return { brand: 'Dior', model: 'Other' };
+    if (c.includes('yeezy')) return { brand: 'Yeezy', model: 'Other' };
+    if (c.includes('bape')) return { brand: 'Bape', model: 'Other' };
+    if (c.includes('balance')) return { brand: 'New Balance', model: 'Other' };
+    if (c.includes('asics')) return { brand: 'Asics', model: 'Other' };
+    if (c.includes('adidas') || c.includes('samba') || c.includes('gazelle')) return { brand: 'Adidas', model: 'Other' };
+    if (c.includes('mcqueen')) return { brand: 'Alexander McQueen', model: 'Other' };
+    if (c.includes('off-white') || c.includes('off white')) return { brand: 'Off-White', model: 'Other' };
+    if (c.includes('amiri')) return { brand: 'Amiri', model: 'Other' };
+    if (c.includes('burberry')) return { brand: 'Burberry', model: 'Other' };
+    if (c.includes('ugg')) return { brand: 'UGG', model: 'Other' };
+    if (c.includes('timberland')) return { brand: 'Timberland', model: 'Other' };
+    if (c.includes('bottega')) return { brand: 'Bottega Veneta', model: 'Other' };
+    if (c.includes('louboutin')) return { brand: 'Christian Louboutin', model: 'Other' };
+    if (c.includes('birkenstock')) return { brand: 'Birkenstock', model: 'Other' };
+    if (c.includes('mihara')) return { brand: 'Maison Mihara Yasuhiro', model: 'Other' };
+    if (c.includes('golden goose')) return { brand: 'Golden Goose', model: 'Other' };
+    if (c.includes('lanvin')) return { brand: 'Lanvin', model: 'Other' };
+    if (c.includes('rick owens')) return { brand: 'Rick Owens', model: 'Other' };
+    return { brand: 'Other', model: 'Other' };
+}
+
+function weidianItemToProduct(item, cateName) {
+    const name = cleanWeidianName(item.itemName);
+    if (!name) return null;
+    const bm = weidianBrandModel(cateName);
+    const cnyNum = parseFloat(item.price);
+    const usd = isFinite(cnyNum) && cnyNum > 0 ? Math.round(cnyNum / CNY_PER_USD) : null;
+    return {
+        name,
+        batch: '',
+        link: normalizeRef(item.itemUrl || `https://weidian.com/item.html?itemID=${item.itemId}`),
+        price: usd != null ? `$${usd}` : '',
+        livePrice: usd,
+        image: item.itemImg || '',
+        description: '',
+        budgetLink: null,
+        categoryOverride: 'Sellers',
+        brandOverride: bm.brand,
+        modelOverride: bm.model,
+        imageOverride: null,
+        tileImage: null,
+    };
+}
+
+async function fetchWeidianShop(shopId) {
+    const tree = await thorGet('/decorate/itemCate.getCateTree/1.0', {
+        shopId: String(shopId),
+        from: 'h5',
+    });
+    const topCates = tree?.cateList || [];
+    if (!topCates.length) return [];
+
+    const perCate = await Promise.all(topCates.map(c =>
+        fetchWeidianCategoryItems(shopId, c.cateId, c.speCateItemNum)
+            .then(items => ({ cate: c, items }))
+    ));
+
+    const seen = new Set();
+    const out = [];
+    for (const { cate, items } of perCate) {
+        for (const it of items) {
+            if (!it?.itemId || seen.has(it.itemId)) continue;
+            seen.add(it.itemId);
+            const p = weidianItemToProduct(it, cate.cateName);
+            if (p) out.push(p);
+        }
+    }
+    return out;
+}
+
 function compact(p) {
     const out = {
         name: p.name,
@@ -165,6 +319,7 @@ function compact(p) {
     if (p.modelOverride) out.modelOverride = p.modelOverride;
     if (p.imageOverride) out.imageOverride = p.imageOverride;
     if (p.tileImage) out.tileImage = p.tileImage;
+    if (p.livePrice != null) out.livePrice = p.livePrice;
     return out;
 }
 
@@ -191,6 +346,7 @@ export async function onRequest(ctx) {
 
     const rows = json?.sheets?.[0]?.data?.[0]?.rowData ?? [];
     const products = [];
+    const shopIds = new Set();
     let isHeader = hasHeaderRow;
 
     for (const row of rows) {
@@ -198,10 +354,15 @@ export async function onRequest(ctx) {
         if (isHeader) { isHeader = false; continue; }
         const get = (i) => cells[i] || {};
         const name = (get(0).formattedValue || '').trim();
-        if (!name) continue;
-
         const link = get(2).hyperlink || null;
+
         if (!link) continue;
+
+        if (!name) {
+            const shopId = parseWeidianShopId(link);
+            if (shopId) shopIds.add(shopId);
+            continue;
+        }
 
         products.push({
             name,
@@ -221,7 +382,11 @@ export async function onRequest(ctx) {
 
     const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(products)))).map(compact);
 
-    return new Response(JSON.stringify(deduped), {
+    const sellerProducts = shopIds.size
+        ? (await Promise.all([...shopIds].map(fetchWeidianShop))).flat().map(compact)
+        : [];
+
+    return new Response(JSON.stringify([...deduped, ...sellerProducts]), {
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
