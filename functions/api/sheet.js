@@ -307,11 +307,9 @@ function cleanWeidianName(name) {
     n = n.replace(/\*ike/gi, 'Nike');
     n = n.replace(/\*ir\s*[jJ]/g, 'Air J');
     n = n.replace(/\*ir/gi, 'Air');
-    n = n.replace(/\p{Script=Han}+/gu, ' ');
-    n = n.replace(/[（）()【】]+/g, ' ');
-    n = n.replace(/\*/g, '');
-    n = n.replace(/\s+/g, ' ').trim();
-    return n;
+    const noStars = n.replace(/\*/g, '').replace(/[（）()【】]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const stripped = noStars.replace(/\p{Script=Han}+/gu, ' ').replace(/\s+/g, ' ').trim();
+    return stripped.length >= 2 ? stripped : noStars;
 }
 
 function weidianBrandModel(cateName) {
@@ -424,8 +422,9 @@ function parseYupooTitle(rawTitle) {
     }
     const batches = [];
     s = s.replace(/【([^】]+)】/g, (_, b) => { batches.push(b.trim()); return ' '; });
-    s = s.replace(/\p{Script=Han}+/gu, ' ').replace(/[（）()【】]+/g, ' ');
-    const name = s.replace(/\s+/g, ' ').trim();
+    const cleaned = s.replace(/[（）()【】]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const stripped = cleaned.replace(/\p{Script=Han}+/gu, ' ').replace(/\s+/g, ' ').trim();
+    const name = stripped.length >= 2 ? stripped : cleaned;
     return { name, priceCny, batchRaw: batches[0] || '' };
 }
 
@@ -724,6 +723,16 @@ async function fetchYupooShopStub(subdomain, extras) {
 
 function extractAlbumItemRef(html) {
     if (!html) return null;
+
+    const weidianM = html.match(/\bweidian\.com\/item\.html\?[^"'<>\s]*\bitem[Ii][Dd]=(\d+)/i);
+    if (weidianM) return { source: 'weidian', itemId: weidianM[1] };
+    const tmallM = html.match(/\b(?:detail\.)?tmall\.com\/item\.htm\?[^"'<>\s]*\bid=(\d+)/i);
+    if (tmallM) return { source: 'tmall', itemId: tmallM[1] };
+    const taobaoM = html.match(/\b(?:item\.|world\.|m\.)?taobao\.com\/item(?:\.htm|\.html)?\?[^"'<>\s]*\bid=(\d+)/i);
+    if (taobaoM) return { source: 'taobao', itemId: taobaoM[1] };
+    const e1688M = html.match(/\b(?:detail\.|world\.)?1688\.com\/offer\/(\d+)\.html/i);
+    if (e1688M) return { source: '1688', itemId: e1688M[1] };
+
     const matches = html.matchAll(/\/external\?url=([^"&<>\s]+)/g);
     for (const m of matches) {
         let decoded = m[1];
@@ -733,14 +742,10 @@ function extractAlbumItemRef(html) {
         const ref = parseExternalItemUrl(decoded);
         if (ref) return ref;
     }
-    const direct = html.match(/weidian\.com\/item\.html\?[^"<>\s]*itemID=(\d+)/i);
-    if (direct) return { source: 'weidian', itemId: direct[1] };
-    const taobao = html.match(/(?:item\.taobao\.com|tmall\.com)\/item\.htm\?[^"<>\s]*id=(\d+)/i);
-    if (taobao) return { source: 'taobao', itemId: taobao[1] };
-    const e1688 = html.match(/(?:detail\.)?1688\.com\/offer\/(\d+)\.html/i);
-    if (e1688) return { source: '1688', itemId: e1688[1] };
     return null;
 }
+
+const AGENT_PLATFORMS = { WEIDIAN: 'weidian', TAOBAO: 'taobao', TMALL: 'tmall', '1688': '1688', ALIBABA: '1688' };
 
 function parseExternalItemUrl(raw) {
     if (!raw || typeof raw !== 'string') return null;
@@ -753,12 +758,26 @@ function parseExternalItemUrl(raw) {
         }
         if (host === 'taobao.com' || host.endsWith('.taobao.com') || host === 'tmall.com' || host.endsWith('.tmall.com')) {
             const id = u.searchParams.get('id');
-            if (id && /^\d+$/.test(id)) return { source: 'taobao', itemId: id };
+            if (id && /^\d+$/.test(id)) {
+                const source = host.includes('tmall') ? 'tmall' : 'taobao';
+                return { source, itemId: id };
+            }
         }
         if (host === '1688.com' || host.endsWith('.1688.com')) {
             const m = u.pathname.match(/\/offer\/(\d+)\.html/);
             if (m) return { source: '1688', itemId: m[1] };
         }
+        // Agent URLs that wrap an upstream platform link.
+        const upstream = u.searchParams.get('url');
+        if (upstream) {
+            const nested = parseExternalItemUrl(upstream);
+            if (nested) return nested;
+        }
+        // Agents like mulebuy/cssbuy/orientdig with ?id=…&platform=…
+        const platform = (u.searchParams.get('platform') || '').toUpperCase();
+        const id = u.searchParams.get('id') || u.searchParams.get('itemId') || u.searchParams.get('itemID');
+        const source = AGENT_PLATFORMS[platform];
+        if (source && id && /^\d+$/.test(id)) return { source, itemId: id };
     } catch {}
     return null;
 }
