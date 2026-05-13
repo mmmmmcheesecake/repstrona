@@ -859,7 +859,7 @@ function selectCategory(cat) {
     buildBrandTabs();
     buildModelTabs();
     renderGrid();
-    if (isMobile()) scrollToProducts();
+    scrollToProducts();
 }
 
 async function selectSeller(shopId, opts = {}) {
