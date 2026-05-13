@@ -175,10 +175,31 @@ function parseWeidianShopId(link) {
         if (/item\.html/i.test(u.pathname)) return null;
         const userid = u.searchParams.get('userid');
         if (userid && /^\d+$/.test(userid)) return userid;
-        const m = u.hostname.match(/^shop(\d+)\.weidian\.com$/i);
+        const m = u.hostname.match(/^shop(\d+)(?:\.v)?\.weidian\.com$/i);
         if (m) return m[1];
         return null;
     } catch { return null; }
+}
+
+async function fetchSpreadfindsShopIds() {
+    try {
+        const r = await fetch('https://api.spreadfinds.com/trusted-sellers', {
+            headers: { 'User-Agent': WEIDIAN_UA, 'Accept': 'application/json' },
+            cf: { cacheTtl: 3600, cacheEverything: true },
+        });
+        if (!r.ok) return [];
+        const data = await r.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        const ids = [];
+        const seen = new Set();
+        for (const it of items) {
+            const shopId = parseWeidianShopId(it?.store_url);
+            if (!shopId || seen.has(shopId)) continue;
+            seen.add(shopId);
+            ids.push(shopId);
+        }
+        return ids;
+    } catch { return []; }
 }
 
 function extractYupooFromHtml(html) {
@@ -698,8 +719,10 @@ export async function onRequest(ctx) {
     if (!data) return new Response('Sheets API error', { status: 502 });
 
     if (params.get('sellers') === '1') {
-        const stubs = data.shopIds.length
-            ? (await Promise.all(data.shopIds.map(fetchShopStub))).map(compact)
+        const spreadfindsIds = await fetchSpreadfindsShopIds();
+        const merged = [...new Set([...data.shopIds, ...spreadfindsIds])];
+        const stubs = merged.length
+            ? (await Promise.all(merged.map(fetchShopStub))).map(compact)
             : [];
         return jsonResponse(stubs, 1800);
     }
