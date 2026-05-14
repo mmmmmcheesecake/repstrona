@@ -503,6 +503,7 @@ async function fetchProducts() {
 }
 
 let sellerStubsPromise = null;
+let sellerStubsReady = false;
 function fetchSellerStubs() {
     if (sellerStubsPromise) return sellerStubsPromise;
     sellerStubsPromise = (async () => {
@@ -513,7 +514,7 @@ function fetchSellerStubs() {
             if (!Array.isArray(data)) return [];
             return data.map(mapApiProduct);
         } catch { return []; }
-    })();
+    })().then(stubs => { sellerStubsReady = true; return stubs; });
     return sellerStubsPromise;
 }
 
@@ -856,10 +857,7 @@ function buildCategoryPills() {
     wrap.appendChild(allBtn);
 
     CATEGORIES.forEach(cat => {
-        if (cat === 'Sellers') {
-            const hasSellers = allProducts.some(p => p.category === 'Sellers' && p.shopId);
-            if (!hasSellers) return;
-        } else {
+        if (cat !== 'Sellers') {
             const brands = brandsForCategory(cat);
             if (!brands.length) return;
         }
@@ -1132,6 +1130,7 @@ function renderSellerTiles() {
     const empty = document.getElementById('emptyState');
     const info = document.getElementById('resultsInfo');
     const count = document.getElementById('resultsCount');
+    const loading = document.getElementById('loadingState');
     const back = document.getElementById('sellerBack');
     if (back) back.style.display = 'none';
 
@@ -1143,6 +1142,15 @@ function renderSellerTiles() {
             (s.description || '').toLowerCase().includes(q)
         );
     }
+
+    if (!sellers.length && !sellerStubsReady) {
+        info.style.display = 'none';
+        grid.style.display = 'none';
+        empty.style.display = 'none';
+        if (loading) loading.style.display = '';
+        return;
+    }
+    if (loading) loading.style.display = 'none';
 
     count.textContent = T('sellers.count', `${sellers.length} sellers`, { n: sellers.length });
     info.style.display = 'block';
