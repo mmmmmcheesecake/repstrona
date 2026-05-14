@@ -22,7 +22,7 @@ const CATEGORIES_MEN = [
     'Football', 'Basketball', 'Lego', 'MISC'
 ];
 const CATEGORIES_WOMEN = [
-    'Sneakers', 'Hoodies/Crewnecks', 'T-shirts',
+    'Sneakers', 'Sellers', 'Hoodies/Crewnecks', 'T-shirts',
     'Shorts/Skirts', 'Bags', 'Accesories', 'Swimwear'
 ];
 const CATEGORIES = GENDER === 'women' ? CATEGORIES_WOMEN : CATEGORIES_MEN;
@@ -61,6 +61,7 @@ const HERO_TILES_MEN = [
 ];
 const HERO_TILES_WOMEN = [
     { id: 'Sneakers',           label: 'Sneakers' },
+    { id: 'Sellers',            label: 'Sellers' },
     { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
     { id: 'T-shirts',           label: 'T-shirts' },
     { id: 'Shorts/Skirts',      label: 'Shorts/Skirts' },
