@@ -1523,9 +1523,14 @@ async function init() {
         setupLazyEnrichment();
         eagerEnrichTileReprs();
 
-        fetchAllSellerProducts().then(() => {
+        stubsPromise.then(stubs => {
+            mergeSellerStubs(stubs);
             buildCategoryPills();
-            if (searchQuery || (activeCategory === 'Sellers' && !activeSeller)) renderGrid();
+            if (activeCategory === 'Sellers' && !activeSeller) renderGrid();
+        });
+
+        fetchAllSellerProducts().then(() => {
+            if (searchQuery) renderGrid();
         });
 
         if (activeSeller) {
