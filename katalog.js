@@ -1523,12 +1523,10 @@ async function init() {
         setupLazyEnrichment();
         eagerEnrichTileReprs();
 
-        if (!inSellersView || activeSeller) {
-            stubsPromise.then(stubs => {
-                mergeSellerStubs(stubs);
-                buildCategoryPills();
-            });
-        }
+        fetchAllSellerProducts().then(() => {
+            buildCategoryPills();
+            if (searchQuery || (activeCategory === 'Sellers' && !activeSeller)) renderGrid();
+        });
 
         if (activeSeller) {
             const hasReal = allProducts.some(p => p.shopId === activeSeller && !p.isShopStub);
