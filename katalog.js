@@ -61,7 +61,6 @@ const HERO_TILES_MEN = [
 ];
 const HERO_TILES_WOMEN = [
     { id: 'Sneakers',           label: 'Sneakers' },
-    { id: 'Sellers',            label: 'Sellers' },
     { id: 'Hoodies/Crewnecks',  label: 'Hoodies/Crewnecks' },
     { id: 'T-shirts',           label: 'T-shirts' },
     { id: 'Shorts/Skirts',      label: 'Shorts/Skirts' },
