@@ -1434,6 +1434,22 @@ function readCatalogState() {
     } catch { return null; }
 }
 
+// Push the in-memory search query back into the input box. iOS Safari clears
+// form fields on bfcache restore — and does it asynchronously, sometimes AFTER
+// the pageshow handler runs — so we re-sync now and again on the next frames.
+function syncSearchInput() {
+    const inp = document.getElementById('searchInput');
+    if (inp && inp.value !== searchQuery) inp.value = searchQuery;
+}
+
+function syncSearchInputSoon() {
+    syncSearchInput();
+    requestAnimationFrame(syncSearchInput);
+    setTimeout(syncSearchInput, 0);
+    setTimeout(syncSearchInput, 150);
+    setTimeout(syncSearchInput, 400);
+}
+
 window.addEventListener('pagehide', saveCatalogState);
 window.addEventListener('beforeunload', saveCatalogState);
 document.addEventListener('visibilitychange', () => {
@@ -1474,10 +1490,9 @@ window.addEventListener('pageshow', e => {
     if (e.persisted) {
         const s = readCatalogState();
         if (s && typeof s.scrollY === 'number') window.scrollTo(0, s.scrollY);
-        // iOS Safari sometimes clears the search input on bfcache restore even though
-        // the JS state (and therefore the filtered grid) is preserved — re-sync the DOM.
-        const inp = document.getElementById('searchInput');
-        if (inp && inp.value !== searchQuery) inp.value = searchQuery;
+        // The JS state (and therefore the filtered grid) is preserved on bfcache
+        // restore, but iOS clears the input — re-sync it over the next frames.
+        syncSearchInputSoon();
     }
 });
 
@@ -1504,8 +1519,7 @@ async function init() {
             }
             if (returnState.searchQuery) {
                 searchQuery = returnState.searchQuery;
-                const inp = document.getElementById('searchInput');
-                if (inp) inp.value = searchQuery;
+                syncSearchInputSoon();
             }
         } else if (kat) {
             if (kat.toLowerCase() === 'other') {
