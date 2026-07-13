@@ -483,6 +483,7 @@ function mapApiProduct(p) {
         yupooAlbumUrl: p.yupooAlbumUrl || null,
         productCount: p.productCount || null,
         isShopStub: !!p.isShopStub,
+        featured: !!p.featured,
     };
 }
 
@@ -695,6 +696,8 @@ function getFiltered() {
     else if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
     else {
         items.sort((a, b) => {
+            // Featured items (sheet column N "featured_items") float to the top.
+            if (a.featured !== b.featured) return a.featured ? -1 : 1;
             const ai = CATEGORIES.indexOf(a.category);
             const bi = CATEGORIES.indexOf(b.category);
             const aC = ai === -1 ? 999 : ai;

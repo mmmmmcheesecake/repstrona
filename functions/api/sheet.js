@@ -49,7 +49,7 @@ function groupByImageOrLink(products) {
             continue;
         }
         const rep = pickCheapest(group);
-        merged.push({ ...rep, name: stripBatchFromName(rep.name), batch: '' });
+        merged.push({ ...rep, name: stripBatchFromName(rep.name), batch: '', featured: group.some(p => p.featured) });
     }
     return merged;
 }
@@ -69,7 +69,8 @@ function dedupByLink(products) {
     }
     return order.map(k => {
         const arr = groups.get(k);
-        return arr.length === 1 ? arr[0] : pickCheapest(arr);
+        if (arr.length === 1) return arr[0];
+        return { ...pickCheapest(arr), featured: arr.some(p => p.featured) };
     });
 }
 
@@ -135,6 +136,13 @@ function cleanCellError(s) {
     if (!s) return s;
     if (/^#(REF|N\/A|ERROR|VALUE|NAME)!/i.test(String(s).trim())) return '';
     return s;
+}
+
+// Column N ("featured_items"): any non-empty, non-falsey mark means featured.
+function isFeatured(v) {
+    const s = String(v || '').trim().toLowerCase();
+    if (!s) return false;
+    return !['0', 'false', 'no', 'nie', 'n', '-', 'off'].includes(s);
 }
 
 function clusterByName(products) {
@@ -591,6 +599,7 @@ function compact(p) {
     if (p.yupooAlbumUrl) out.yupooAlbumUrl = p.yupooAlbumUrl;
     if (p.productCount) out.productCount = p.productCount;
     if (p.isShopStub) out.isShopStub = true;
+    if (p.featured) out.featured = true;
     return out;
 }
 
@@ -769,6 +778,7 @@ async function readSheet(apiKey, gender) {
             modelOverride:    (get(9).formattedValue || '').trim() || null,
             imageOverride:    cleanCellError(get(10).hyperlink || (get(10).formattedValue || '').trim()) || null,
             tileImage:        cleanCellError(get(11).hyperlink || (get(11).formattedValue || '').trim()) || null,
+            featured:         isFeatured(get(13).formattedValue),
         });
     }
     return { products, shopIds: [...shopIds], sellerExtras };

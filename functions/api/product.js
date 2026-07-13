@@ -108,6 +108,22 @@ function shapeWeidian(j, full) {
     return result;
 }
 
+// usfans channel 3 == weidian, and the goodsId is the weidian itemID. When the
+// usfans upstream is unavailable (Cloudflare's edge occasionally gets/caches a
+// 5xx for an item that usfans actually serves fine), fall back to scraping
+// weidian directly so the product page and tile image still work.
+function weidianFallback(parsed, full) {
+    if (parsed.channel === '3' && /^\d+$/.test(parsed.goodsId)) {
+        return handleWeidian(parsed.goodsId, full);
+    }
+    return null;
+}
+
+function hasNoImages(result) {
+    return (!Array.isArray(result.images) || !result.images.length) &&
+        (!Array.isArray(result.skuImages) || !result.skuImages.length);
+}
+
 async function handleUsfans(parsed, full) {
     const api = `https://usfans.com/api/goods/info?channel=${parsed.channel}&goodsId=${encodeURIComponent(parsed.goodsId)}`;
 
@@ -115,12 +131,20 @@ async function handleUsfans(parsed, full) {
     try {
         upstream = await fetch(api, {
             headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot' },
-            cf: { cacheTtl: 3600, cacheEverything: true }
+            // Don't cache error responses — otherwise a transient usfans 5xx gets
+            // pinned for an hour and the product stays broken.
+            cf: { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true }
         });
     } catch {
+        const fb = weidianFallback(parsed, full);
+        if (fb) return fb;
         return jsonError('upstream fetch failed', 502);
     }
-    if (!upstream.ok) return jsonError('upstream error', 502);
+    if (!upstream.ok) {
+        const fb = weidianFallback(parsed, full);
+        if (fb) return fb;
+        return jsonError('upstream error', 502);
+    }
 
     const j = await upstream.json();
     const d = j?.data || {};
@@ -181,6 +205,16 @@ async function handleUsfans(parsed, full) {
             stock: s.stock,
             imgUrl: s.imgUrl || null,
         })) : [];
+    }
+
+    // usfans sometimes returns a valid-but-imageless payload for weidian items.
+    // Fall back to weidian so the tile/gallery isn't left blank.
+    if (hasNoImages(result)) {
+        const fb = weidianFallback(parsed, full);
+        if (fb) {
+            const fbRes = await fb;
+            if (fbRes && fbRes.status >= 200 && fbRes.status < 300) return fbRes;
+        }
     }
 
     return jsonOk(result);
