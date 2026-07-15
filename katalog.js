@@ -928,7 +928,11 @@ async function selectSeller(shopId, opts = {}) {
         renderShopLoading();
         try {
             const products = await loadShopProducts(shopId);
-            allProducts = allProducts.filter(p => !(p.shopId === shopId && p.isShopStub));
+            // Keep the shop stub. uniqueSellers() orders seller cards by first
+            // appearance in allProducts, and the stub also carries the card's cover,
+            // description and item count. Dropping it moved the card to the bottom of
+            // the grid once the real products were appended. Stubs are filtered out of
+            // every product listing via isShopStub.
             for (const p of products) allProducts.push(p);
             bumpProductsVersion();
         } catch (e) {
@@ -1563,7 +1567,7 @@ async function init() {
             if (!hasReal) {
                 try {
                     const products = await loadShopProducts(activeSeller);
-                    allProducts = allProducts.filter(p => !(p.shopId === activeSeller && p.isShopStub));
+                    // Stub stays for the same reason as in selectSeller().
                     for (const p of products) allProducts.push(p);
                     bumpProductsVersion();
                     buildBrandTabs();
