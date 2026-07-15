@@ -362,6 +362,14 @@ async function resolveByUrl(url, full) {
         const r = await handleWeidian(kako.itemId, full);
         return r;
     }
+    // Seller shop items link straight at weidian (weidian.com/item.html?itemID=…).
+    // Without this they fell through to "unsupported url" and the product page failed
+    // to load, even though the same item resolves fine through handleWeidian.
+    const agent = parseAgentUrl(url);
+    if (agent && agent.source === 'weidian') {
+        const r = await handleWeidian(agent.itemId, full);
+        return r;
+    }
     return null;
 }
 

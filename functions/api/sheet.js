@@ -175,6 +175,19 @@ function proxyYupooImage(url) {
     } catch { return url; }
 }
 
+// Shops that cannot work on the site. Either the source is gone/blocked, or the
+// albums carry no marketplace link so nothing in them can be opened at the agent.
+// Verified 2026-07-15 — recheck before adding, since a shop returning no items is
+// usually a transient upstream failure rather than a dead shop.
+const DISABLED_SHOPS = new Set([
+    'yp-simple2899',       // yupoo 404 — gone
+    'yp-repsking',         // yupoo 403 — blocked
+    'yp-cprepscn',         // yupoo 200 but zero albums
+    '1676081342',          // weidian 302 — gone
+    'yp-artiemaster',      // no agent link in any album (0/14 sampled)
+    'yp-chaorenqihaodian', // no agent link in any album (0/14 sampled)
+]);
+
 function parseWeidianShopId(link) {
     if (!link) return null;
     try {
@@ -504,13 +517,19 @@ async function fetchYupooAlbums(yupooBaseUrl) {
             fetch(`${base}/albums?tab=gallery&page=${p}`, {
                 headers: { 'User-Agent': WEIDIAN_UA },
                 cf: { cacheTtl: 1800, cacheEverything: true },
-            }).then(r => r.ok ? r.text() : '').catch(() => '')
+            })
+                .then(async r => ({ status: r.status, html: r.ok ? await r.text() : '' }))
+                .catch(() => ({ status: 0, html: '' }))
         );
     }
     const pages = await Promise.all(fetches);
+    // 404 means the shop is really gone. Anything else that is not a 200 (rate limit,
+    // 5xx, network error) is transient and must not be published — and cached — as an
+    // empty shop, which is what made healthy shops show up dead for minutes at a time.
+    const reachable = pages[0].status === 200 || pages[0].status === 404;
     const seen = new Set();
     const all = [];
-    for (const html of pages) {
+    for (const { html } of pages) {
         if (!html) continue;
         const albums = parseYupooAlbums(html, base);
         for (const a of albums) {
@@ -519,7 +538,7 @@ async function fetchYupooAlbums(yupooBaseUrl) {
             all.push(a);
         }
     }
-    return all;
+    return { albums: all, reachable };
 }
 
 function normalizeForMatch(s) {
@@ -562,9 +581,9 @@ async function fetchWeidianShop(shopId) {
     const shopName = meta?.name || `Shop ${shopId}`;
     const yupooUrl = meta?.yupooUrl || null;
 
-    const [weidianItems, albums] = await Promise.all([
+    const [weidianItems, { albums }] = await Promise.all([
         fetchAllWeidianItems(shopId),
-        yupooUrl ? fetchYupooAlbums(yupooUrl) : Promise.resolve([]),
+        yupooUrl ? fetchYupooAlbums(yupooUrl) : Promise.resolve({ albums: [], reachable: true }),
     ]);
 
     const matcher = albums.length ? buildAlbumMatcher(albums) : null;
@@ -684,8 +703,9 @@ function fetchShopStub(shopId, extras) {
 
 async function fetchYupooShop(subdomain) {
     const base = `https://${subdomain}.x.yupoo.com`;
-    const albums = await fetchYupooAlbums(base);
-    if (!albums.length) return [];
+    const { albums, reachable } = await fetchYupooAlbums(base);
+    if (!reachable) return { products: [], reachable: false };
+    if (!albums.length) return { products: [], reachable: true };
 
     const shopId = `yp-${subdomain}`;
     const shopName = subdomain;
@@ -719,7 +739,18 @@ async function fetchYupooShop(subdomain) {
             yupooAlbumUrl: a.url,
         });
     }
-    return out;
+    return { products: out, reachable: true };
+}
+
+function upstreamUnavailable() {
+    return new Response(JSON.stringify({ error: 'shop upstream unavailable' }), {
+        status: 503,
+        headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store',
+        },
+    });
 }
 
 function jsonResponse(body, maxAge = 900) {
@@ -800,7 +831,8 @@ export async function onRequest(ctx) {
         }
         const ypMatch = shopParam.match(/^yp-([a-zA-Z0-9-]+)$/);
         if (ypMatch) {
-            const products = await fetchYupooShop(ypMatch[1]);
+            const { products, reachable } = await fetchYupooShop(ypMatch[1]);
+            if (!reachable) return upstreamUnavailable();
             return jsonResponse(products.map(compact), 300);
         }
     }
@@ -811,8 +843,9 @@ export async function onRequest(ctx) {
     if (!data) return new Response('Sheets API error', { status: 502 });
 
     if (params.get('sellers') === '1') {
-        const stubs = data.shopIds.length
-            ? (await Promise.all(data.shopIds.map(id => fetchShopStub(id, data.sellerExtras.get(id))))).map(compact)
+        const shopIds = data.shopIds.filter(id => !DISABLED_SHOPS.has(id));
+        const stubs = shopIds.length
+            ? (await Promise.all(shopIds.map(id => fetchShopStub(id, data.sellerExtras.get(id))))).map(compact)
             : [];
         return jsonResponse(stubs, 1800);
     }
