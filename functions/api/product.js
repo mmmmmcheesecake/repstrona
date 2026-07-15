@@ -112,6 +112,11 @@ function shapeWeidian(j, full) {
 // usfans upstream is unavailable (Cloudflare's edge occasionally gets/caches a
 // 5xx for an item that usfans actually serves fine), fall back to scraping
 // weidian directly so the product page and tile image still work.
+// usfans is regularly unreachable from the Cloudflare edge even while it answers
+// fine from elsewhere. Channel 3 papers over that by re-fetching the item straight
+// from weidian; channels 1 (1688) and 2 (taobao/tmall) have no such source, so
+// their callers get an empty result and the page falls back to sheet data rather
+// than failing to load.
 function weidianFallback(parsed, full) {
     if (parsed.channel === '3' && /^\d+$/.test(parsed.goodsId)) {
         return handleWeidian(parsed.goodsId, full);
@@ -138,12 +143,12 @@ async function handleUsfans(parsed, full) {
     } catch {
         const fb = weidianFallback(parsed, full);
         if (fb) return fb;
-        return jsonError('upstream fetch failed', 502);
+        return jsonOk(emptyResult());
     }
     if (!upstream.ok) {
         const fb = weidianFallback(parsed, full);
         if (fb) return fb;
-        return jsonError('upstream error', 502);
+        return jsonOk(emptyResult());
     }
 
     const j = await upstream.json();
