@@ -85,7 +85,9 @@ function ensureRef(url) {
     const safe = safeHttpUrl(url);
     if (!safe) return null;
     const u = new URL(safe);
-    u.searchParams.set('ref', 'MGRSBE');
+    // ref=MGRSBE is the usfans referral code and means nothing anywhere else —
+    // kakobuy links carry their own affcode instead.
+    if (/(^|\.)usfans\.com$/i.test(u.hostname)) u.searchParams.set('ref', 'MGRSBE');
     return u.toString();
 }
 
