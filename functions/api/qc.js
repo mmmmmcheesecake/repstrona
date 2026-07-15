@@ -89,6 +89,22 @@ export async function onRequest(ctx) {
 
     if (data?.error) return jsonError(data.error, 400);
 
+    // For links it cannot resolve to a marketplace product (yupoo albums, seller shop
+    // pages) qcitems answers productId "0" / marketplace "unknown" plus a generic
+    // photo bucket under finds/0/ that is identical for every such link. Serving it
+    // would show one random product's QC on every seller item.
+    const productId = data?.productId;
+    if (!productId || String(productId) === '0' || data?.marketplace === 'unknown') {
+        return jsonOk({
+            productId: null,
+            marketplace: null,
+            info: null,
+            sets: [],
+            totalPhotos: 0,
+            sources: []
+        });
+    }
+
     const sets = flattenGroups(data?.qcGroups);
     const totalPhotos = sets.reduce((n, s) => n + s.photos.length, 0);
 
