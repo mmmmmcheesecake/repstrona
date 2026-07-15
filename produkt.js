@@ -5,10 +5,15 @@ function T(key, fallback, vars) {
     return fallback;
 }
 
-// usfans routes /product/<channel>/<id>. Mapping taken from usfans' own frontend:
-// {1:"1688", 2:"TAOBAO", 3:"微店"}. Verified against their goods/info API, which
-// echoes back the source detailUrl for channel 1 and 3.
-const USFANS_CHANNEL = { '1688': 1, taobao: 2, tmall: 2, weidian: 3 };
+const KAKOBUY_AFFCODE = 'FREE6KGHAUL';
+
+function marketplaceUrl(ref) {
+    if (ref.source === 'weidian') return `https://weidian.com/item.html?itemID=${ref.id}`;
+    if (ref.source === 'taobao') return `https://item.taobao.com/item.htm?id=${ref.id}`;
+    if (ref.source === 'tmall') return `https://detail.tmall.com/item.htm?id=${ref.id}`;
+    if (ref.source === '1688') return `https://detail.1688.com/offer/${ref.id}.html`;
+    return null;
+}
 
 function marketplaceRef(host, src) {
     const numeric = v => (v && /^\d+$/.test(v) ? v : null);
@@ -31,12 +36,19 @@ function marketplaceRef(host, src) {
     return null;
 }
 
+// usfans only resolves weidian for us. Its API answers null for every taobao id and
+// returns nothing for 1688 from the Cloudflare edge, so those items never open on
+// their product page. kakobuy takes the raw marketplace URL and opens all of them.
 function toUsfans(host, src) {
     const ref = marketplaceRef(host, src);
     if (!ref) return null;
-    const channel = USFANS_CHANNEL[ref.source];
-    if (!channel) return null;
-    return `https://www.usfans.com/product/${channel}/${ref.id}?ref=MGRSBE`;
+    if (ref.source === 'weidian') {
+        return `https://www.usfans.com/product/3/${ref.id}?ref=MGRSBE`;
+    }
+    const raw = marketplaceUrl(ref);
+    if (!raw) return null;
+    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
+        `&affcode=${KAKOBUY_AFFCODE}&ref=MGRSBE`;
 }
 
 function convertToUsfans(url) {

@@ -53,19 +53,26 @@ function usfansLinkFromInput(raw) {
         const u = new URL(raw);
         const host = u.hostname.toLowerCase();
         if (host.endsWith('usfans.com')) return raw + (raw.includes('?') ? '&' : '?') + 'ref=MGRSBE';
-        // Channels per usfans' own frontend: {1:"1688", 2:"TAOBAO", 3:"微店"}.
-        // taobao and 1688 used to be swapped here, pointing at the wrong product.
+        // Only weidian resolves on usfans; taobao and 1688 never open there, so they
+        // go through kakobuy, which takes the raw marketplace URL. Same split as
+        // produkt.js.
+        const kako = raw => `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
+            `&affcode=FREE6KGHAUL&ref=MGRSBE`;
         const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
         if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
             if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
         }
-        if (host.endsWith('taobao.com') || host.endsWith('tmall.com')) {
+        if (host.endsWith('taobao.com')) {
             const tid = u.searchParams.get('id');
-            if (tid) return `https://www.usfans.com/product/2/${tid}?ref=MGRSBE`;
+            if (tid) return kako(`https://item.taobao.com/item.htm?id=${tid}`);
+        }
+        if (host.endsWith('tmall.com')) {
+            const tid = u.searchParams.get('id');
+            if (tid) return kako(`https://detail.tmall.com/item.htm?id=${tid}`);
         }
         if (host.endsWith('1688.com')) {
             const m = u.pathname.match(/\/offer\/(\d+)\.html/);
-            if (m) return `https://www.usfans.com/product/1/${m[1]}?ref=MGRSBE`;
+            if (m) return kako(`https://detail.1688.com/offer/${m[1]}.html`);
         }
     } catch {}
     return null;
@@ -81,7 +88,10 @@ function appendUsfansFallback(rawInput) {
     a.target = '_blank';
     a.rel = 'noopener';
     a.className = 'card-btn pd-qc';
-    a.textContent = T('qc.openUsfans', 'Check on USFans');
+    // The link is only usfans for weidian — taobao and 1688 go to kakobuy.
+    a.textContent = /usfans\.com/i.test(link)
+        ? T('qc.openUsfans', 'Check on USFans')
+        : T('qc.openAgent', 'Open at agent');
     wrap.appendChild(a);
     results.appendChild(wrap);
 }

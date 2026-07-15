@@ -129,6 +129,47 @@ function hasNoImages(result) {
         (!Array.isArray(result.skuImages) || !result.skuImages.length);
 }
 
+const CNY_PER_USD = 7.2;
+
+// usfans cannot serve taobao or 1688 to us: its API answers null for every taobao
+// id (from anywhere, headers make no difference) and returns nothing at all to the
+// Cloudflare edge. qcitems reaches both from the edge — /api/qc already relies on
+// it — so take the cover image, title and price from there instead of rendering a
+// blank product page. Marketplace CDNs are hot-linked here exactly like the weidian
+// path already hot-links si.geilicdn.com.
+async function handleQcitems(rawUrl) {
+    let upstream;
+    try {
+        upstream = await fetch(`https://qcitems.com/api/product?url=${encodeURIComponent(rawUrl)}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot', 'Accept': 'application/json' },
+            cf: { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
+        });
+    } catch { return null; }
+    if (!upstream.ok) return null;
+
+    let j;
+    try { j = await upstream.json(); } catch { return null; }
+    if (!j || j.error) return null;
+
+    const info = j.info || {};
+    const image = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
+    const title = typeof info.title === 'string' && info.title.trim() ? info.title.trim() : null;
+    const cny = typeof info.price === 'number' && info.price > 0 ? info.price : null;
+    const usd = cny != null ? Math.round((cny / CNY_PER_USD) * 100) / 100 : null;
+    if (!image && !title && usd === null) return null;
+
+    return {
+        ...emptyResult(),
+        title,
+        image,
+        images: image ? [image] : [],
+        priceUsd: usd,
+        // produkt.js reads the displayed price off skuList.convertedPrice, not priceUsd.
+        skuList: usd === null ? [] : [{ convertedPrice: usd, valueIds: [] }],
+        properties: [],
+    };
+}
+
 async function handleUsfans(parsed, full) {
     const api = `https://usfans.com/api/goods/info?channel=${parsed.channel}&goodsId=${encodeURIComponent(parsed.goodsId)}`;
 
@@ -380,6 +421,10 @@ async function resolveByUrl(url, full) {
         const parsed = parseUsfans(refToUsfans(agent) || '');
         if (parsed) {
             const r = await handleUsfans(parsed, full);
+            const data = await readResponse(r);
+            if (data && !data.error && !hasNoImages(data)) return r;
+            const qc = await handleQcitems(url);
+            if (qc) return jsonOk(qc);
             return r;
         }
     }
