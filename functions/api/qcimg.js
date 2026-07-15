@@ -7,6 +7,9 @@ const ALLOWED_HOST_SUFFIXES = [
     '.uufinds.com',
     '.oopbuy.com',
     '.yupoo.com',
+    // taobao/1688 product images. cbu01.alicdn.com 403s any request carrying a
+    // replug24 Referer, so these have to come through the proxy, which sends none.
+    '.alicdn.com',
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';

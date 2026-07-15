@@ -108,15 +108,10 @@ function shapeWeidian(j, full) {
     return result;
 }
 
-// usfans channel 3 == weidian, and the goodsId is the weidian itemID. When the
-// usfans upstream is unavailable (Cloudflare's edge occasionally gets/caches a
-// 5xx for an item that usfans actually serves fine), fall back to scraping
-// weidian directly so the product page and tile image still work.
-// usfans is regularly unreachable from the Cloudflare edge even while it answers
-// fine from elsewhere. Channel 3 papers over that by re-fetching the item straight
-// from weidian; channels 1 (1688) and 2 (taobao/tmall) have no such source, so
-// their callers get an empty result and the page falls back to sheet data rather
-// than failing to load.
+// usfans channel 3 == weidian, and the goodsId is the weidian itemID. usfans is
+// regularly unreachable from the Cloudflare edge even while it answers fine from
+// elsewhere, so channel 3 papers over that by scraping weidian directly. Channels
+// 1 (1688) and 2 (taobao/tmall) have no such source and fall through to qcitems.
 function weidianFallback(parsed, full) {
     if (parsed.channel === '3' && /^\d+$/.test(parsed.goodsId)) {
         return handleWeidian(parsed.goodsId, full);
@@ -135,8 +130,7 @@ const CNY_PER_USD = 7.2;
 // id (from anywhere, headers make no difference) and returns nothing at all to the
 // Cloudflare edge. qcitems reaches both from the edge — /api/qc already relies on
 // it — so take the cover image, title and price from there instead of rendering a
-// blank product page. Marketplace CDNs are hot-linked here exactly like the weidian
-// path already hot-links si.geilicdn.com.
+// blank product page.
 async function handleQcitems(rawUrl) {
     let upstream;
     try {
@@ -152,7 +146,10 @@ async function handleQcitems(rawUrl) {
     if (!j || j.error) return null;
 
     const info = j.info || {};
-    const image = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
+    // Proxied, not hot-linked: cbu01.alicdn.com (1688 covers) 403s any request that
+    // carries our Referer, so the browser cannot load these directly.
+    const rawImage = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
+    const image = rawImage ? proxyImage(rawImage) : null;
     const title = typeof info.title === 'string' && info.title.trim() ? info.title.trim() : null;
     const cny = typeof info.price === 'number' && info.price > 0 ? info.price : null;
     const usd = cny != null ? Math.round((cny / CNY_PER_USD) * 100) / 100 : null;
@@ -281,7 +278,7 @@ function b64urlEncode(s) {
     return btoa(unescape(encodeURIComponent(s)))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-function proxyYupooImage(url) {
+function proxyImage(url) {
     return `/api/qcimg?u=${b64urlEncode(url)}`;
 }
 
@@ -384,7 +381,7 @@ async function fetchYupooAlbumData(albumUrl) {
             if (seen.has(id)) continue;
             seen.add(id);
             const big = raw.replace(/\/(medium|small)\./, '/big.');
-            photos.push(proxyYupooImage(big));
+            photos.push(proxyImage(big));
         }
 
         const usfansUrl = refToUsfans(extractAlbumItemRef(html));
