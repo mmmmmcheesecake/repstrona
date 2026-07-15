@@ -53,17 +53,19 @@ function usfansLinkFromInput(raw) {
         const u = new URL(raw);
         const host = u.hostname.toLowerCase();
         if (host.endsWith('usfans.com')) return raw + (raw.includes('?') ? '&' : '?') + 'ref=MGRSBE';
+        // Channels per usfans' own frontend: {1:"1688", 2:"TAOBAO", 3:"微店"}.
+        // taobao and 1688 used to be swapped here, pointing at the wrong product.
         const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
         if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
             if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
         }
         if (host.endsWith('taobao.com') || host.endsWith('tmall.com')) {
             const tid = u.searchParams.get('id');
-            if (tid) return `https://www.usfans.com/product/1/${tid}?ref=MGRSBE`;
+            if (tid) return `https://www.usfans.com/product/2/${tid}?ref=MGRSBE`;
         }
         if (host.endsWith('1688.com')) {
-            const m = u.pathname.match(/(\d+)\.html/);
-            if (m) return `https://www.usfans.com/product/2/${m[1]}?ref=MGRSBE`;
+            const m = u.pathname.match(/\/offer\/(\d+)\.html/);
+            if (m) return `https://www.usfans.com/product/1/${m[1]}?ref=MGRSBE`;
         }
     } catch {}
     return null;

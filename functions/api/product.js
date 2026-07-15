@@ -362,13 +362,21 @@ async function resolveByUrl(url, full) {
         const r = await handleWeidian(kako.itemId, full);
         return r;
     }
-    // Seller shop items link straight at weidian (weidian.com/item.html?itemID=…).
-    // Without this they fell through to "unsupported url" and the product page failed
-    // to load, even though the same item resolves fine through handleWeidian.
+    // Raw marketplace links: seller shop items point straight at weidian, and sheet
+    // rows may hold taobao/tmall/1688 links. Without this they fell through to
+    // "unsupported url" and the product page failed to load.
     const agent = parseAgentUrl(url);
-    if (agent && agent.source === 'weidian') {
-        const r = await handleWeidian(agent.itemId, full);
-        return r;
+    if (agent) {
+        // weidian goes direct — the rocker endpoint is more reliable than usfans.
+        if (agent.source === 'weidian') {
+            const r = await handleWeidian(agent.itemId, full);
+            return r;
+        }
+        const parsed = parseUsfans(refToUsfans(agent) || '');
+        if (parsed) {
+            const r = await handleUsfans(parsed, full);
+            return r;
+        }
     }
     return null;
 }

@@ -5,11 +5,38 @@ function T(key, fallback, vars) {
     return fallback;
 }
 
-function weidianToUsfans(host, src) {
-    if (host !== 'weidian.com' && !host.endsWith('.weidian.com')) return null;
-    const id = src.searchParams.get('itemID') || src.searchParams.get('itemId');
-    if (!id) return null;
-    return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
+// usfans routes /product/<channel>/<id>. Mapping taken from usfans' own frontend:
+// {1:"1688", 2:"TAOBAO", 3:"微店"}. Verified against their goods/info API, which
+// echoes back the source detailUrl for channel 1 and 3.
+const USFANS_CHANNEL = { '1688': 1, taobao: 2, tmall: 2, weidian: 3 };
+
+function marketplaceRef(host, src) {
+    const numeric = v => (v && /^\d+$/.test(v) ? v : null);
+    if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+        const id = numeric(src.searchParams.get('itemID') || src.searchParams.get('itemId'));
+        return id ? { source: 'weidian', id } : null;
+    }
+    if (host === 'taobao.com' || host.endsWith('.taobao.com')) {
+        const id = numeric(src.searchParams.get('id'));
+        return id ? { source: 'taobao', id } : null;
+    }
+    if (host === 'tmall.com' || host.endsWith('.tmall.com')) {
+        const id = numeric(src.searchParams.get('id'));
+        return id ? { source: 'tmall', id } : null;
+    }
+    if (host === '1688.com' || host.endsWith('.1688.com')) {
+        const m = src.pathname.match(/\/offer\/(\d+)\.html/);
+        return m ? { source: '1688', id: m[1] } : null;
+    }
+    return null;
+}
+
+function toUsfans(host, src) {
+    const ref = marketplaceRef(host, src);
+    if (!ref) return null;
+    const channel = USFANS_CHANNEL[ref.source];
+    if (!channel) return null;
+    return `https://www.usfans.com/product/${channel}/${ref.id}?ref=MGRSBE`;
 }
 
 function convertToUsfans(url) {
@@ -23,14 +50,14 @@ function convertToUsfans(url) {
             if (inner) {
                 try {
                     const src = new URL(inner);
-                    const conv = weidianToUsfans(src.hostname.toLowerCase(), src);
+                    const conv = toUsfans(src.hostname.toLowerCase(), src);
                     if (conv) return conv;
                 } catch {}
             }
             return url;
         }
 
-        const conv = weidianToUsfans(host, u);
+        const conv = toUsfans(host, u);
         if (conv) return conv;
     } catch {}
     return url;
