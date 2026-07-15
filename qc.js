@@ -57,7 +57,7 @@ function usfansLinkFromInput(raw) {
         // go through kakobuy, which takes the raw marketplace URL. Same split as
         // produkt.js.
         const kako = raw => `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
-            `&affcode=FREE6KGHAUL&ref=MGRSBE`;
+            `&affcode=5zj3z`;
         const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
         if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
             if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;

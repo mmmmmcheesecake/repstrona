@@ -5,7 +5,7 @@ function T(key, fallback, vars) {
     return fallback;
 }
 
-const KAKOBUY_AFFCODE = 'FREE6KGHAUL';
+const KAKOBUY_AFFCODE = '5zj3z';
 
 function marketplaceUrl(ref) {
     if (ref.source === 'weidian') return `https://weidian.com/item.html?itemID=${ref.id}`;
@@ -47,8 +47,10 @@ function toUsfans(host, src) {
     }
     const raw = marketplaceUrl(ref);
     if (!raw) return null;
+    // No &ref here: that is the usfans referral param, which means nothing to kakobuy.
+    // This matches the link format qcitems generates for kakobuy.
     return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
-        `&affcode=${KAKOBUY_AFFCODE}&ref=MGRSBE`;
+        `&affcode=${KAKOBUY_AFFCODE}`;
 }
 
 function convertToUsfans(url) {
