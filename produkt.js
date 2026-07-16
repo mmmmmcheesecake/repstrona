@@ -5,8 +5,6 @@ function T(key, fallback, vars) {
     return fallback;
 }
 
-const KAKOBUY_AFFCODE = '5zj3z';
-
 function marketplaceUrl(ref) {
     if (ref.source === 'weidian') return `https://weidian.com/item.html?itemID=${ref.id}`;
     if (ref.source === 'taobao') return `https://item.taobao.com/item.htm?id=${ref.id}`;
@@ -47,10 +45,10 @@ function toUsfans(host, src) {
     }
     const raw = marketplaceUrl(ref);
     if (!raw) return null;
-    // No &ref here: that is the usfans referral param, which means nothing to kakobuy.
-    // This matches the link format qcitems generates for kakobuy.
-    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
-        `&affcode=${KAKOBUY_AFFCODE}`;
+    // Plain item link, no affcode: kakobuy's affcode is a registration-binding code,
+    // and appending it to item/details makes the SPA bounce to "item not found".
+    // Affiliate credit comes from buyers registering under the code, not per link.
+    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}`;
 }
 
 function convertToUsfans(url) {
@@ -85,8 +83,7 @@ function ensureRef(url) {
     const safe = safeHttpUrl(url);
     if (!safe) return null;
     const u = new URL(safe);
-    // ref=MGRSBE is the usfans referral code and means nothing anywhere else —
-    // kakobuy links carry their own affcode instead.
+    // ref=MGRSBE is the usfans referral code and means nothing anywhere else.
     if (/(^|\.)usfans\.com$/i.test(u.hostname)) u.searchParams.set('ref', 'MGRSBE');
     return u.toString();
 }

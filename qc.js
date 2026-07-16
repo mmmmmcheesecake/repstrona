@@ -56,8 +56,8 @@ function usfansLinkFromInput(raw) {
         // Only weidian resolves on usfans; taobao and 1688 never open there, so they
         // go through kakobuy, which takes the raw marketplace URL. Same split as
         // produkt.js.
-        const kako = raw => `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
-            `&affcode=5zj3z`;
+        // No affcode: it makes kakobuy's item page bounce to "item not found".
+        const kako = raw => `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}`;
         const id = u.searchParams.get('itemID') || u.searchParams.get('itemId');
         if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
             if (id) return `https://www.usfans.com/product/3/${id}?ref=MGRSBE`;
