@@ -45,10 +45,15 @@ function toUsfans(host, src) {
     }
     const raw = marketplaceUrl(ref);
     if (!raw) return null;
-    // Plain item link, no affcode: kakobuy's affcode is a registration-binding code,
-    // and appending it to item/details makes the SPA bounce to "item not found".
-    // Affiliate credit comes from buyers registering under the code, not per link.
-    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}`;
+    return kakobuyLink(raw);
+}
+
+// affcode alone on item/details bounces the SPA to "item not found"; am_redirect=true
+// runs kakobuy's affiliate redirect flow, which resolves the item AND credits the code.
+const KAKOBUY_AFFCODE = '5zj3z';
+function kakobuyLink(raw) {
+    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
+        `&affcode=${KAKOBUY_AFFCODE}&am_redirect=true`;
 }
 
 function convertToUsfans(url) {
