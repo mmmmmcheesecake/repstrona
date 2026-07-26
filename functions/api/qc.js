@@ -61,16 +61,40 @@ function flattenGroups(qcGroups) {
     return sets;
 }
 
+// qcitems only resolves raw marketplace URLs — it answers 400 for an agent link.
+// Almost everything reaching this endpoint is an agent link: the sheet stores usfans
+// URLs, so the product page and the "quality check" button both hand one over, and
+// visitors paste whatever the site gave them. Unwrap first.
+// usfans channels, from their own bundle: 1 = 1688, 2 = taobao, 3 = weidian.
+const USFANS_CHANNEL_URL = {
+    '1': id => `https://detail.1688.com/offer/${id}.html`,
+    '2': id => `https://item.taobao.com/item.htm?id=${id}`,
+    '3': id => `https://weidian.com/item.html?itemID=${id}`,
+};
+
+function toMarketplaceUrl(raw) {
+    let u;
+    try { u = new URL(raw); } catch { return raw; }
+
+    if (/(^|\.)usfans\.com$/i.test(u.hostname)) {
+        const m = u.pathname.match(/\/product\/(\d+)\/([0-9a-zA-Z]+)/);
+        const build = m && USFANS_CHANNEL_URL[m[1]];
+        if (build) return build(m[2]);
+        return raw;
+    }
+
+    // kakobuy and the other agents that carry the marketplace URL in ?url=
+    const inner = u.searchParams.get('url');
+    if (inner && /^https?:\/\//i.test(inner)) return inner;
+
+    return raw;
+}
+
 export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
     if (!url) return jsonError('missing url', 400);
 
-    let target;
-    try {
-        target = `https://qcitems.com/api/product?url=${encodeURIComponent(url)}`;
-    } catch {
-        return jsonError('invalid url', 400);
-    }
+    const target = `https://qcitems.com/api/product?url=${encodeURIComponent(toMarketplaceUrl(url))}`;
 
     let upstream;
     try {
@@ -81,6 +105,10 @@ export async function onRequest(ctx) {
     } catch {
         return jsonError('upstream fetch failed', 502);
     }
+    // A 400 means qcitems could not make a product out of the link (yupoo albums,
+    // shop pages, agents it does not know). That is a rejected link, not an outage —
+    // say so, instead of the generic "failed to load, try another link".
+    if (upstream.status === 400) return jsonError('unsupported', 400);
     if (!upstream.ok) return jsonError('upstream error', 502);
 
     let data;
