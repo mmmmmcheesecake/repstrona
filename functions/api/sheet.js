@@ -284,6 +284,10 @@ async function fetchWeidianCategoryItems(shopId, cateId, total) {
     return items;
 }
 
+// Placeholder listings every weidian shop keeps around: price-difference top-ups,
+// shipping fees, deposits, "contact me before ordering" links. They are not products.
+const WEIDIAN_JUNK_RE = /(一元|1元|补差价|差价|运费|邮费|定金|拍前联系|勿拍)/;
+
 function cleanWeidianName(name) {
     let n = String(name || '');
     n = n.replace(/【[^】]*】/g, ' ');
@@ -301,6 +305,114 @@ function cleanWeidianName(name) {
     n = n.replace(/\*/g, '');
     n = n.replace(/\s+/g, ' ').trim();
     return n;
+}
+
+// Shops that mirror their catalogue on yupoo get english titles from there. Shops
+// that do not are chinese-only, and cleanWeidianName() — which exists to strip the
+// chinese noise off mixed titles — leaves them as a bare SKU or as nothing at all.
+// Nameless items are dropped, so such a shop shows up empty. Clothing vocabulary is
+// small and repetitive, so a glossary covers most of it; whatever is left over stays
+// in chinese rather than disappearing.
+const CN_GARMENTS = [
+    ['卫衣', 'Hoodie'], ['连帽衫', 'Hoodie'], ['卫裤', 'Sweatpants'], ['短袖', 'Tee'],
+    ['长袖', 'Long Sleeve'], ['牛仔裤', 'Jeans'], ['阔腿裤', 'Wide-Leg Pants'],
+    ['短裤', 'Shorts'], ['裤子', 'Pants'], ['长裤', 'Pants'], ['拉链衫', 'Zip-Up'],
+    ['开衫', 'Cardigan'], ['针织衫', 'Knit'], ['POLO衫', 'Polo'], ['polo衫', 'Polo'],
+    ['衬衫', 'Shirt'], ['风衣', 'Windbreaker'], ['夹克', 'Jacket'], ['外套', 'Jacket'],
+    ['羽绒服', 'Puffer'], ['马甲', 'Vest'], ['球衣', 'Jersey'], ['棒球帽', 'Cap'],
+    ['冷帽', 'Beanie'], ['背包', 'Backpack'], ['挂件', 'Keychain'], ['袜子', 'Socks'],
+    ['皮带', 'Belt'], ['腰带', 'Belt'], ['套装', 'Set'], ['TEE', 'Tee'], ['Tee', 'Tee'],
+];
+
+const CN_TERMS = [
+    // noise the shops glue onto every title
+    ['系列合集', ''], ['综合链接', ''], ['男女同款', ''], ['新配色', ''], ['同款', ''],
+    ['系列', ''], ['合集', ''], ['链接', ''], ['现货', ''], ['预售', ''], ['包邮', ''],
+    // motifs
+    ['幺三零', '130'], ['骷髅', 'Skull'], ['反战', 'Anti-War'], ['战争', 'War'],
+    ['十字架', 'Cross'], ['樱花', 'Sakura'], ['骑士', 'Knight'], ['天使', 'Angel'],
+    ['龙纹', 'Dragon'], ['猛虎', 'Tiger'], ['虎头', 'Tiger'], ['老鹰', 'Eagle'],
+    ['凤凰', 'Phoenix'], ['仙鹤', 'Crane'], ['双狮', 'Lions'], ['双马', 'Horses'],
+    ['鲤鱼', 'Koi'], ['神鸟', 'Firebird'], ['武士', 'Samurai'], ['三刀流', 'Three Swords'],
+    ['西部牛仔', 'Western'], ['新西部', 'New West'], ['空降部队', 'Airborne'],
+    ['抢滩登陆', 'D-Day'], ['世界和平', 'World Peace'], ['百鬼夜行', 'Night Parade'],
+    ['惊魂夜', 'Fright Night'], ['太阳神', 'Sun God'], ['创世纪', 'Genesis'],
+    ['圣餐', 'Communion'], ['圣战', 'Crusade'], ['救赎', 'Redemption'], ['教堂', 'Church'],
+    ['女巫', 'Witch'], ['鬼娃', 'Doll'], ['鬼脸', 'Ghost Face'], ['哥特', 'Gothic'],
+    ['星条旗', 'Stars & Stripes'], ['国旗', 'Flag'], ['五星', 'Five Star'],
+    ['红星', 'Red Star'], ['军团', 'Legion'], ['士兵', 'Soldier'], ['兵人', 'Soldier'],
+    ['老兵', 'Veteran'], ['二战', 'WWII'], ['战地', 'Battlefield'], ['摄影', 'Photo'],
+    ['全军冲锋', 'Charge'], ['大爆炸', 'Big Bang'], ['洗脑', 'Brainwash'],
+    ['摇滚', 'Rock'], ['音符', 'Music Note'], ['大脑', 'Brain'], ['弹幕', 'Danmaku'],
+    ['飞刀', 'Knife'], ['素描', 'Sketch'], ['手绘', 'Hand-Drawn'], ['草写', 'Script'],
+    ['机械', 'Mecha'], ['阴阳', 'Yin Yang'], ['和风', 'Japanese'], ['月桂', 'Laurel'],
+    ['花枝', 'Floral'], ['鲜花', 'Flower'], ['海浪', 'Wave'], ['太阳', 'Sun'],
+    ['迷彩', 'Camo'], ['格子', 'Plaid'], ['条纹', 'Stripe'], ['水洗', 'Washed'],
+    ['刺绣', 'Embroidered'], ['拼接', 'Patchwork'], ['撞色', 'Contrast'],
+    ['假两件', 'Layered'], ['华夫格', 'Waffle'], ['羊羔绒', 'Sherpa'], ['机能', 'Tech'],
+    ['原浆', 'Raw Denim'], ['缝线', 'Stitched'], ['钢印', 'Stamped'], ['破坏', 'Distressed'],
+    ['撕裂', 'Ripped'], ['运动', 'Sport'], ['联名', 'Collab'], ['联邦', 'Federal'],
+    ['别注版', 'Special Edition'], ['基础', 'Basic'], ['圆形', 'Round'], ['多维', 'Multi'],
+    ['遗忘', 'Forgotten'], ['麻花', 'Braided'], ['防弹衣', 'Body Armor'],
+    // places
+    ['欧盟', 'EU'], ['巴西', 'Brazil'], ['阿根廷', 'Argentina'], ['瑞典', 'Sweden'],
+    ['冰岛', 'Iceland'], ['中东', 'Middle East'],
+    // colours
+    ['黑白', 'Black & White'], ['黑色', 'Black'], ['灰色', 'Grey'], ['白色', 'White'],
+    ['红色', 'Red'], ['蓝色', 'Blue'], ['绿色', 'Green'], ['粉色', 'Pink'],
+];
+
+const CN_GLOSSARY = [
+    ...CN_GARMENTS.map(([cn, en]) => ({ cn, en, garment: true })),
+    ...CN_TERMS.map(([cn, en]) => ({ cn, en, garment: false })),
+].sort((a, b) => b.cn.length - a.cn.length);
+
+const CJK_RE = /[一-鿿]/;
+
+function translateWeidianName(raw) {
+    const s = String(raw || '')
+        .replace(/【[^】]*】/g, ' ')
+        .replace(/[（(][^)）]*[)）]/g, ' ');
+
+    const parts = [];
+    let run = '';
+    let hasGarment = false;
+    const flush = () => { if (run.trim()) parts.push(run.trim()); run = ''; };
+
+    for (let i = 0; i < s.length;) {
+        const hit = CN_GLOSSARY.find(g => s.startsWith(g.cn, i));
+        if (hit) {
+            flush();
+            if (hit.en) parts.push(hit.en);
+            if (hit.garment) hasGarment = true;
+            i += hit.cn.length;
+            continue;
+        }
+        const ch = s[i];
+        if (/[A-Za-z0-9]/.test(ch)) {
+            if (CJK_RE.test(run)) flush();
+            run += ch;
+        } else if (CJK_RE.test(ch)) {
+            if (run && !CJK_RE.test(run)) flush();
+            run += ch;
+        } else {
+            flush();
+        }
+        i++;
+    }
+    flush();
+
+    // Without a garment word the title is not chinese product vocabulary — leave it
+    // to the latin-only cleanup so existing shops keep the names they have today.
+    if (!hasGarment) return '';
+
+    const out = [];
+    for (const p of parts) if (!out.includes(p)) out.push(p);
+    return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function weidianDisplayName(raw) {
+    return translateWeidianName(raw) || cleanWeidianName(raw);
 }
 
 function weidianBrandModel(cateName) {
@@ -336,10 +448,16 @@ function weidianItemToProduct(item, cateName, shopId, shopName, yMatch) {
     const yParsed = yMatch?.parsed;
     const yAlbum = yMatch?.album;
 
-    const name = (yParsed?.name) || cleanWeidianName(item.itemName);
+    if (WEIDIAN_JUNK_RE.test(item.itemName || '')) return null;
+
+    const name = (yParsed?.name) || weidianDisplayName(item.itemName);
     if (!name) return null;
 
-    const bm = yParsed ? yupooBrandModel(yParsed.name) : weidianBrandModel(cateName);
+    // Shops without a category tree give us no cateName to classify on, so fall back
+    // to reading the brand out of the title the same way the yupoo path does.
+    const bm = yParsed
+        ? yupooBrandModel(yParsed.name)
+        : (cateName ? weidianBrandModel(cateName) : yupooBrandModel(name));
 
     const cnyFromYupoo = yParsed?.priceCny;
     const cnyFromWeidian = parseFloat(item.price);
@@ -378,13 +496,50 @@ function weidianItemToProduct(item, cateName, shopId, shopName, yMatch) {
     };
 }
 
+// Not every shop groups its items into categories — getCateTree then answers with an
+// empty cateList and there is nothing to page through per category. The same endpoint
+// still lists the entire shop under the synthetic category 0, so use that as the
+// fallback instead of reporting the shop as empty.
+const ALL_ITEMS_CATE_ID = '0';
+const FLAT_PAGE_LIMIT = 100;
+const FLAT_MAX_PAGES = 10;
+
+async function fetchWeidianItemsFlat(shopId) {
+    const out = [];
+    for (let page = 0; page < FLAT_MAX_PAGES; page++) {
+        const res = await thorGet('/decorate/itemCate.getCateItemList/1.0', {
+            cateId: ALL_ITEMS_CATE_ID,
+            shopId: String(shopId),
+            offset: page * FLAT_PAGE_LIMIT,
+            limit: FLAT_PAGE_LIMIT,
+            sortField: 'all',
+            sortType: 'desc',
+            from: 'h5',
+            isQdFx: false,
+            isHideSold: false,
+        });
+        const items = res?.itemList || [];
+        out.push(...items);
+        if (items.length < FLAT_PAGE_LIMIT) break;
+    }
+    return out;
+}
+
 async function fetchAllWeidianItems(shopId) {
     const tree = await thorGet('/decorate/itemCate.getCateTree/1.0', {
         shopId: String(shopId),
         from: 'h5',
     });
     const topCates = tree?.cateList || [];
-    if (!topCates.length) return [];
+    if (!topCates.length) {
+        const flat = await fetchWeidianItemsFlat(shopId);
+        const seen = new Set();
+        return flat.filter(it => {
+            if (!it?.itemId || seen.has(it.itemId)) return false;
+            seen.add(it.itemId);
+            return true;
+        }).map(it => ({ ...it, _cateName: '' }));
+    }
 
     const perCate = await Promise.all(topCates.map(c =>
         fetchWeidianCategoryItems(shopId, c.cateId, c.speCateItemNum)
@@ -646,6 +801,30 @@ async function fetchYupooFirstPageMeta(base) {
     } catch { return { cover: null, productCount: null }; }
 }
 
+// Cover plus a rough item count for the seller card. Kept to one or two requests —
+// the sellers listing builds every card in a single worker invocation, so walking a
+// whole catalogue here is what trips the worker resource limit.
+async function fetchWeidianItemsMeta(shopId) {
+    const tree = await thorGet('/decorate/itemCate.getCateTree/1.0', {
+        shopId: String(shopId),
+        from: 'h5',
+    });
+    const cates = tree?.cateList || [];
+    if (cates.length) {
+        const total = cates.reduce((n, c) => n + (c.speCateItemNum || 0), 0);
+        const firstPage = await fetchWeidianCategoryItems(shopId, cates[0].cateId, 1);
+        return {
+            cover: firstPage.find(i => i.itemImg)?.itemImg || null,
+            productCount: total || null,
+        };
+    }
+    const items = await fetchWeidianItemsFlat(shopId);
+    return {
+        cover: items.find(i => i.itemImg)?.itemImg || null,
+        productCount: items.length || null,
+    };
+}
+
 async function fetchWeidianStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
@@ -655,6 +834,10 @@ async function fetchWeidianStub(shopId, extras) {
     let productCount = null;
     if (yupooUrl) {
         ({ cover, productCount } = await fetchYupooFirstPageMeta(yupooUrl.replace(/\/+$/, '')));
+    } else {
+        // No yupoo mirror to take a cover and a count from — use the shop's own items,
+        // otherwise the seller card renders blank with no item count.
+        ({ cover, productCount } = await fetchWeidianItemsMeta(shopId));
     }
     const finalCover = extras?.image || cover;
 
