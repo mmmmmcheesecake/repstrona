@@ -16,6 +16,17 @@ const resultsEl = document.getElementById('vsResults');
 
 let currentFile = null;
 let currentImageId = null;
+let currentPreview = null;   // dataURL podglądu — przeżywa nawigację, currentFile nie
+let lastResults = null;      // ostatnia odpowiedź /api/visual-search
+let previewSeq = 0;
+
+const VS_STATE_KEY = 'repluG:vsState';
+const VS_STATE_TTL = 30 * 60 * 1000;
+const VS_PREVIEW_MAX = 900;  // dłuższy bok zapisywanego podglądu (px)
+
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
 
 function safeHttpUrl(url) {
     if (!url || typeof url !== 'string') return null;
@@ -32,29 +43,83 @@ function setStatus(text, kind) {
     statusEl.className = 'qc-status' + (kind ? ` qc-status-${kind}` : '');
 }
 
-function showPreview(file) {
-    if (!file) {
+function showPreview(src) {
+    if (!src) {
         previewEl.removeAttribute('src');
         previewEl.hidden = true;
         dropEmptyEl.hidden = false;
         resetBtn.hidden = true;
         return;
     }
-    const reader = new FileReader();
-    reader.onload = e => {
-        previewEl.src = e.target.result;
-        previewEl.hidden = false;
-        dropEmptyEl.hidden = true;
-        resetBtn.hidden = false;
-    };
-    reader.readAsDataURL(file);
+    previewEl.src = src;
+    previewEl.hidden = false;
+    dropEmptyEl.hidden = true;
+    resetBtn.hidden = false;
 }
 
-function setFile(file) {
+function readAsDataUrl(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Zdjęcie z telefonu ma kilka MB — w sessionStorage zmieściłoby się co najwyżej
+// jedno. Skalujemy je raz: ten sam dataURL służy za podgląd i za plik do
+// ponownego wyszukania po powrocie na stronę.
+function shrinkToDataUrl(file) {
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const scale = Math.min(1, VS_PREVIEW_MAX / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const cv = document.createElement('canvas');
+            cv.width = w;
+            cv.height = h;
+            try {
+                cv.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(cv.toDataURL('image/jpeg', 0.82));
+            } catch { resolve(null); }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+    });
+}
+
+function dataUrlToFile(dataUrl, name) {
+    const m = /^data:([^;,]+)[^,]*;base64,(.*)$/.exec(dataUrl || '');
+    if (!m) return null;
+    try {
+        const bin = atob(m[2]);
+        const buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        return new File([buf], name || 'search.jpg', { type: m[1] });
+    } catch { return null; }
+}
+
+async function setFile(file) {
     if (!file || !file.type.startsWith('image/')) return;
+    const seq = ++previewSeq;
     currentFile = file;
     currentImageId = null;
-    showPreview(file);
+    const small = await shrinkToDataUrl(file);
+    if (seq !== previewSeq) return;
+    if (small) {
+        currentPreview = small;
+        showPreview(small);
+    } else {
+        // Canvas nie poradził sobie z formatem — pokazujemy oryginał, ale go nie
+        // zapisujemy (zbyt duży dla sessionStorage).
+        currentPreview = null;
+        const raw = await readAsDataUrl(file);
+        if (seq === previewSeq) showPreview(raw);
+    }
+    saveState();
 }
 
 fileInput.addEventListener('change', e => {
@@ -83,14 +148,73 @@ document.addEventListener('paste', e => {
 });
 
 resetBtn.addEventListener('click', () => {
+    previewSeq++;
     currentFile = null;
     currentImageId = null;
+    currentPreview = null;
+    lastResults = null;
     fileInput.value = '';
     showPreview(null);
     resultsEl.innerHTML = '';
-    pagerEl.hidden = true;
     setStatus('', null);
+    clearState();
 });
+
+function clearState() {
+    try { sessionStorage.removeItem(VS_STATE_KEY); } catch {}
+}
+
+function saveState() {
+    if (!currentPreview && !lastResults) {
+        clearState();
+        return;
+    }
+    const state = {
+        preview: currentPreview,
+        imageId: currentImageId,
+        channel: channelSel.value,
+        results: lastResults,
+        scrollY: window.scrollY || window.pageYOffset || 0,
+        search: location.search,
+        ts: Date.now(),
+    };
+    try {
+        sessionStorage.setItem(VS_STATE_KEY, JSON.stringify(state));
+    } catch {
+        // Brak miejsca — same wyniki są ważniejsze niż podgląd.
+        try {
+            sessionStorage.setItem(VS_STATE_KEY, JSON.stringify({ ...state, preview: null }));
+        } catch { clearState(); }
+    }
+}
+
+function readState() {
+    try {
+        const raw = sessionStorage.getItem(VS_STATE_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || Date.now() - (s.ts || 0) > VS_STATE_TTL) return null;
+        // Wejście z innym ?channel= to nowe wyszukiwanie, nie powrót z produktu.
+        if ((s.search || '') !== location.search) return null;
+        return s;
+    } catch { return null; }
+}
+
+function restoreState() {
+    const s = readState();
+    if (!s) return;
+    if (['1', '2', '3'].includes(String(s.channel))) channelSel.value = String(s.channel);
+    currentImageId = s.imageId || null;
+    if (s.preview) {
+        currentPreview = s.preview;
+        currentFile = dataUrlToFile(s.preview, 'search.jpg');
+        showPreview(s.preview);
+    }
+    if (s.results) renderResults(s.results);
+    if (typeof s.scrollY === 'number' && s.scrollY > 0) {
+        requestAnimationFrame(() => window.scrollTo(0, s.scrollY));
+    }
+}
 
 function marketplaceToChannel(m) {
     const x = (m || '').toLowerCase();
@@ -172,6 +296,7 @@ async function runSearch() {
     submitBtn.disabled = true;
     setStatus(T('vs.searching', 'Searching…'), 'loading');
     resultsEl.innerHTML = '';
+    lastResults = null;
 
     const fd = new FormData();
     if (currentImageId) fd.append('imageId', currentImageId);
@@ -187,7 +312,9 @@ async function runSearch() {
             return;
         }
         if (data.imageId) currentImageId = data.imageId;
+        lastResults = data;
         renderResults(data);
+        saveState();
     } catch {
         setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
     } finally {
@@ -206,11 +333,27 @@ channelSel.addEventListener('change', () => {
     runSearch();
 });
 
+window.addEventListener('pagehide', saveState);
+window.addEventListener('beforeunload', saveState);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveState();
+});
+
+// Przy bfcache DOM i stan JS są nienaruszone — brakuje tylko pozycji scrolla,
+// bo wyłączyliśmy automatyczne przywracanie.
+window.addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    const s = readState();
+    if (s && typeof s.scrollY === 'number' && s.scrollY > 0) window.scrollTo(0, s.scrollY);
+});
+
 const params = new URLSearchParams(location.search);
 const initialChannel = params.get('channel');
 if (initialChannel && ['1', '2', '3'].includes(initialChannel)) {
     channelSel.value = initialChannel;
 }
+
+restoreState();
 
 fetch('/content/settings.json').then(r => r.json()).then(s => {
     const elD = document.getElementById('nav-discord');
