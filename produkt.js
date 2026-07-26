@@ -122,6 +122,7 @@ const state = {
     selected: {},
     images: [],
     weightG: null,
+    priceUsd: null,
 };
 
 function showError(msg) {
@@ -196,10 +197,19 @@ function totalStock(skus) {
     return any ? total : null;
 }
 
-function refreshPriceAndStock() {
+// Some items have no per-SKU prices at all (weidian listings without variants,
+// qcitems payloads), so fall back to the item-level "from" price.
+function currentUsd() {
     const skus = matchingSkus();
     let p = minPrice(skus);
     if (p == null) p = minPrice(state.skuList);
+    if (p == null && typeof state.priceUsd === 'number' && state.priceUsd > 0) p = state.priceUsd;
+    return p;
+}
+
+function refreshPriceAndStock() {
+    const skus = matchingSkus();
+    const p = currentUsd();
     let priceText = '—';
     if (p != null) {
         priceText = window.RePluGCurrency
@@ -369,6 +379,7 @@ async function load() {
         state.images = data.images || [];
         state.properties = data.properties || [];
         state.skuList = data.skuList || [];
+        state.priceUsd = typeof data.priceUsd === 'number' ? data.priceUsd : null;
 
         const variantImages = [];
         state.properties.forEach(p => p.valuesList.forEach(v => { if (v.picUrl) variantImages.push(v.picUrl); }));
@@ -461,9 +472,7 @@ function bindAddToCart() {
     const btn = el('pdAddToCart');
     if (!btn || !window.RePluGCart) return;
     btn.addEventListener('click', () => {
-        const skus = matchingSkus();
-        let usd = minPrice(skus);
-        if (usd == null) usd = minPrice(state.skuList);
+        const usd = currentUsd();
         const cwIdx = colorwayIdx();
         const colorIdx = cwIdx >= 0 ? cwIdx : 0;
         const sizeIdx = state.properties.findIndex((_, i) => i !== colorIdx);

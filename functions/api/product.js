@@ -50,6 +50,14 @@ async function fetchWeidianRocker(itemId) {
     }
 }
 
+const CNY_PER_USD = 7.2;
+
+function usdFromCny(cny) {
+    const n = typeof cny === 'string' ? parseFloat(cny) : cny;
+    if (typeof n !== 'number' || !isFinite(n) || n <= 0) return null;
+    return Math.round((n / CNY_PER_USD) * 100) / 100;
+}
+
 function shapeWeidian(j, full) {
     const info = j?.result?.default_model?.item_info || {};
     const skuProp = j?.result?.default_model?.sku_properties || {};
@@ -65,9 +73,10 @@ function shapeWeidian(j, full) {
     }
     const skuImages = [...skuImagesSet].slice(0, 12);
 
+    // itemLowPrice is in fen (14000 == ¥140), sku.price is a yuan string ("140.00").
     let priceUsd = null;
     if (typeof info.itemLowPrice === 'number' && info.itemLowPrice > 0) {
-        priceUsd = Math.round((info.itemLowPrice / 100 / 7.2) * 100) / 100;
+        priceUsd = usdFromCny(info.itemLowPrice / 100);
     }
 
     const result = {
@@ -99,7 +108,8 @@ function shapeWeidian(j, full) {
                 ? s.attr_ids.split('-').map(x => parseInt(x, 10)).filter(Number.isFinite)
                 : [],
             price: s.price,
-            convertedPrice: null,
+            // produkt.js renders the price off convertedPrice; leaving it null showed "—".
+            convertedPrice: usdFromCny(s.price),
             stock: s.stock,
             imgUrl: s.img || null,
         }));
@@ -123,8 +133,6 @@ function hasNoImages(result) {
     return (!Array.isArray(result.images) || !result.images.length) &&
         (!Array.isArray(result.skuImages) || !result.skuImages.length);
 }
-
-const CNY_PER_USD = 7.2;
 
 // usfans cannot serve taobao or 1688 to us: its API answers null for every taobao
 // id (from anywhere, headers make no difference) and returns nothing at all to the
@@ -151,8 +159,7 @@ async function handleQcitems(rawUrl) {
     const rawImage = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
     const image = rawImage ? proxyImage(rawImage) : null;
     const title = typeof info.title === 'string' && info.title.trim() ? info.title.trim() : null;
-    const cny = typeof info.price === 'number' && info.price > 0 ? info.price : null;
-    const usd = cny != null ? Math.round((cny / CNY_PER_USD) * 100) / 100 : null;
+    const usd = usdFromCny(info.price);
     if (!image && !title && usd === null) return null;
 
     return {
