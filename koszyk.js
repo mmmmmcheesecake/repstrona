@@ -19,6 +19,12 @@
     let mode = 'own';
     let viewItems = [];
 
+    // Nieznana cena to nie darmowy produkt — "$0" wyglądało jak cena.
+    function priceLabel(it) {
+        const usd = itemUsd(it);
+        return usd > 0 ? formatUsd(usd) : '—';
+    }
+
     function getItems() {
         return mode === 'shared' ? viewItems : window.RePluGCart.read();
     }
@@ -65,7 +71,7 @@
                 <div class="cart-item-meta">${badges.join(' ')}</div>
                 <div class="cart-item-row">
                     ${qtyControls}
-                    <span class="cart-item-price">${escapeHtml(formatUsd(itemUsd(it)))}</span>
+                    <span class="cart-item-price">${escapeHtml(priceLabel(it))}</span>
                 </div>
             </div>
         </div>`;
@@ -193,6 +199,60 @@
         return num;
     }
 
+    // Pozycje dodane, kiedy /api/product nie oddawał ceny, mają w localStorage
+    // priceUsd: null i price "—", więc liczyły się w koszyku jako 0. Naprawa API
+    // działa tylko na nowe dodania — te już zapisane trzeba raz doczytać.
+    const priceLookupDone = new Set();
+    let backfillRunning = false;
+    const MAX_BACKFILL = 40;
+
+    async function fetchPriceUsd(link) {
+        try {
+            const r = await fetch(`/api/product?url=${encodeURIComponent(link)}`);
+            if (!r.ok) return null;
+            const d = await r.json();
+            if (!d || d.error) return null;
+            const p = Number(d.priceUsd);
+            return isFinite(p) && p > 0 ? p : null;
+        } catch { return null; }
+    }
+
+    function applyPrices(prices) {
+        const patch = it => {
+            const usd = prices.get(it.link);
+            if (!usd || itemUsd(it) > 0) return it;
+            return { ...it, priceUsd: usd, price: formatUsd(usd) };
+        };
+        if (mode === 'shared') {
+            viewItems = viewItems.map(patch);
+            render();
+            return;
+        }
+        window.RePluGCart.write(window.RePluGCart.read().map(patch));
+    }
+
+    async function backfillPrices() {
+        if (backfillRunning) return;
+        const links = [...new Set(getItems()
+            .filter(it => it.link && itemUsd(it) <= 0 && !priceLookupDone.has(it.link))
+            .map(it => it.link))].slice(0, MAX_BACKFILL);
+        if (!links.length) return;
+
+        backfillRunning = true;
+        links.forEach(l => priceLookupDone.add(l));
+        try {
+            const prices = new Map();
+            for (let i = 0; i < links.length; i += 4) {
+                const slice = links.slice(i, i + 4);
+                const got = await Promise.all(slice.map(fetchPriceUsd));
+                slice.forEach((l, j) => { if (got[j]) prices.set(l, got[j]); });
+            }
+            if (prices.size) applyPrices(prices);
+        } finally {
+            backfillRunning = false;
+        }
+    }
+
     function formatTotal(n, sample) {
         if (window.RePluGCurrency && typeof window.RePluGCurrency.format === 'function') {
             const formatted = window.RePluGCurrency.format(n);
@@ -211,7 +271,8 @@
         items.forEach(it => {
             const p = itemUsd(it);
             subtotal += p * (Number(it.qty) || 1);
-            if (!sample && it.price) sample = it.price;
+            // Pozycja bez ceny ma price "—"; wzięta jako próbka dawała sumy w stylu "—25".
+            if (!sample && p > 0 && parsePriceNum(it.price)) sample = it.price;
         });
 
         const totalEl = document.getElementById('cartTotalValue');
@@ -247,6 +308,7 @@
         footer.style.display = '';
         wrap.innerHTML = items.map(rowHTML).join('');
         updateTotal(items);
+        backfillPrices();
 
         wrap.querySelectorAll('[data-act="inc"]').forEach(b => b.addEventListener('click', () => {
             const i = +b.dataset.idx;
