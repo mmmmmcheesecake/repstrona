@@ -154,24 +154,53 @@ async function handleQcitems(rawUrl) {
     if (!j || j.error) return null;
 
     const info = j.info || {};
-    // Proxied, not hot-linked: cbu01.alicdn.com (1688 covers) 403s any request that
-    // carries our Referer, so the browser cannot load these directly.
     const rawImage = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
-    const image = rawImage ? proxyImage(rawImage) : null;
-    const title = typeof info.title === 'string' && info.title.trim() ? info.title.trim() : null;
+    // The cover alone made for a one-photo product page; qcitems ships the rest of
+    // the listing's photos inside the description HTML, which is all taobao/1688
+    // gives us. Proxied, not hot-linked: cbu01.alicdn.com 403s requests that carry
+    // our Referer, so the browser cannot load these directly.
+    const gallery = [rawImage, ...imagesFromHtml(info.description, 24)]
+        .filter(Boolean)
+        .filter((u, i, arr) => arr.indexOf(u) === i)
+        .slice(0, 24)
+        .map(proxyImage);
+    const title = firstString(info.titleEn, info.title);
     const usd = usdFromCny(info.price);
-    if (!image && !title && usd === null) return null;
+    if (!gallery.length && !title && usd === null) return null;
 
     return {
         ...emptyResult(),
         title,
-        image,
-        images: image ? [image] : [],
+        image: gallery[0] || null,
+        images: gallery,
         priceUsd: usd,
         // produkt.js reads the displayed price off skuList.convertedPrice, not priceUsd.
         skuList: usd === null ? [] : [{ convertedPrice: usd, valueIds: [] }],
         properties: [],
+        shopName: firstString(info.shopName),
+        // qcitems reports weight in grams; 0 means "unknown", not weightless.
+        weightG: typeof info.weight === 'number' && info.weight > 0 ? info.weight : null,
+        category: firstString(info.category),
     };
+}
+
+function firstString(...vals) {
+    for (const v of vals) {
+        if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
+}
+
+function imagesFromHtml(html, limit) {
+    const out = [];
+    if (typeof html !== 'string' || !html) return out;
+    const re = /<img[^>]+src=["']([^"']+)["']/gi;
+    let m;
+    while ((m = re.exec(html)) !== null && out.length < limit) {
+        const src = m[1].trim();
+        if (/^https:\/\//i.test(src) && !out.includes(src)) out.push(src);
+    }
+    return out;
 }
 
 async function handleUsfans(parsed, full) {
@@ -291,8 +320,14 @@ function proxyImage(url) {
 
 const AGENT_PLATFORM_TO_CHANNEL = { WEIDIAN: 3, TAOBAO: 2, TMALL: 2, '1688': 1, ALIBABA: 1 };
 
+// Taobao hands out opaque item tokens ("0000S_yf-ottGagYnlf…") alongside numeric
+// ids — image search returns nothing else — and qcitems resolves both.
+const TAOBAO_ID = /^[A-Za-z0-9_-]{6,80}$/;
+
 function refToUsfans(ref) {
     if (!ref) return null;
+    // usfans addresses items by numeric marketplace id; a token cannot be one.
+    if (!/^\d+$/.test(ref.itemId)) return null;
     const channel = ref.source === 'weidian' ? 3
         : (ref.source === 'taobao' || ref.source === 'tmall') ? 2
         : ref.source === '1688' ? 1
@@ -312,11 +347,11 @@ function parseAgentUrl(raw) {
         }
         if (host === 'taobao.com' || host.endsWith('.taobao.com')) {
             const id = u.searchParams.get('id');
-            if (id && /^\d+$/.test(id)) return { source: 'taobao', itemId: id };
+            if (id && TAOBAO_ID.test(id)) return { source: 'taobao', itemId: id };
         }
         if (host === 'tmall.com' || host.endsWith('.tmall.com')) {
             const id = u.searchParams.get('id');
-            if (id && /^\d+$/.test(id)) return { source: 'tmall', itemId: id };
+            if (id && TAOBAO_ID.test(id)) return { source: 'tmall', itemId: id };
         }
         if (host === '1688.com' || host.endsWith('.1688.com')) {
             const m = u.pathname.match(/\/offer\/(\d+)\.html/);
@@ -422,15 +457,14 @@ async function resolveByUrl(url, full) {
             const r = await handleWeidian(agent.itemId, full);
             return r;
         }
+        // taobao/1688 go to qcitems first: usfans answers null for every taobao id
+        // and returns nothing to the CF edge for 1688, so asking it first only cost
+        // a round trip and left the page with one photo and a Chinese title.
+        const qc = await handleQcitems(url);
+        if (qc) return jsonOk(qc);
+
         const parsed = parseUsfans(refToUsfans(agent) || '');
-        if (parsed) {
-            const r = await handleUsfans(parsed, full);
-            const data = await readResponse(r);
-            if (data && !data.error && !hasNoImages(data)) return r;
-            const qc = await handleQcitems(url);
-            if (qc) return jsonOk(qc);
-            return r;
-        }
+        if (parsed) return handleUsfans(parsed, full);
     }
     return null;
 }

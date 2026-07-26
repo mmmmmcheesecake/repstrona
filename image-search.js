@@ -216,21 +216,39 @@ function restoreState() {
     }
 }
 
-function marketplaceToChannel(m) {
-    const x = (m || '').toLowerCase();
-    if (x === 'weidian') return 3;
-    if (x === 'taobao' || x === 'tmall') return 1;
-    if (x === '1688' || x === 'alibaba') return 2;
-    return 3;
+// The upstream hands back a ready marketplace URL in `id`; `goodsId` is only the
+// bare item id (and for taobao an opaque token, never a usfans goodsId).
+function marketplaceUrl(r) {
+    const direct = safeHttpUrl(r.id);
+    if (direct) return direct;
+    const id = r.goodsId;
+    if (!id) return null;
+    switch ((r.marketplace || '').toLowerCase()) {
+        case 'weidian': return `https://weidian.com/item.html?itemID=${encodeURIComponent(id)}`;
+        case 'taobao': return `https://item.taobao.com/item.htm?id=${encodeURIComponent(id)}`;
+        case 'tmall': return `https://detail.tmall.com/item.htm?id=${encodeURIComponent(id)}`;
+        case '1688':
+        case 'alibaba': return `https://detail.1688.com/offer/${encodeURIComponent(id)}.html`;
+        default: return null;
+    }
 }
 
+// Hand the raw marketplace link to the product page — it sends weidian to usfans
+// and taobao/1688 to kakobuy, which is the only agent that resolves those.
 function productHref(r) {
-    const channel = marketplaceToChannel(r.marketplace);
-    const id = r.goodsId || r.id;
-    if (!id) return '#';
-    const usfansUrl = `https://usfans.com/product/${channel}/${encodeURIComponent(id)}?ref=MGRSBE`;
-    const q = new URLSearchParams({ url: usfansUrl, name: r.title || '' });
+    const url = marketplaceUrl(r);
+    if (!url) return '#';
+    const q = new URLSearchParams({ url, name: r.title || '' });
     return `produkt.html?${q.toString()}`;
+}
+
+// alicdn (taobao/1688 covers) can refuse requests carrying our Referer; the proxy
+// sends none. Only used as a retry, so working hot-links cost nothing.
+function proxiedImage(url) {
+    try {
+        const b64 = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return `/api/qcimg?u=${b64}`;
+    } catch { return null; }
 }
 
 function fmtPrice(r) {
@@ -267,6 +285,11 @@ function renderResults(data) {
             image.alt = '';
             image.loading = 'lazy';
             image.onerror = function () {
+                const viaProxy = proxiedImage(img);
+                if (viaProxy && this.src !== new URL(viaProxy, location.href).href) {
+                    this.src = viaProxy;
+                    return;
+                }
                 imgWrap.classList.add('no-img');
                 this.remove();
             };

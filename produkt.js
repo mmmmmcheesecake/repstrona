@@ -15,16 +15,19 @@ function marketplaceUrl(ref) {
 
 function marketplaceRef(host, src) {
     const numeric = v => (v && /^\d+$/.test(v) ? v : null);
+    // Taobao item ids are not always numeric any more — image search returns opaque
+    // tokens like "0000S_yf-ottGagYnlf…" — and kakobuy resolves those fine.
+    const itemToken = v => (v && /^[A-Za-z0-9_-]{6,80}$/.test(v) ? v : null);
     if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
         const id = numeric(src.searchParams.get('itemID') || src.searchParams.get('itemId'));
         return id ? { source: 'weidian', id } : null;
     }
     if (host === 'taobao.com' || host.endsWith('.taobao.com')) {
-        const id = numeric(src.searchParams.get('id'));
+        const id = itemToken(src.searchParams.get('id'));
         return id ? { source: 'taobao', id } : null;
     }
     if (host === 'tmall.com' || host.endsWith('.tmall.com')) {
-        const id = numeric(src.searchParams.get('id'));
+        const id = itemToken(src.searchParams.get('id'));
         return id ? { source: 'tmall', id } : null;
     }
     if (host === '1688.com' || host.endsWith('.1688.com')) {
@@ -135,6 +138,13 @@ function showError(msg) {
 }
 
 function el(id) { return document.getElementById(id); }
+
+function metaPill(text) {
+    const s = document.createElement('span');
+    s.className = 'cart-meta-pill';
+    s.textContent = text;
+    return s;
+}
 
 function setMainImage(src) {
     const img = el('pdMainImg');
@@ -372,6 +382,14 @@ async function load() {
             batch.className = `card-batch ${batchClass(sheetBatch)}`;
             batch.textContent = sheetBatch;
             metaEl.appendChild(batch);
+        }
+        // Shop and weight are all the seller detail taobao/1688 items carry.
+        if (data.shopName) {
+            metaEl.appendChild(metaPill(T('pd.shop', `Shop: ${data.shopName}`, { name: data.shopName })));
+        }
+        if (typeof data.weightG === 'number' && data.weightG > 0) {
+            state.weightG = state.weightG || data.weightG;
+            metaEl.appendChild(metaPill(`${Math.round(data.weightG)} g`));
         }
 
         el('pdName').textContent = sheetName || data.title || 'Product';
