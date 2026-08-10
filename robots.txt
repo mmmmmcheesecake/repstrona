@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Panel i narzędzia — nie do indeksu
+Disallow: /admin/
+Disallow: /import.html
+Disallow: /tools/
+Disallow: /api/
+
+Sitemap: https://replug24.com/sitemap.xml
