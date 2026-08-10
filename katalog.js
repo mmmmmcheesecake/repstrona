@@ -1293,7 +1293,14 @@ async function enrichProduct(p) {
     if (!promise) {
         promise = (async () => {
             try {
-                const r = await fetch(`/api/product?url=${encodeURIComponent(p.link)}`);
+                // v=2 mints a fresh cache key. /api/product used to send
+                // max-age=3600 even for the blank payload it returns when an
+                // upstream is down, so browsers that hit a bad minute replayed an
+                // empty tile — no image, no price, since the sheet supplies
+                // neither — and a hard reload does not clear it: Ctrl+Shift+R
+                // skips the HTTP cache for the document, not for fetches this
+                // observer fires after load. Bump if it ever needs resetting again.
+                const r = await fetch(`/api/product?url=${encodeURIComponent(p.link)}&v=2`);
                 if (!r.ok) return null;
                 const data = await r.json();
                 enrichCache.set(key, data);
