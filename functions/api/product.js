@@ -139,19 +139,42 @@ function hasNoImages(result) {
 // Cloudflare edge. qcitems reaches both from the edge — /api/qc already relies on
 // it — so take the cover image, title and price from there instead of rendering a
 // blank product page.
-async function handleQcitems(rawUrl) {
+async function fetchQcitems(rawUrl, bypassCache) {
     let upstream;
     try {
         upstream = await fetch(`https://qcitems.com/api/product?url=${encodeURIComponent(rawUrl)}`, {
             headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot', 'Accept': 'application/json' },
-            cf: { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
+            cf: bypassCache
+                ? { cacheTtl: 0, cacheEverything: false }
+                : { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
         });
     } catch { return null; }
     if (!upstream.ok) return null;
 
-    let j;
-    try { j = await upstream.json(); } catch { return null; }
-    if (!j || j.error) return null;
+    try {
+        const j = await upstream.json();
+        return (!j || j.error) ? null : j;
+    } catch { return null; }
+}
+
+// qcitems gets its taobao/1688 data from usfans, and when that is down it still
+// answers HTTP 200 — just with source:"none" and every field blank. cacheTtlByStatus
+// cannot tell that apart from a real answer, so one bad minute used to stay pinned
+// at the edge for an hour.
+function qcitemsHasInfo(j) {
+    const info = j && j.info;
+    if (!info) return false;
+    return Boolean(info.title || info.titleEn || info.image || info.description) ||
+        Number(info.price) > 0;
+}
+
+async function handleQcitems(rawUrl) {
+    let j = await fetchQcitems(rawUrl, false);
+    if (!qcitemsHasInfo(j)) {
+        const fresh = await fetchQcitems(rawUrl, true);
+        if (fresh) j = fresh;
+    }
+    if (!j) return null;
 
     const info = j.info || {};
     const rawImage = typeof info.image === 'string' && /^https:\/\//i.test(info.image) ? info.image : null;
@@ -515,12 +538,24 @@ export async function onRequest(ctx) {
     return jsonOk(result);
 }
 
+// A blank payload is an upstream hiccup, not a product that happens to have no
+// data. Caching it for an hour pinned the failure in every visitor's browser: the
+// catalog tile stayed image- and price-less (the sheet supplies neither) while the
+// product page showed the item fine, because it asks with full=1 and so lands on a
+// different cache key.
+function hasPayload(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    return Boolean(obj.title) || Boolean(obj.image) ||
+        (Array.isArray(obj.images) && obj.images.length > 0) ||
+        obj.priceUsd != null;
+}
+
 function jsonOk(obj) {
     return new Response(JSON.stringify(obj), {
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=3600',
+            'Cache-Control': hasPayload(obj) ? 'public, max-age=3600' : 'no-store',
             'X-Content-Type-Options': 'nosniff',
         }
     });
