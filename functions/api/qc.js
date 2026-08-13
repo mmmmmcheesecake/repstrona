@@ -90,11 +90,131 @@ function toMarketplaceUrl(raw) {
     return raw;
 }
 
+// Seller-category items are yupoo albums, and qcitems cannot make a product out of
+// one. The album page links the marketplace item it mirrors, which is the same ref
+// /api/product turns into the usfans buy link — resolve it here so seller items get
+// the exact QC sets the rest of the catalogue gets.
+const MARKETPLACE_URL = {
+    weidian: id => `https://weidian.com/item.html?itemID=${id}`,
+    taobao: id => `https://item.taobao.com/item.htm?id=${id}`,
+    tmall: id => `https://detail.tmall.com/item.htm?id=${id}`,
+    '1688': id => `https://detail.1688.com/offer/${id}.html`,
+};
+
+const AGENT_PLATFORM_TO_SOURCE = {
+    WEIDIAN: 'weidian', TAOBAO: 'taobao', TMALL: 'tmall', '1688': '1688', ALIBABA: '1688',
+};
+
+function isYupooUrl(raw) {
+    try { return /\.yupoo\.com$/i.test(new URL(raw).hostname); } catch { return false; }
+}
+
+// Same shapes /api/product accepts, kept in step with parseAgentUrl there.
+function parseAgentUrl(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+        const u = new URL(raw);
+        const host = u.hostname.toLowerCase();
+        const numeric = v => (v && /^\d+$/.test(v) ? v : null);
+        if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+            const id = numeric(u.searchParams.get('itemID') || u.searchParams.get('itemId'));
+            if (id) return { source: 'weidian', itemId: id };
+        }
+        if (host === 'taobao.com' || host.endsWith('.taobao.com')) {
+            const id = numeric(u.searchParams.get('id'));
+            if (id) return { source: 'taobao', itemId: id };
+        }
+        if (host === 'tmall.com' || host.endsWith('.tmall.com')) {
+            const id = numeric(u.searchParams.get('id'));
+            if (id) return { source: 'tmall', itemId: id };
+        }
+        if (host === '1688.com' || host.endsWith('.1688.com')) {
+            const m = u.pathname.match(/\/offer\/(\d+)\.html/);
+            if (m) return { source: '1688', itemId: m[1] };
+        }
+        const nested = u.searchParams.get('url');
+        if (nested) {
+            const inner = parseAgentUrl(nested);
+            if (inner) return inner;
+        }
+        const platform = (u.searchParams.get('platform') || '').toUpperCase();
+        const id = numeric(u.searchParams.get('id') || u.searchParams.get('itemId') || u.searchParams.get('itemID'));
+        const source = AGENT_PLATFORM_TO_SOURCE[platform];
+        if (source && id) return { source, itemId: id };
+    } catch {}
+    return null;
+}
+
+function extractAlbumItemRef(html) {
+    if (!html) return null;
+    const weidianM = html.match(/\bweidian\.com\/item\.html\?[^"'<>\s]*\bitem[Ii][Dd]=(\d+)/i);
+    if (weidianM) return { source: 'weidian', itemId: weidianM[1] };
+    const tmallM = html.match(/\b(?:detail\.)?tmall\.com\/item\.htm\?[^"'<>\s]*\bid=(\d+)/i);
+    if (tmallM) return { source: 'tmall', itemId: tmallM[1] };
+    const taobaoM = html.match(/\b(?:item\.|world\.|m\.)?taobao\.com\/item(?:\.htm|\.html)?\?[^"'<>\s]*\bid=(\d+)/i);
+    if (taobaoM) return { source: 'taobao', itemId: taobaoM[1] };
+    const e1688M = html.match(/\b(?:detail\.|world\.)?1688\.com\/offer\/(\d+)\.html/i);
+    if (e1688M) return { source: '1688', itemId: e1688M[1] };
+
+    // yupoo routes outbound links through /external?url=<encoded>, sometimes double-encoded.
+    for (const m of html.matchAll(/\/external\?url=([^"&<>\s]+)/g)) {
+        let decoded = m[1];
+        for (let i = 0; i < 3 && /%/.test(decoded); i++) {
+            try { decoded = decodeURIComponent(decoded); } catch { break; }
+        }
+        const ref = parseAgentUrl(decoded);
+        if (ref) return ref;
+    }
+    return null;
+}
+
+async function resolveYupooAlbum(albumUrl) {
+    let u;
+    try { u = new URL(albumUrl); } catch { return null; }
+    let r;
+    try {
+        r = await fetch(albumUrl, {
+            headers: { 'User-Agent': UA, 'Referer': `https://${u.hostname}/albums` },
+            cf: { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
+        });
+    } catch { return null; }
+    if (!r.ok) return null;
+
+    let html;
+    try { html = await r.text(); } catch { return null; }
+    const ref = extractAlbumItemRef(html);
+    const build = ref && MARKETPLACE_URL[ref.source];
+    return build ? build(ref.itemId) : null;
+}
+
+function emptyPayload(resolvedUrl) {
+    return {
+        productId: null,
+        marketplace: null,
+        info: null,
+        sets: [],
+        totalPhotos: 0,
+        sources: [],
+        resolvedUrl: resolvedUrl || null,
+    };
+}
+
 export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
     if (!url) return jsonError('missing url', 400);
 
-    const target = `https://qcitems.com/api/product?url=${encodeURIComponent(toMarketplaceUrl(url))}`;
+    // Seller-category items arrive as yupoo album links. Swap in the marketplace item
+    // the album points at — an album an agent cannot open has no QC to show, so answer
+    // "no photos" rather than letting qcitems reject the link outright.
+    let marketplaceUrl = toMarketplaceUrl(url);
+    let albumResolvedUrl = null;
+    if (isYupooUrl(url)) {
+        albumResolvedUrl = await resolveYupooAlbum(url);
+        if (!albumResolvedUrl) return jsonOk(emptyPayload(null));
+        marketplaceUrl = albumResolvedUrl;
+    }
+
+    const target = `https://qcitems.com/api/product?url=${encodeURIComponent(marketplaceUrl)}`;
 
     let upstream;
     try {
@@ -123,14 +243,7 @@ export async function onRequest(ctx) {
     // would show one random product's QC on every seller item.
     const productId = data?.productId;
     if (!productId || String(productId) === '0' || data?.marketplace === 'unknown') {
-        return jsonOk({
-            productId: null,
-            marketplace: null,
-            info: null,
-            sets: [],
-            totalPhotos: 0,
-            sources: []
-        });
+        return jsonOk(emptyPayload(albumResolvedUrl));
     }
 
     const sets = flattenGroups(data?.qcGroups);
@@ -142,6 +255,9 @@ export async function onRequest(ctx) {
         info: data?.info || null,
         sets,
         totalPhotos,
-        sources: [...new Set(sets.map(s => s.sourceLabel))]
+        sources: [...new Set(sets.map(s => s.sourceLabel))],
+        // Only set for yupoo albums: the marketplace item the album mirrors, so the QC
+        // page can offer an agent link for a URL no agent would accept.
+        resolvedUrl: albumResolvedUrl,
     });
 }

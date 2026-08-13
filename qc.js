@@ -161,9 +161,12 @@ document.addEventListener('keydown', e => {
 function renderResponse(data, rawInput) {
     clearResults();
     const sets = data.sets || [];
+    // A yupoo album is not a link any agent opens; the API hands back the marketplace
+    // item it mirrors, which is what the fallback button has to point at.
+    const linkSource = /^https:\/\//i.test(data.resolvedUrl || '') ? data.resolvedUrl : rawInput;
     if (!sets.length) {
         setStatus(T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
-        appendUsfansFallback(rawInput);
+        appendUsfansFallback(linkSource);
         return;
     }
     setStatus(T('qc.results', `${data.totalPhotos} QC photos`, { n: data.totalPhotos }), 'ok');
@@ -228,7 +231,7 @@ function renderResponse(data, rawInput) {
         results.appendChild(block);
     });
 
-    appendUsfansFallback(rawInput);
+    appendUsfansFallback(linkSource);
 }
 
 async function runCheck(url) {

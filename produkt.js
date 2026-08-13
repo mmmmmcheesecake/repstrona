@@ -369,7 +369,12 @@ async function load() {
 
         if (data.usfansUrl) {
             const safeUsfans = safeHttpUrl(data.usfansUrl);
-            if (safeUsfans) el('pdBuy').href = safeUsfans;
+            if (safeUsfans) {
+                el('pdBuy').href = safeUsfans;
+                // Seller items are yupoo albums; QC only exists for the marketplace item
+                // the album mirrors, which is exactly what usfansUrl resolves to.
+                if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(safeUsfans)}`;
+            }
         }
 
         const titleName = data.title || sheetName || 'Product';
