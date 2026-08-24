@@ -16,6 +16,12 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // Constants their bundle sends on every call. versionCode tracks their web release.
 const BASE_PAYLOAD = { versionCode: '252', from: '1201', device_type: 'web', cur: 'USD' };
 
+// Their browser keeps a uuid in localStorage and sends it with every call; leave it
+// out and the answer is 1002 "missing p uuid". One stable value stands in for one
+// device, which is what we are as far as they are concerned — a fresh uuid per
+// request would look like a new browser every time.
+const CLIENT_UUID = '8f6f2a1c-5f5c-4e7a-9a2d-3c9b1f0e7d44';
+
 export function kakobuyEnabled(env) {
     return Boolean(env && typeof env.KAKOBUY_TOKEN === 'string' && env.KAKOBUY_TOKEN.trim());
 }
@@ -25,7 +31,7 @@ export function kakobuyEnabled(env) {
 async function post(env, path, params, image) {
     if (!kakobuyEnabled(env)) return { ok: false, data: null, msg: 'no token' };
 
-    const payload = { ...BASE_PAYLOAD, ...params, token: env.KAKOBUY_TOKEN.trim() };
+    const payload = { ...BASE_PAYLOAD, uuid: CLIENT_UUID, ...params, token: env.KAKOBUY_TOKEN.trim() };
     const headers = {
         'User-Agent': UA,
         'lang': 'en',
@@ -64,6 +70,11 @@ async function post(env, path, params, image) {
         return { ok: false, data: null, msg: j ? `${j.code} ${j.msg || ''}`.trim() : 'empty' };
     }
     return { ok: true, data: j.data, msg: null };
+}
+
+// Escape hatch for probing their API: same envelope, arbitrary params.
+export function kakobuyPost(env, path, params, image) {
+    return post(env, path, params, image);
 }
 
 // url is the raw marketplace URL — the same thing their /item/details?url= takes.

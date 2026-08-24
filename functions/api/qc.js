@@ -1,4 +1,4 @@
-import { kakobuyEnabled, kakobuyItem, kakobuyQcGroups } from './_kakobuy.js';
+import { kakobuyEnabled, kakobuyItem, kakobuyPost, kakobuyQcGroups } from './_kakobuy.js';
 
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
@@ -316,6 +316,30 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
+    // Temporary: fires the item call several ways at once, so one deploy settles which
+    // fields their API insists on instead of one deploy per guess.
+    if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
+        const uuid = '8f6f2a1c-5f5c-4e7a-9a2d-3c9b1f0e7d44';
+        const fp = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        const variants = {
+            plain: {},
+            uuid: { uuid },
+            uuid_fp: { uuid, fp },
+            uuid_fp_referer: { uuid, fp, referer: 'https://www.kakobuy.com/' },
+            uuid_uuidv1: { uuid, uuidv1: uuid }
+        };
+        const out = {};
+        for (const [name, extra] of Object.entries(variants)) {
+            const res = await kakobuyPost(ctx.env, '/api/sapi/item', {
+                url: marketplaceUrl, tp: '', tid: '', refresh: '0', ...extra
+            });
+            out[name] = res.ok
+                ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 40), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count, qcPoints: res.data && res.data.qc_limit_points }
+                : { ok: false, msg: res.msg };
+        }
+        return jsonOk(out);
+    }
+
     if (new URL(ctx.request.url).searchParams.get('debug') === 'kako') {
         const probe = askKakobuy ? await kakobuySets(ctx.env, marketplaceUrl) : { sets: [], msg: 'not asked' };
         const hosts = new Set();
