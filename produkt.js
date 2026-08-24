@@ -378,7 +378,10 @@ async function load() {
             }
         }
 
-        const titleName = data.title || sheetName || 'Product';
+        // The heading already prefers the name we were handed — the sheet's, or the
+        // English one image search returns — because weidian's own title is often
+        // untranslated. The tab title had it the other way round.
+        const titleName = sheetName || data.title || 'Product';
         document.title = T('title.productNamed', `${titleName} — RePluG`, { name: titleName });
 
         const metaEl = el('pdMeta');
