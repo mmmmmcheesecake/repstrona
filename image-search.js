@@ -269,27 +269,28 @@ function looksLikeImageUrl(url) {
 }
 
 // Zdjęcia spod adresu nie pobierze przeglądarka — obce domeny nie pozwalają na to
-// przez CORS — więc ściąga je worker i on prowadzi wyszukiwanie.
+// przez CORS — więc ściąga je worker i oddaje nam samą treść. Dalej idzie już zwykłą
+// drogą: podgląd, kadrowanie i Weidian pytany wprost z przeglądarki, bo tamtędy usfans
+// odpowiada, a z workera blokuje mniej więcej co drugie zapytanie.
 async function searchByImageUrl(url) {
-    submitBtn.disabled = true;
     setStatus(T('vs.searching', 'Searching…'), 'loading');
-    resultsEl.innerHTML = '';
-    lastResults = null;
-
-    const fd = new FormData();
-    fd.append('imageUrl', url);
-    fd.append('channel', channelSel.value || '3');
-    fd.append('page', '1');
-
-    const data = await postSearch(fd);
-    submitBtn.disabled = false;
-    if (!data) {
+    try {
+        const r = await fetch(`/api/fetch-image?url=${encodeURIComponent(url)}`);
+        const data = await r.json().catch(() => null);
+        if (!r.ok || !data || !data.dataUrl) {
+            setStatus(T('vs.pasteEmpty', 'There is no image or product link in the clipboard.'), 'empty');
+            return;
+        }
+        const file = dataUrlToFile(data.dataUrl, 'clipboard.jpg');
+        if (!file) {
+            setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
+            return;
+        }
+        await setFile(file);
+        runSearch();
+    } catch {
         setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
-        return;
     }
-    lastResults = data;
-    renderResults(data);
-    saveState();
 }
 
 async function pasteFromClipboard() {
