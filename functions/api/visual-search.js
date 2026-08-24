@@ -33,21 +33,31 @@ const USFANS_HEADERS = {
     'Referer': 'https://www.usfans.com/'
 };
 
+// usfans drops about half the connections that come from the Cloudflare edge — the
+// failures are instant (~0.15s, where an answer takes ~2s) and the next attempt
+// usually goes through, so retry rather than telling the visitor the search broke.
+const USFANS_ATTEMPTS = 3;
+
 async function usfansPost(path, payload) {
-    let r;
-    try {
-        r = await fetch(`${USFANS_API}${path}`, {
-            method: 'POST',
-            headers: USFANS_HEADERS,
-            body: JSON.stringify(payload)
-        });
-    } catch { return null; }
-    if (!r.ok) return null;
-    try {
-        const j = await r.json();
-        // Their API answers HTTP 200 for failures too, with code 10001 and success false.
-        return j && j.success !== false && j.code === 200 ? j : null;
-    } catch { return null; }
+    const body = JSON.stringify(payload);
+    for (let i = 0; i < USFANS_ATTEMPTS; i++) {
+        let r;
+        try {
+            r = await fetch(`${USFANS_API}${path}`, {
+                method: 'POST',
+                headers: USFANS_HEADERS,
+                body
+            });
+        } catch { continue; }
+        if (!r.ok) continue;
+        try {
+            const j = await r.json();
+            // Their API answers HTTP 200 for failures too, with code 10001 and
+            // success false. That is a real answer — retrying it changes nothing.
+            return j && j.success !== false && j.code === 200 ? j : null;
+        } catch { return null; }
+    }
+    return null;
 }
 
 function bytesToBase64(bytes) {
