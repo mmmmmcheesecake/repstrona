@@ -316,30 +316,26 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: their server takes our token as a live session — an invented one comes
-    // back 1055 — and then answers 500 for the item, from the edge, for every
-    // marketplace, sealed or plain. That is the shape of a session bound to the device
-    // or address that signed in, so this reports whether a device id is configured and
-    // tries the call a few ways around it.
+    // Temporary: /api/user/info answers with the account from the very same edge
+    // request that gets a 500 out of /api/sapi/item, so the session is not pinned to
+    // the address it was created at. Narrow it down: which of their endpoints does
+    // this account get through, and does the item call want a fingerprint.
     if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
-        const item = (extra) => kakobuyPost(ctx.env, '/api/sapi/item', {
-            url: 'https://item.taobao.com/item.htm?id=776869705554', tp: '', tid: '', refresh: '0', ...extra
-        });
-
-        const describe = async (res) => res.ok
-            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 30), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count, qcPoints: res.data && res.data.qc_limit_points }
+        const call = (path, params, image) => kakobuyPost(ctx.env, path, params || {}, image);
+        const shortly = async (res) => res.ok
+            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 18) }
             : res.msg;
 
-        const userInfo = await kakobuyPost(ctx.env, '/api/user/info', {});
+        const itemUrl = 'https://item.taobao.com/item.htm?id=776869705554';
 
         return jsonOk({
-            uuidConfigured: Boolean(ctx.env.KAKOBUY_UUID),
-            userInfo: userInfo.ok ? 'ok' : userInfo.msg,
-            plain: await describe(await item({})),
-            emptyUuid: await describe(await item({ uuid: '' })),
-            langCn: await describe(await item({ lang: 'cn' })),
-            curCny: await describe(await item({ cur: 'CNY' })),
-            fromWeb: await describe(await item({ from: '1101' }))
+            userInfo: await shortly(await call('/api/user/info')),
+            favorites: await shortly(await call('/api/goods/favoriteList', { page: 1, listRows: 10 })),
+            autoComp: await shortly(await call('/api/sapi/autoCompInfo', { keyword: 'jordan' })),
+            shopGoods: await shortly(await call('/api/sapi/shopGoodsList', { url: itemUrl, page: 1 })),
+            itemPlain: await shortly(await call('/api/sapi/item', { url: itemUrl, tp: '', tid: '', refresh: '0' })),
+            itemWithFp: await shortly(await call('/api/sapi/item', { url: itemUrl, tp: '', tid: '', refresh: '0', fp: 'a1b2c3d4e5f60718293a4b5c6d7e8f90', referer: 'https://www.kakobuy.com/' })),
+            imageSearchNoFile: await shortly(await call('/api/sapi/imageSearch', { page: 1, tp: 'taobao' }))
         });
     }
 
