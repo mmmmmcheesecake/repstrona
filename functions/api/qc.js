@@ -1,4 +1,4 @@
-import { kakobuyEnabled, kakobuyItem, kakobuyPost, kakobuyQcGroups } from './_kakobuy.js';
+import { kakobuyEnabled, kakobuyItem, kakobuyQcGroups } from './_kakobuy.js';
 
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
@@ -217,9 +217,14 @@ function emptyPayload(resolvedUrl) {
     };
 }
 
-// The owner buys taobao and 1688 through kakobuy, so for those the QC comes from
-// kakobuy itself rather than from the copies qcitems mirrors. Weidian has no kakobuy
-// listing to ask about and stays on qcitems.
+// The owner buys taobao and 1688 through kakobuy, so for those we ask kakobuy for the
+// QC first and let qcitems fill in around it. Dormant as it stands: their item
+// endpoint answers 500 to anything that is not their own site — from the edge, with or
+// without a session, for weidian as much as taobao — while their lighter endpoints
+// answer us fine. Their item pages carry no QC photos anyway, and qcitems mirrors the
+// KakoBuy sets that do exist, so nothing is missing while this waits. If they ever
+// serve us, this starts working on its own; if they never do, it costs one failed
+// subrequest per taobao QC lookup, made alongside qcitems rather than before it.
 const KAKOBUY_MARKETPLACES = new Set(['taobao', 'tmall', '1688']);
 
 function marketplaceSourceOf(raw) {
@@ -316,46 +321,6 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: their marketplace backend is fine — autocomplete and shop goods both
-    // answer for taobao and weidian — and only /api/sapi/item crashes. Their own site
-    // demands a login before opening taobao but not weidian, so ask for a weidian item
-    // with a token their server will reject: if that comes back with data, the endpoint
-    // works and it is our session that trips it.
-    if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
-        const item = (url, extra) => kakobuyPost(ctx.env, '/api/sapi/item', { url, tp: '', tid: '', refresh: '0', ...extra });
-        const shortly = async (res) => res.ok
-            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 20), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count }
-            : res.msg;
-
-        const taobao = 'https://item.taobao.com/item.htm?id=776869705554';
-        const weidian = 'https://weidian.com/item.html?itemID=7547810481';
-
-        return jsonOk({
-            weidianAnonymous: await shortly(await item(weidian, { token: 'not-a-real-token' })),
-            weidianOurToken: await shortly(await item(weidian)),
-            taobaoAnonymous: await shortly(await item(taobao, { token: 'not-a-real-token' })),
-            taobaoOurToken: await shortly(await item(taobao))
-        });
-    }
-
-    if (new URL(ctx.request.url).searchParams.get('debug') === 'kako') {
-        const probe = askKakobuy ? await kakobuySets(ctx.env, marketplaceUrl) : { sets: [], msg: 'not asked' };
-        const hosts = new Set();
-        probe.sets.forEach(set => set.photos.forEach(ph => {
-            try { hosts.add(new URL(ph.url, 'https://replug24.com').pathname.startsWith('/api/qcimg') ? 'proxied' : 'direct'); } catch {}
-        }));
-        return jsonOk({
-            marketplace: source,
-            tokenConfigured: kakobuyEnabled(ctx.env),
-            asked: askKakobuy,
-            msg: probe.msg || null,
-            sets: probe.sets.length,
-            photos: probe.sets.reduce((n, set) => n + set.photos.length, 0),
-            itemKeys: probe.info ? Object.keys(probe.info).slice(0, 40) : null,
-            photoDelivery: [...hosts]
-        });
-    }
-
     // Both at once: kakobuy is the source we want for taobao and 1688, but qcitems
     // still carries the other agents' sets, and either one can come back empty.
     const [kako, qci] = await Promise.all([

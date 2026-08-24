@@ -123,10 +123,11 @@ async function searchWeidian(dataUrl, page) {
 
 // -------------------------------------------------- taobao and 1688: kakobuy first
 //
-// The owner buys taobao and 1688 through kakobuy, so the search that fills those two
-// channels is kakobuy's own — the cards then link at the listing people actually buy
-// from. It needs KAKOBUY_TOKEN; without it, or when it comes back empty, qcitems below
-// still answers, which is what the site did before.
+// The owner buys taobao and 1688 through kakobuy, so those two channels ask kakobuy
+// first — the cards then link at the listing people actually buy from. Dormant for now
+// for the same reason as the QC path in qc.js: their search endpoint answers 500 to
+// anything that is not their own site. qcitems below answers meanwhile, which is what
+// the site did before, and this takes over by itself if they ever serve us.
 const CHANNEL_TP = { '1': '1688', '2': 'taobao' };
 
 function firstString(...vals) {
@@ -162,25 +163,6 @@ function shapeKakobuyRecord(r, marketplace, currency) {
         price: firstNumber(r.price, r.shop_price, r.sale_price, r.goods_price, r.min_price),
         currency,
         sales: firstNumber(r.sales, r.sold, r.month_sold, r.sale_num)
-    };
-}
-
-// Temporary: same idea as the one on /api/qc — their list item field names are not
-// documented, so report the shape (names and counts only, no account data) until the
-// mapping above is confirmed against a live answer.
-async function probeKakobuy(env, file, channel, page) {
-    const res = await kakobuyImageSearch(env, file, CHANNEL_TP[channel], page);
-    const data = res.data || {};
-    const list = Array.isArray(data.list) ? data.list : [];
-    return {
-        tokenConfigured: kakobuyEnabled(env),
-        ok: res.ok,
-        msg: res.msg || null,
-        dataKeys: res.ok ? Object.keys(data).slice(0, 20) : null,
-        count: list.length,
-        recordKeys: list.length ? Object.keys(list[0]).slice(0, 40) : null,
-        curSym: data.cur_sym || null,
-        mapped: list.length ? shapeKakobuyRecord(list[0], CHANNEL_MARKETPLACE[channel], 'USD') : null
     };
 }
 
@@ -256,13 +238,6 @@ export async function onRequest(ctx) {
 
     const imageData = body.get('imageData');
     if (!hasFile && typeof imageData !== 'string') return jsonError('missing image', 400);
-
-    if (new URL(ctx.request.url).searchParams.get('debug') === 'kako' && channel !== '3') {
-        const probe = await probeKakobuy(ctx.env, hasFile ? file : null, channel, page);
-        return new Response(JSON.stringify(probe), {
-            headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-        });
-    }
 
     let found;
     if (channel === '3') {
