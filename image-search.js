@@ -7,7 +7,6 @@ const dropEl = document.getElementById('vsDrop');
 const fileInput = document.getElementById('vsFile');
 const previewEl = document.getElementById('vsPreview');
 const dropEmptyEl = document.getElementById('vsDropEmpty');
-const channelSel = document.getElementById('vsChannel');
 const form = document.getElementById('vsForm');
 const submitBtn = document.getElementById('vsSubmit');
 const resetBtn = document.getElementById('vsReset');
@@ -15,7 +14,6 @@ const statusEl = document.getElementById('vsStatus');
 const resultsEl = document.getElementById('vsResults');
 
 let currentFile = null;
-let currentImageId = null;
 let currentPreview = null;   // dataURL podglądu — przeżywa nawigację, currentFile nie
 let lastResults = null;      // ostatnia odpowiedź /api/visual-search
 let previewSeq = 0;
@@ -106,7 +104,6 @@ async function setFile(file) {
     if (!file || !file.type.startsWith('image/')) return;
     const seq = ++previewSeq;
     currentFile = file;
-    currentImageId = null;
     const small = await shrinkToDataUrl(file);
     if (seq !== previewSeq) return;
     if (small) {
@@ -150,7 +147,6 @@ document.addEventListener('paste', e => {
 resetBtn.addEventListener('click', () => {
     previewSeq++;
     currentFile = null;
-    currentImageId = null;
     currentPreview = null;
     lastResults = null;
     fileInput.value = '';
@@ -171,8 +167,6 @@ function saveState() {
     }
     const state = {
         preview: currentPreview,
-        imageId: currentImageId,
-        channel: channelSel.value,
         results: lastResults,
         scrollY: window.scrollY || window.pageYOffset || 0,
         search: location.search,
@@ -194,7 +188,7 @@ function readState() {
         if (!raw) return null;
         const s = JSON.parse(raw);
         if (!s || Date.now() - (s.ts || 0) > VS_STATE_TTL) return null;
-        // Wejście z innym ?channel= to nowe wyszukiwanie, nie powrót z produktu.
+        // Wejście z innymi parametrami to nowe wyszukiwanie, nie powrót z produktu.
         if ((s.search || '') !== location.search) return null;
         return s;
     } catch { return null; }
@@ -203,8 +197,6 @@ function readState() {
 function restoreState() {
     const s = readState();
     if (!s) return;
-    if (['1', '2', '3'].includes(String(s.channel))) channelSel.value = String(s.channel);
-    currentImageId = s.imageId || null;
     if (s.preview) {
         currentPreview = s.preview;
         currentFile = dataUrlToFile(s.preview, 'search.jpg');
@@ -216,12 +208,14 @@ function restoreState() {
     }
 }
 
-// The upstream hands back a ready marketplace URL in `id`; `goodsId` is only the
-// bare item id (and for taobao an opaque token, never a usfans goodsId).
+// `id` used to be a ready marketplace URL; on the multi endpoint it is the bare item
+// id, and for taobao an opaque token. Only take it as a link when it really is one —
+// safeHttpUrl resolves against this page, so a bare token would come back as an
+// address on our own domain and the product page would have nothing to open.
 function marketplaceUrl(r) {
-    const direct = safeHttpUrl(r.id);
+    const direct = /^https?:\/\//i.test(r.id || '') ? safeHttpUrl(r.id) : null;
     if (direct) return direct;
-    const id = r.goodsId;
+    const id = r.goodsId || r.id;
     if (!id) return null;
     switch ((r.marketplace || '').toLowerCase()) {
         case 'weidian': return `https://weidian.com/item.html?itemID=${encodeURIComponent(id)}`;
@@ -265,7 +259,7 @@ function renderResults(data) {
     resultsEl.innerHTML = '';
     const list = data.results || [];
     if (!list.length) {
-        setStatus(data.message || T('vs.empty', 'No matches found in this channel.'), 'empty');
+        setStatus(T('vs.empty', 'No matches found for this photo.'), 'empty');
         return;
     }
     setStatus(T('vs.results', `${list.length} matches`, { n: list.length }), 'ok');
@@ -312,7 +306,7 @@ function renderResults(data) {
 }
 
 async function runSearch() {
-    if (!currentFile && !currentImageId) {
+    if (!currentFile) {
         setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
         return;
     }
@@ -321,11 +315,9 @@ async function runSearch() {
     resultsEl.innerHTML = '';
     lastResults = null;
 
+    // Jedno zapytanie przeszukuje Taobao i 1688 naraz — kanału nie ma już co wybierać.
     const fd = new FormData();
-    if (currentImageId) fd.append('imageId', currentImageId);
-    else fd.append('image', currentFile);
-    fd.append('channel', channelSel.value || '3');
-    fd.append('page', '1');
+    fd.append('image', currentFile);
 
     try {
         const r = await fetch('/api/visual-search', { method: 'POST', body: fd });
@@ -334,7 +326,6 @@ async function runSearch() {
             setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
             return;
         }
-        if (data.imageId) currentImageId = data.imageId;
         lastResults = data;
         renderResults(data);
         saveState();
@@ -347,12 +338,6 @@ async function runSearch() {
 
 form.addEventListener('submit', e => {
     e.preventDefault();
-    runSearch();
-});
-
-channelSel.addEventListener('change', () => {
-    if (!currentFile && !currentImageId) return;
-    currentImageId = null;
     runSearch();
 });
 
@@ -369,12 +354,6 @@ window.addEventListener('pageshow', e => {
     const s = readState();
     if (s && typeof s.scrollY === 'number' && s.scrollY > 0) window.scrollTo(0, s.scrollY);
 });
-
-const params = new URLSearchParams(location.search);
-const initialChannel = params.get('channel');
-if (initialChannel && ['1', '2', '3'].includes(initialChannel)) {
-    channelSel.value = initialChannel;
-}
 
 restoreState();
 
