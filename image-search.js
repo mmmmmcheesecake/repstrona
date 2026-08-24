@@ -258,14 +258,57 @@ function firstUrlIn(text) {
     return m[0].replace(/[),.;!?\]]+$/, '');
 }
 
+// Adres zdjęcia poznajemy po rozszerzeniu — „skopiuj adres obrazka" w przeglądarce
+// daje właśnie to, a wtedy szukamy tym zdjęciem, nie traktujemy go jak link do produktu.
+function looksLikeImageUrl(url) {
+    try {
+        return /\.(jpe?g|png|webp|gif|avif|bmp)$/i.test(new URL(url).pathname);
+    } catch {
+        return false;
+    }
+}
+
+// Zdjęcia spod adresu nie pobierze przeglądarka — obce domeny nie pozwalają na to
+// przez CORS — więc ściąga je worker i on prowadzi wyszukiwanie.
+async function searchByImageUrl(url) {
+    submitBtn.disabled = true;
+    setStatus(T('vs.searching', 'Searching…'), 'loading');
+    resultsEl.innerHTML = '';
+    lastResults = null;
+
+    const fd = new FormData();
+    fd.append('imageUrl', url);
+    fd.append('channel', channelSel.value || '3');
+    fd.append('page', '1');
+
+    const data = await postSearch(fd);
+    submitBtn.disabled = false;
+    if (!data) {
+        setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
+        return;
+    }
+    lastResults = data;
+    renderResults(data);
+    saveState();
+}
+
 async function pasteFromClipboard() {
     let items;
     try {
         items = await navigator.clipboard.read();
-    } catch {
-        setStatus(T('vs.pasteDenied', 'The browser would not hand over the clipboard.'), 'error');
+    } catch (err) {
+        const name = err && err.name ? err.name : '';
+        // NotAllowedError to odmowa — reszta znaczy, że przeglądarka w ogóle nie daje
+        // rady, i wtedy warto pokazać nazwę błędu, bo inaczej zgłoszenie brzmi
+        // „nie działa" i nie ma z czego wnioskować.
+        setStatus(name && name !== 'NotAllowedError'
+            ? `${T('vs.pasteDenied', 'The browser would not hand over the clipboard.')} (${name})`
+            : T('vs.pasteDenied', 'The browser would not hand over the clipboard.'), 'error');
         return;
     }
+
+    const seen = [];
+    for (const item of items) seen.push(...(item.types || []));
 
     for (const item of items) {
         const type = (item.types || []).find(t => t.startsWith('image/'));
@@ -278,34 +321,34 @@ async function pasteFromClipboard() {
         } catch {}
     }
 
-    // Równie często w schowku jest link do przedmiotu, nie zdjęcie — wtedy po prostu
-    // otwieramy ten produkt zamiast tłumaczyć, że to nie obrazek.
+    // W schowku bywa adres zdjęcia albo link do przedmiotu — jedno i drugie da się
+    // obsłużyć, zamiast tłumaczyć, że to nie obrazek.
+    const texts = [];
     for (const item of items) {
         for (const type of ['text/plain', 'text/html']) {
             if (!(item.types || []).includes(type)) continue;
-            try {
-                const link = firstUrlIn(await (await item.getType(type)).text());
-                if (link) {
-                    linkInput.value = link;
-                    openPastedLink();
-                    return;
-                }
-            } catch {}
+            try { texts.push(await (await item.getType(type)).text()); } catch {}
         }
     }
+    // Część przeglądarek wydaje przez read() tylko obrazki, a tekst dopiero tędy.
+    try { texts.push(await navigator.clipboard.readText()); } catch {}
 
-    // Część przeglądarek wydaje przez read() tylko obrazki, a tekst dopiero przez
-    // readText() — dlatego jeszcze jedno podejście, zanim powiemy, że schowek jest pusty.
-    try {
-        const link = firstUrlIn(await navigator.clipboard.readText());
-        if (link) {
+    for (const text of texts) {
+        const link = firstUrlIn(text);
+        if (!link) continue;
+        if (looksLikeImageUrl(link)) {
+            searchByImageUrl(link);
+        } else {
             linkInput.value = link;
             openPastedLink();
-            return;
         }
-    } catch {}
+        return;
+    }
 
-    setStatus(T('vs.pasteEmpty', 'There is no image or product link in the clipboard.'), 'empty');
+    // Co w schowku było, skoro nie zdjęcie i nie link — bez tego zgłoszenie „nie
+    // wkleja się" nie niesie żadnej informacji.
+    const kinds = [...new Set(seen)].join(', ');
+    setStatus(`${T('vs.pasteEmpty', 'There is no image or product link in the clipboard.')}${kinds ? ` (${kinds})` : ''}`, 'empty');
 }
 
 // Kafelek jest teraz przyciskiem wklejania, bo na telefonie zdjęcie prawie zawsze
@@ -317,6 +360,12 @@ if (CLIPBOARD_READ) {
     dropTextEl.setAttribute('data-i18n', 'vs.dropPaste');
     dropTextEl.textContent = T('vs.dropPaste', 'Tap here to paste an image');
     pickFileBtn.hidden = false;
+} else {
+    // Bez tego kafelek po cichu otwiera wybór pliku i wygląda, jakby wklejanie było
+    // zepsute, zamiast powiedzieć, że ta przeglądarka go nie udostępnia.
+    cropHintEl.hidden = false;
+    cropHintEl.setAttribute('data-i18n', 'vs.pasteUnsupported');
+    cropHintEl.textContent = T('vs.pasteUnsupported', 'This browser will not share the clipboard — upload a file or paste a link below.');
 }
 
 dropEl.addEventListener('click', () => {

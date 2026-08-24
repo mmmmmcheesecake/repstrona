@@ -246,6 +246,36 @@ async function searchQcitems(file, channel, page) {
     return { results: rankResults(j.results), totalPages: Number(j.totalPages) || 1, source: 'qcitems' };
 }
 
+// "Copy image address" hands over a URL rather than a file, and the page cannot fetch
+// it — other people's domains do not allow that from a browser. The worker can.
+async function fetchImageFile(rawUrl) {
+    let u;
+    try { u = new URL(rawUrl); } catch { return null; }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+
+    let r;
+    try {
+        r = await fetch(u.href, {
+            headers: { 'User-Agent': UA, 'Accept': 'image/*' },
+            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
+        });
+    } catch { return null; }
+    if (!r.ok) return null;
+
+    const type = (r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!type.startsWith('image/')) return null;
+    if (Number(r.headers.get('content-length') || 0) > MAX_ENCODE_BYTES) return null;
+
+    let bytes;
+    try { bytes = new Uint8Array(await r.arrayBuffer()); } catch { return null; }
+    if (!bytes.length || bytes.length > MAX_ENCODE_BYTES) return null;
+
+    return {
+        file: new File([bytes], `pasted.${type.split('/')[1] || 'jpg'}`, { type }),
+        dataUrl: `data:${type};base64,${bytesToBase64(bytes)}`
+    };
+}
+
 export async function onRequest(ctx) {
     if (ctx.request.method !== 'POST') {
         return jsonError('method not allowed', 405);
@@ -270,7 +300,17 @@ export async function onRequest(ctx) {
         if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) return jsonError('image too large', 413);
     }
 
-    const imageData = body.get('imageData');
+    let imageData = body.get('imageData');
+
+    // An image given as a URL: fetch it once and it is an ordinary upload from here on.
+    const imageUrl = body.get('imageUrl');
+    let fetched = null;
+    if (!hasFile && typeof imageData !== 'string' && typeof imageUrl === 'string' && imageUrl.trim()) {
+        fetched = await fetchImageFile(imageUrl.trim());
+        if (!fetched) return jsonError('image url unreachable', 400);
+        imageData = fetched.dataUrl;
+    }
+
     if (!hasFile && typeof imageData !== 'string') return jsonError('missing image', 400);
 
     let found;
@@ -285,10 +325,11 @@ export async function onRequest(ctx) {
         found = await searchWeidian(dataUrl, page);
         if (found) found.source = 'usfans';
     } else {
-        if (hasFile && kakobuyEnabled(ctx.env)) {
-            found = await searchKakobuy(ctx.env, file, channel, page);
+        const upload = hasFile ? file : (fetched && fetched.file);
+        if (upload && kakobuyEnabled(ctx.env)) {
+            found = await searchKakobuy(ctx.env, upload, channel, page);
         }
-        if (!found) found = await searchQcitems(hasFile ? file : null, channel, page);
+        if (!found) found = await searchQcitems(upload, channel, page);
     }
 
     // 504 for weidian on purpose: usfans dropping the connection is a different
