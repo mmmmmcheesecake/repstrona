@@ -165,6 +165,45 @@ async function convertViaQcitems(link) {
     return parseLink(j.Raw, 0);
 }
 
+// Share links from the apps are shorteners — e.tb.cn, m.tb.cn, qr.1688.com — and they
+// carry no id of their own. Following one lands on the item, so try that before giving
+// up: the address we end up at usually parses, and when the hop is done in a script
+// instead of a redirect the id is still somewhere in the page.
+async function resolveShortLink(link) {
+    let r;
+    try {
+        r = await fetch(link, {
+            redirect: 'follow',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml'
+            },
+            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
+        });
+    } catch { return null; }
+
+    const landed = parseLink(r.url, 0);
+    if (landed) return landed;
+    if (!r.ok) return null;
+
+    let html;
+    try { html = (await r.text()).slice(0, 200000); } catch { return null; }
+
+    for (const re of [
+        /https?:\/\/(?:[a-z0-9-]+\.)*(?:taobao|tmall|weidian|1688)\.com\/[^"'\s\\]+/i,
+        /item\.taobao\.com[^"'\s\\]*id=(\d{6,30})/i,
+        /["'](?:itemId|item_id|offerId)["']\s*[:=]\s*["']?(\d{6,30})/i
+    ]) {
+        const m = html.match(re);
+        if (!m) continue;
+        const found = m[0].startsWith('http')
+            ? parseLink(m[0].replace(/\\u002F/gi, '/'), 0)
+            : { platform: 'taobao', id: m[1] };
+        if (found) return found;
+    }
+    return null;
+}
+
 export async function onRequest(ctx) {
     const link = new URL(ctx.request.url).searchParams.get('link');
     if (!link || !link.trim()) return json({ error: 'missing link' }, 400);
@@ -175,6 +214,10 @@ export async function onRequest(ctx) {
     if (!found) {
         found = await convertViaQcitems(link);
         source = 'qcitems';
+    }
+    if (!found) {
+        found = await resolveShortLink(link);
+        source = 'redirect';
     }
 
     if (!found) return json({ error: 'unsupported link' }, 404);

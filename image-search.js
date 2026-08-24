@@ -246,6 +246,18 @@ document.addEventListener('paste', async e => {
 // było najpierw zapisać do galerii. Schowek czytamy tylko z kliknięcia, bo tego
 // wymagają przeglądarki, a samo navigator.clipboard.read() musi być pierwszą rzeczą
 // po nim: cokolwiek wcześniej poczekamy, gest przestaje się liczyć i Safari odmawia.
+// Udostępnianie z aplikacji nigdy nie kopiuje samego adresu: Taobao wysyła
+// „【淘宝】https://e.tb.cn/h.xxx 点击链接…", Weidian nazwę przedmiotu przed linkiem, a
+// wklejenie z przeglądarki potrafi przyjść jako HTML. Bierzemy pierwszy adres, jaki
+// da się w tym znaleźć, zamiast wymagać, żeby tekst się od niego zaczynał.
+function firstUrlIn(text) {
+    if (typeof text !== 'string') return null;
+    const m = text.match(/https?:\/\/[^\s"'<>\\]+/i);
+    if (!m) return null;
+    // Adresy w zdaniach kończą się interpunkcją, która do nich nie należy.
+    return m[0].replace(/[),.;!?\]]+$/, '');
+}
+
 async function pasteFromClipboard() {
     let items;
     try {
@@ -269,18 +281,31 @@ async function pasteFromClipboard() {
     // Równie często w schowku jest link do przedmiotu, nie zdjęcie — wtedy po prostu
     // otwieramy ten produkt zamiast tłumaczyć, że to nie obrazek.
     for (const item of items) {
-        if (!(item.types || []).includes('text/plain')) continue;
-        try {
-            const text = (await (await item.getType('text/plain')).text()).trim();
-            if (/^https?:\/\//i.test(text)) {
-                linkInput.value = text;
-                openPastedLink();
-                return;
-            }
-        } catch {}
+        for (const type of ['text/plain', 'text/html']) {
+            if (!(item.types || []).includes(type)) continue;
+            try {
+                const link = firstUrlIn(await (await item.getType(type)).text());
+                if (link) {
+                    linkInput.value = link;
+                    openPastedLink();
+                    return;
+                }
+            } catch {}
+        }
     }
 
-    setStatus(T('vs.pasteEmpty', 'There is no image in the clipboard.'), 'empty');
+    // Część przeglądarek wydaje przez read() tylko obrazki, a tekst dopiero przez
+    // readText() — dlatego jeszcze jedno podejście, zanim powiemy, że schowek jest pusty.
+    try {
+        const link = firstUrlIn(await navigator.clipboard.readText());
+        if (link) {
+            linkInput.value = link;
+            openPastedLink();
+            return;
+        }
+    } catch {}
+
+    setStatus(T('vs.pasteEmpty', 'There is no image or product link in the clipboard.'), 'empty');
 }
 
 // Kafelek jest teraz przyciskiem wklejania, bo na telefonie zdjęcie prawie zawsze
