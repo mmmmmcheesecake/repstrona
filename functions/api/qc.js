@@ -316,31 +316,33 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: the token is a live session (an invented one answers 1055, ours 500)
-    // and their public endpoint answers fine, so the crash is narrower than the login.
-    // Ask a few of their endpoints in one go to see how far the session gets.
+    // Temporary: the session itself is fine — /api/user/info answers with the account —
+    // and their validator reads our params (an empty cur comes back "missing p cur"),
+    // so the 500 happens while they resolve the item. Ask across marketplaces and
+    // platform spellings to see whether it is taobao specifically.
     if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
-        const token = String(ctx.env.KAKOBUY_TOKEN || '').trim();
-        const tid = (() => {
-            try { return new URL(marketplaceUrl).searchParams.get('id') || ''; } catch { return ''; }
-        })();
+        const item = (params) => kakobuyPost(ctx.env, '/api/sapi/item', { url: '', tp: '', tid: '', refresh: '0', ...params });
 
         const calls = {
-            userInfo: () => kakobuyPost(ctx.env, '/api/user/info', {}),
-            keywordSearch: () => kakobuyPost(ctx.env, '/api/sapi/index', { p: 'jordan 1', page: 1, tp: '' }),
-            itemByUrl: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' }),
-            itemByTid: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: '', tp: 'taobao', tid, refresh: '0' }),
-            itemWithCookie: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' }, null, { 'Cookie': `token=${token}` }),
-            itemNoCur: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0', cur: '' }),
-            itemRefresh: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '1' })
+            keyword: () => kakobuyPost(ctx.env, '/api/sapi/index', { keyword: 'jordan 1', page: 1, tp: '' }),
+            keywordTaobao: () => kakobuyPost(ctx.env, '/api/sapi/index', { keyword: 'jordan 1', page: 1, tp: 'taobao' }),
+            itemWeidian: () => item({ url: 'https://weidian.com/item.html?itemID=7547810481' }),
+            itemTaobao: () => item({ url: 'https://item.taobao.com/item.htm?id=776869705554' }),
+            itemTaobaoTp: () => item({ url: 'https://item.taobao.com/item.htm?id=776869705554', tp: 'taobao' }),
+            itemTaobaoTpNum: () => item({ url: 'https://item.taobao.com/item.htm?id=776869705554', tp: '2' }),
+            item1688: () => item({ url: 'https://detail.1688.com/offer/771568851634.html' }),
+            itemTmall: () => item({ url: 'https://detail.tmall.com/item.htm?id=676783055554' })
         };
 
         const out = {};
         for (const [name, run] of Object.entries(calls)) {
             const res = await run();
-            out[name] = res.ok
-                ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 30) }
-                : { ok: false, msg: res.msg };
+            if (!res.ok) { out[name] = res.msg; continue; }
+            const d = res.data || {};
+            const list = Array.isArray(d.list) ? d.list : null;
+            out[name] = list
+                ? { ok: true, results: list.length, recordKeys: list.length ? Object.keys(list[0]).slice(0, 25) : null }
+                : { ok: true, keys: Object.keys(d).slice(0, 30), qcGroups: (d.qc_group || []).length, qcCount: d.qc_group_count, qcPoints: d.qc_limit_points };
         }
         return jsonOk(out);
     }
