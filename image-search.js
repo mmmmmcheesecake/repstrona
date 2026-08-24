@@ -15,6 +15,7 @@ const channelSel = document.getElementById('vsChannel');
 const form = document.getElementById('vsForm');
 const submitBtn = document.getElementById('vsSubmit');
 const resetBtn = document.getElementById('vsReset');
+const pasteBtn = document.getElementById('vsPaste');
 const statusEl = document.getElementById('vsStatus');
 const resultsEl = document.getElementById('vsResults');
 
@@ -227,13 +228,47 @@ dropEl.addEventListener('drop', e => {
     if (f) setFile(f);
 });
 
-document.addEventListener('paste', e => {
+// Wklejenie klawiaturą — na desktopie. Telefon nie wyśle tego zdarzenia bez pola
+// tekstowego, dlatego niżej jest jeszcze przycisk czytający schowek wprost.
+document.addEventListener('paste', async e => {
     const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
-    if (item) {
-        const f = item.getAsFile();
-        if (f) setFile(f);
-    }
+    if (!item) return;
+    const f = item.getAsFile();
+    if (!f) return;
+    await setFile(f);
+    runSearch();
 });
+
+// Na telefonie zdjęcie ze schowka nie miało jak trafić do wyszukiwarki — trzeba je
+// było najpierw zapisać do galerii. Schowek czytamy tylko z kliknięcia, bo tego
+// wymagają przeglądarki, a samo navigator.clipboard.read() musi być pierwszą rzeczą
+// po nim: cokolwiek wcześniej poczekamy, gest przestaje się liczyć i Safari odmawia.
+async function pasteFromClipboard() {
+    let items;
+    try {
+        items = await navigator.clipboard.read();
+    } catch {
+        setStatus(T('vs.pasteDenied', 'The browser would not hand over the clipboard.'), 'error');
+        return;
+    }
+
+    for (const item of items) {
+        const type = (item.types || []).find(t => t.startsWith('image/'));
+        if (!type) continue;
+        try {
+            const blob = await item.getType(type);
+            await setFile(new File([blob], `clipboard.${type.split('/')[1] || 'png'}`, { type }));
+            runSearch();
+            return;
+        } catch {}
+    }
+    setStatus(T('vs.pasteEmpty', 'There is no image in the clipboard.'), 'empty');
+}
+
+if (navigator.clipboard && typeof navigator.clipboard.read === 'function') {
+    pasteBtn.hidden = false;
+    pasteBtn.addEventListener('click', pasteFromClipboard);
+}
 
 resetBtn.addEventListener('click', () => {
     previewSeq++;
