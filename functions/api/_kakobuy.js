@@ -24,10 +24,16 @@ const PUB_KEY_B64 = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCx2UKNVOg0dYx1R3p7GNA
 const BASE_PAYLOAD = { versionCode: '252', from: '1201', device_type: 'web', cur: 'USD' };
 
 // Their browser keeps a uuid in localStorage and sends it with every call; leave it
-// out and the answer is 1002 "missing p uuid". One stable value stands in for one
-// device, which is what we are as far as they are concerned — a fresh uuid per
-// request would look like a new browser every time.
-const CLIENT_UUID = '8f6f2a1c-5f5c-4e7a-9a2d-3c9b1f0e7d44';
+// out and the answer is 1002 "missing p uuid". A token their server accepts as a live
+// session but answers 500 for looks like a session pinned to the device that signed
+// in, so KAKOBUY_UUID can carry that browser's uuidv1 and let us present as it. This
+// stand-in is only for calls where the pairing does not matter.
+const FALLBACK_UUID = '8f6f2a1c-5f5c-4e7a-9a2d-3c9b1f0e7d44';
+
+function clientUuid(env) {
+    const fromEnv = env && typeof env.KAKOBUY_UUID === 'string' ? env.KAKOBUY_UUID.trim() : '';
+    return fromEnv || FALLBACK_UUID;
+}
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -166,7 +172,7 @@ async function seal(params) {
 async function post(env, path, params, image, extraHeaders) {
     if (!kakobuyEnabled(env)) return { ok: false, data: null, msg: 'no token' };
 
-    const payload = { ...BASE_PAYLOAD, uuid: CLIENT_UUID, token: env.KAKOBUY_TOKEN.trim(), ...params };
+    const payload = { ...BASE_PAYLOAD, uuid: clientUuid(env), token: env.KAKOBUY_TOKEN.trim(), ...params };
 
     let envelope;
     try { envelope = await seal(payload); }

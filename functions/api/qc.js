@@ -316,27 +316,30 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: the sealed envelope turns the 500 into a plain 1055 when run from a
-    // laptop with an invented token, but production still answers 500 — so this asks
-    // which build is live (a sealed answer comes back as their code 202) and whether a
-    // deliberately wrong token behaves differently from ours, which separates a stale
-    // deploy from the edge itself being treated differently.
+    // Temporary: their server takes our token as a live session — an invented one comes
+    // back 1055 — and then answers 500 for the item, from the edge, for every
+    // marketplace, sealed or plain. That is the shape of a session bound to the device
+    // or address that signed in, so this reports whether a device id is configured and
+    // tries the call a few ways around it.
     if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
         const item = (extra) => kakobuyPost(ctx.env, '/api/sapi/item', {
             url: 'https://item.taobao.com/item.htm?id=776869705554', tp: '', tid: '', refresh: '0', ...extra
         });
 
-        const cfg = await kakobuyPost(ctx.env, '/api/index/config', {});
-        const real = await item({});
-        const garbage = await item({ token: 'not-a-real-token' });
+        const describe = async (res) => res.ok
+            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 30), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count, qcPoints: res.data && res.data.qc_limit_points }
+            : res.msg;
+
+        const userInfo = await kakobuyPost(ctx.env, '/api/user/info', {});
 
         return jsonOk({
-            buildSpeaksSealed: cfg.sealed === true,
-            publicEndpoint: cfg.ok ? 'ok' : cfg.msg,
-            withOurToken: real.ok
-                ? { ok: true, keys: Object.keys(real.data || {}).slice(0, 30), qcGroups: (real.data && real.data.qc_group || []).length, qcCount: real.data && real.data.qc_group_count, qcPoints: real.data && real.data.qc_limit_points }
-                : real.msg,
-            withGarbageToken: garbage.ok ? 'ok' : garbage.msg
+            uuidConfigured: Boolean(ctx.env.KAKOBUY_UUID),
+            userInfo: userInfo.ok ? 'ok' : userInfo.msg,
+            plain: await describe(await item({})),
+            emptyUuid: await describe(await item({ uuid: '' })),
+            langCn: await describe(await item({ lang: 'cn' })),
+            curCny: await describe(await item({ cur: 'CNY' })),
+            fromWeb: await describe(await item({ from: '1101' }))
         });
     }
 
