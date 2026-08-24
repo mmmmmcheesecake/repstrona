@@ -33,8 +33,8 @@ function decodeEntities(s) {
         .replace(/&apos;/g, "'");
 }
 
-async function fetchWeidianRocker(itemId) {
-    const r = await fetch(`https://weidian.com/item.html?itemID=${encodeURIComponent(itemId)}`, {
+async function fetchRockerPage(url) {
+    const r = await fetch(url, {
         redirect: 'follow',
         headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot' },
         cf: { cacheTtl: 3600, cacheEverything: true }
@@ -48,6 +48,17 @@ async function fetchWeidianRocker(itemId) {
     } catch {
         return null;
     }
+}
+
+// Weidian has two kinds of id and one URL that only takes the first: image search
+// hands back 23-digit offerIds, and item.html?itemID= answers 831013 "商品不存在" for
+// those while item.html?offerId= renders them in full. The ids are not told apart by
+// shape, so ask the second way whenever the first says the item does not exist.
+async function fetchWeidianRocker(itemId) {
+    const id = encodeURIComponent(itemId);
+    const byItemId = await fetchRockerPage(`https://weidian.com/item.html?itemID=${id}`);
+    if (byItemId && byItemId.result) return byItemId;
+    return fetchRockerPage(`https://weidian.com/item.html?offerId=${id}`);
 }
 
 const CNY_PER_USD = 7.2;
