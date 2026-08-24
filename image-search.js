@@ -6,6 +6,10 @@ function T(key, fallback, vars) {
 const dropEl = document.getElementById('vsDrop');
 const fileInput = document.getElementById('vsFile');
 const previewEl = document.getElementById('vsPreview');
+const previewWrapEl = document.getElementById('vsPreviewWrap');
+const cropEl = document.getElementById('vsCrop');
+const cropBoxEl = document.getElementById('vsCropBox');
+const cropHintEl = document.getElementById('vsCropHint');
 const dropEmptyEl = document.getElementById('vsDropEmpty');
 const channelSel = document.getElementById('vsChannel');
 const form = document.getElementById('vsForm');
@@ -16,6 +20,7 @@ const resultsEl = document.getElementById('vsResults');
 
 let currentFile = null;
 let currentPreview = null;   // dataURL podglądu — przeżywa nawigację, currentFile nie
+let crop = null;             // zaznaczony fragment, ułamki 0..1 względem podglądu
 let lastResults = null;      // ostatnia odpowiedź /api/visual-search
 let previewSeq = 0;
 
@@ -45,15 +50,99 @@ function setStatus(text, kind) {
 function showPreview(src) {
     if (!src) {
         previewEl.removeAttribute('src');
-        previewEl.hidden = true;
+        previewWrapEl.hidden = true;
         dropEmptyEl.hidden = false;
         resetBtn.hidden = true;
+        cropHintEl.hidden = true;
+        setCrop(null);
         return;
     }
     previewEl.src = src;
-    previewEl.hidden = false;
+    previewWrapEl.hidden = false;
     dropEmptyEl.hidden = true;
     resetBtn.hidden = false;
+    cropHintEl.hidden = false;
+}
+
+function setCrop(rect) {
+    crop = rect;
+    if (!rect) {
+        cropBoxEl.hidden = true;
+        return;
+    }
+    cropBoxEl.hidden = false;
+    cropBoxEl.style.left = `${rect.x * 100}%`;
+    cropBoxEl.style.top = `${rect.y * 100}%`;
+    cropBoxEl.style.width = `${rect.w * 100}%`;
+    cropBoxEl.style.height = `${rect.h * 100}%`;
+}
+
+// Zaznaczenie trzymamy w ułamkach obrazu, nie w pikselach ekranu — podgląd skaluje się
+// z szerokością strony, a kadr ma przeżyć powrót z produktu.
+const clamp01 = n => Math.min(1, Math.max(0, n));
+let dragFrom = null;
+
+cropEl.addEventListener('pointerdown', e => {
+    if (previewWrapEl.hidden) return;
+    // Podgląd siedzi w <label>, więc bez tego każde kliknięcie otwiera wybór pliku.
+    e.preventDefault();
+    e.stopPropagation();
+    const box = previewEl.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    dragFrom = { x: clamp01((e.clientX - box.left) / box.width), y: clamp01((e.clientY - box.top) / box.height), box };
+    setCrop(null);
+    try { cropEl.setPointerCapture(e.pointerId); } catch {}
+});
+
+cropEl.addEventListener('pointermove', e => {
+    if (!dragFrom) return;
+    const { box } = dragFrom;
+    const x = clamp01((e.clientX - box.left) / box.width);
+    const y = clamp01((e.clientY - box.top) / box.height);
+    setCrop({
+        x: Math.min(dragFrom.x, x),
+        y: Math.min(dragFrom.y, y),
+        w: Math.abs(x - dragFrom.x),
+        h: Math.abs(y - dragFrom.y),
+    });
+});
+
+function endDrag() {
+    if (!dragFrom) return;
+    dragFrom = null;
+    // Samo kliknięcie, bez przeciągnięcia, kasuje zaznaczenie — szukamy całego zdjęcia.
+    if (crop && (crop.w < 0.05 || crop.h < 0.05)) setCrop(null);
+    saveState();
+}
+cropEl.addEventListener('pointerup', endDrag);
+cropEl.addEventListener('pointercancel', endDrag);
+// Safari fires the click on the surrounding label even after pointerdown was handled.
+cropEl.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+// Wycina zaznaczony fragment z podglądu; bez zaznaczenia oddaje podgląd bez zmian.
+function croppedDataUrl() {
+    if (!currentPreview || !crop) return Promise.resolve(currentPreview);
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const sx = Math.round(crop.x * img.naturalWidth);
+            const sy = Math.round(crop.y * img.naturalHeight);
+            const sw = Math.max(1, Math.round(crop.w * img.naturalWidth));
+            const sh = Math.max(1, Math.round(crop.h * img.naturalHeight));
+            const cv = document.createElement('canvas');
+            cv.width = sw;
+            cv.height = sh;
+            try {
+                cv.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+                resolve(cv.toDataURL('image/jpeg', 0.85));
+            } catch { resolve(currentPreview); }
+        };
+        img.onerror = () => resolve(currentPreview);
+        img.src = currentPreview;
+    });
 }
 
 function readAsDataUrl(file) {
@@ -105,6 +194,7 @@ async function setFile(file) {
     if (!file || !file.type.startsWith('image/')) return;
     const seq = ++previewSeq;
     currentFile = file;
+    setCrop(null);
     const small = await shrinkToDataUrl(file);
     if (seq !== previewSeq) return;
     if (small) {
@@ -168,6 +258,7 @@ function saveState() {
     }
     const state = {
         preview: currentPreview,
+        crop,
         channel: channelSel.value,
         results: lastResults,
         scrollY: window.scrollY || window.pageYOffset || 0,
@@ -199,11 +290,12 @@ function readState() {
 function restoreState() {
     const s = readState();
     if (!s) return;
-    if (['1', '2', '3'].includes(String(s.channel))) channelSel.value = String(s.channel);
+    if (['2', '3'].includes(String(s.channel))) channelSel.value = String(s.channel);
     if (s.preview) {
         currentPreview = s.preview;
         currentFile = dataUrlToFile(s.preview, 'search.jpg');
         showPreview(s.preview);
+        if (s.crop && s.crop.w > 0 && s.crop.h > 0) setCrop(s.crop);
     }
     if (s.results) renderResults(s.results);
     if (typeof s.scrollY === 'number' && s.scrollY > 0) {
@@ -405,16 +497,15 @@ async function runSearch() {
     resultsEl.innerHTML = '';
     lastResults = null;
 
-    // Weidian obsługuje usfans, które przyjmuje zdjęcie jako base64 w ciele JSON —
-    // wysyłamy pomniejszony podgląd, żeby nie kodować kilku megabajtów w workerze ani
-    // nie wypychać ich z telefonu. Taobao i 1688 idą do qcitems całym plikiem.
+    // Szukamy tym, co widać w ramce: wykadrowany podgląd zamiast całego kadru z tłem.
+    // usfans przyjmuje zdjęcie jako base64 w ciele JSON, qcitems jako plik.
     const channel = channelSel.value || '3';
+    const searchImage = await croppedDataUrl();
     const fd = new FormData();
-    if (channel === '3' && currentPreview) {
-        fd.append('imageData', currentPreview);
+    if (channel === '3' && searchImage) {
+        fd.append('imageData', searchImage);
     } else {
-        // Po powrocie z produktu mamy tylko podgląd — plik odtwarzamy z niego.
-        const file = currentFile || dataUrlToFile(currentPreview, 'search.jpg');
+        const file = (searchImage && dataUrlToFile(searchImage, 'search.jpg')) || currentFile;
         if (!file) {
             setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
             submitBtn.disabled = false;
@@ -428,7 +519,7 @@ async function runSearch() {
     // Weidian najpierw prosto do usfans; worker tylko gdy to nie wyjdzie.
     let data = null;
     if (channel === '3') {
-        const dataUrl = currentPreview || (currentFile ? await readAsDataUrl(currentFile) : null);
+        const dataUrl = searchImage || (currentFile ? await readAsDataUrl(currentFile) : null);
         if (dataUrl) data = await searchWeidianDirect(dataUrl, 1);
     }
     if (!data) data = await postSearch(fd);
@@ -468,7 +559,7 @@ window.addEventListener('pageshow', e => {
 
 const params = new URLSearchParams(location.search);
 const initialChannel = params.get('channel');
-if (initialChannel && ['1', '2', '3'].includes(initialChannel)) {
+if (initialChannel && ['2', '3'].includes(initialChannel)) {
     channelSel.value = initialChannel;
 }
 

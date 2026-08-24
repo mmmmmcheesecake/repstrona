@@ -192,6 +192,40 @@ const QCITEMS_HEADERS = {
     'Origin': 'https://qcitems.com'
 };
 
+// qcitems hands back whatever its provider matched, in whatever order, and for taobao
+// that means the odd accessory or outright miss sitting between real hits: a search for
+// a shoe came back with insoles at 11 CNY and, once, rehab trousers. Similarity alone
+// does not separate them — the trousers scored above a genuine AJ1 — but price does,
+// because an accessory costs a fraction of the thing it belongs to.
+const SIMILARITY_FLOOR = 0.7;
+const OUTLIER_PRICE_RATIO = 0.15;
+const OUTLIER_MIN_RESULTS = 6;
+
+function medianPrice(results) {
+    const prices = results
+        .map(r => (typeof r.price === 'number' ? r.price : parseFloat(r.price)))
+        .filter(n => Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b);
+    if (!prices.length) return null;
+    const mid = Math.floor(prices.length / 2);
+    return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
+}
+
+function rankResults(results) {
+    const scored = results.filter(r => {
+        const sim = typeof r.similarity === 'number' ? r.similarity : null;
+        return sim === null || sim >= SIMILARITY_FLOOR;
+    });
+
+    const median = scored.length >= OUTLIER_MIN_RESULTS ? medianPrice(scored) : null;
+    const kept = median === null ? scored : scored.filter(r => {
+        const price = typeof r.price === 'number' ? r.price : parseFloat(r.price);
+        return !Number.isFinite(price) || price <= 0 || price >= median * OUTLIER_PRICE_RATIO;
+    });
+
+    return kept.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+}
+
 async function searchQcitems(file, channel, page) {
     if (!file) return null;
     const fwd = new FormData();
@@ -209,7 +243,7 @@ async function searchQcitems(file, channel, page) {
     try { j = await r.json(); } catch { return null; }
     if (!j || j.success === false || !Array.isArray(j.results)) return null;
 
-    return { results: j.results, totalPages: Number(j.totalPages) || 1, source: 'qcitems' };
+    return { results: rankResults(j.results), totalPages: Number(j.totalPages) || 1, source: 'qcitems' };
 }
 
 export async function onRequest(ctx) {
