@@ -308,6 +308,31 @@ function renderResults(data) {
     resultsEl.appendChild(frag);
 }
 
+// usfans odrzuca mniej wiecej co druge polaczenie z edge'a Cloudflare — blad wraca
+// natychmiast (~0,2 s wobec ~2 s przy odpowiedzi), a kolejna proba zwykle przechodzi.
+// Ponawiamy tylko 5xx: 4xx to odpowiedz o naszym zapytaniu i drugi raz wyjdzie tak samo.
+const SEARCH_ATTEMPTS = 4;
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function postSearch(fd) {
+    for (let i = 0; i < SEARCH_ATTEMPTS; i++) {
+        try {
+            const r = await fetch('/api/visual-search', { method: 'POST', body: fd });
+            if (r.ok) {
+                const data = await r.json();
+                if (!data.error) return data;
+                return null;
+            }
+            if (r.status < 500) return null;
+        } catch {}
+        if (i < SEARCH_ATTEMPTS - 1) await sleep(250);
+    }
+    return null;
+}
+
 async function runSearch() {
     if (!currentFile && !currentPreview) {
         setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
@@ -338,21 +363,15 @@ async function runSearch() {
     fd.append('channel', channel);
     fd.append('page', '1');
 
-    try {
-        const r = await fetch('/api/visual-search', { method: 'POST', body: fd });
-        const data = await r.json();
-        if (!r.ok || data.error) {
-            setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
-            return;
-        }
-        lastResults = data;
-        renderResults(data);
-        saveState();
-    } catch {
+    const data = await postSearch(fd);
+    submitBtn.disabled = false;
+    if (!data) {
         setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
-    } finally {
-        submitBtn.disabled = false;
+        return;
     }
+    lastResults = data;
+    renderResults(data);
+    saveState();
 }
 
 form.addEventListener('submit', e => {

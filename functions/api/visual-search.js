@@ -193,7 +193,10 @@ export async function onRequest(ctx) {
         found = await searchQcitems(hasFile ? file : null, channel, page);
     }
 
-    if (!found) return jsonError('upstream error', 502);
+    // 504 for weidian on purpose: usfans dropping the connection is a different
+    // failure from qcitems answering badly, and Cloudflare swaps our 5xx bodies for
+    // its own error page, so the status code is all the page has to go on.
+    if (!found) return jsonError('upstream error', channel === '3' ? 504 : 502);
 
     return new Response(JSON.stringify({
         channel,
