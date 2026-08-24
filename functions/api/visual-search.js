@@ -165,6 +165,51 @@ async function searchQcitems(file, channel, page) {
     return { results: j.results, totalPages: Number(j.totalPages) || 1 };
 }
 
+// usfans answers some edge requests with its own block page (HTTP 503 carrying
+// "USFans 专属 403 页面"). ?debug=2 fires the same upload with different header sets so
+// we can tell a header check from a plain IP block.
+async function headerProbe(dataUrl) {
+    const body = JSON.stringify({ imageBase64: dataUrl, channel: 3 });
+    const variants = {
+        current: USFANS_HEADERS,
+        spa: {
+            ...USFANS_HEADERS,
+            'X-Real-Host': 'www.usfans.com',
+            'Language': 'en_US',
+            'Currency': 'USD',
+            'timeZone': 'Europe/Warsaw'
+        },
+        browser: {
+            ...USFANS_HEADERS,
+            'X-Real-Host': 'www.usfans.com',
+            'Language': 'en_US',
+            'Currency': 'USD',
+            'timeZone': 'Europe/Warsaw',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin'
+        },
+        bare: { 'content-type': 'application/json' }
+    };
+
+    const out = {};
+    for (const [name, headers] of Object.entries(variants)) {
+        try {
+            const r = await fetch(`${USFANS_API}/goods/image/upload`, { method: 'POST', headers, body });
+            const text = (await r.text()).slice(0, 60).replace(/\s+/g, ' ');
+            out[name] = `${r.status} ${text}`;
+        } catch (e) {
+            out[name] = `threw ${e && e.message ? e.message : e}`;
+        }
+    }
+    return out;
+}
+
 export async function onRequest(ctx) {
     if (ctx.request.method !== 'POST') {
         return jsonError('method not allowed', 405);
@@ -200,6 +245,11 @@ export async function onRequest(ctx) {
     let found;
     if (channel === '3') {
         const dataUrl = await toDataUrl(imageData, hasFile ? file : null);
+        if (dataUrl && new URL(ctx.request.url).searchParams.get('debug') === '2') {
+            return new Response(JSON.stringify(await headerProbe(dataUrl)), {
+                headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
+            });
+        }
         if (!dataUrl) {
             // Either the photo is past what we will base64 inside the worker, or what
             // arrived was not a data URL at all — those are different problems.
