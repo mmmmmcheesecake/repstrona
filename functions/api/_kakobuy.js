@@ -31,7 +31,7 @@ export function kakobuyEnabled(env) {
 async function post(env, path, params, image) {
     if (!kakobuyEnabled(env)) return { ok: false, data: null, msg: 'no token' };
 
-    const payload = { ...BASE_PAYLOAD, uuid: CLIENT_UUID, ...params, token: env.KAKOBUY_TOKEN.trim() };
+    const payload = { ...BASE_PAYLOAD, uuid: CLIENT_UUID, token: env.KAKOBUY_TOKEN.trim(), ...params };
     const headers = {
         'User-Agent': UA,
         'lang': 'en',
