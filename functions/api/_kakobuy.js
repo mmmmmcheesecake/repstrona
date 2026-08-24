@@ -28,7 +28,7 @@ export function kakobuyEnabled(env) {
 
 // Returns { ok, data, msg } — msg carries their code/message when a call is refused,
 // which is how a stale token becomes visible instead of looking like "no photos".
-async function post(env, path, params, image) {
+async function post(env, path, params, image, extraHeaders) {
     if (!kakobuyEnabled(env)) return { ok: false, data: null, msg: 'no token' };
 
     const payload = { ...BASE_PAYLOAD, uuid: CLIENT_UUID, token: env.KAKOBUY_TOKEN.trim(), ...params };
@@ -36,7 +36,8 @@ async function post(env, path, params, image) {
         'User-Agent': UA,
         'lang': 'en',
         'Origin': 'https://www.kakobuy.com',
-        'Referer': 'https://www.kakobuy.com/'
+        'Referer': 'https://www.kakobuy.com/',
+        ...(extraHeaders || {})
     };
 
     let body;
@@ -73,8 +74,8 @@ async function post(env, path, params, image) {
 }
 
 // Escape hatch for probing their API: same envelope, arbitrary params.
-export function kakobuyPost(env, path, params, image) {
-    return post(env, path, params, image);
+export function kakobuyPost(env, path, params, image, extraHeaders) {
+    return post(env, path, params, image, extraHeaders);
 }
 
 // url is the raw marketplace URL — the same thing their /item/details?url= takes.

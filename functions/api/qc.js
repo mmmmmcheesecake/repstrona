@@ -316,41 +316,32 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: their API answers 500 for every item once a token is attached, which
-    // is what a malformed token looks like from the outside — so describe the token we
-    // hold (shape only, never the value) and try the obvious repairs of it.
+    // Temporary: the token is a live session (an invented one answers 1055, ours 500)
+    // and their public endpoint answers fine, so the crash is narrower than the login.
+    // Ask a few of their endpoints in one go to see how far the session gets.
     if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
-        const raw = String(ctx.env.KAKOBUY_TOKEN || '');
-        let decoded = raw;
-        try { decoded = decodeURIComponent(raw); } catch {}
-        const unquoted = raw.replace(/^["']+|["']+$/g, '');
+        const token = String(ctx.env.KAKOBUY_TOKEN || '').trim();
+        const tid = (() => {
+            try { return new URL(marketplaceUrl).searchParams.get('id') || ''; } catch { return ''; }
+        })();
 
-        const shape = {
-            length: raw.length,
-            head: raw.slice(0, 2),
-            tail: raw.slice(-2),
-            hasPercent: /%/.test(raw),
-            hasQuote: /["']/.test(raw),
-            hasSpace: /\s/.test(raw),
-            hasBrace: /[{}]/.test(raw),
-            charset: /^[A-Za-z0-9._-]+$/.test(raw) ? 'token-safe' : 'other',
-            differsWhenDecoded: decoded !== raw
+        const calls = {
+            userInfo: () => kakobuyPost(ctx.env, '/api/user/info', {}),
+            keywordSearch: () => kakobuyPost(ctx.env, '/api/sapi/index', { p: 'jordan 1', page: 1, tp: '' }),
+            itemByUrl: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' }),
+            itemByTid: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: '', tp: 'taobao', tid, refresh: '0' }),
+            itemWithCookie: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' }, null, { 'Cookie': `token=${token}` }),
+            itemNoCur: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0', cur: '' }),
+            itemRefresh: () => kakobuyPost(ctx.env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '1' })
         };
 
-        const tokens = { asStored: raw, decoded, unquoted, garbage: 'not-a-real-token' };
-        const out = { shape };
-        for (const [name, token] of Object.entries(tokens)) {
-            const res = await kakobuyPost(ctx.env, '/api/sapi/item', {
-                url: marketplaceUrl, tp: '', tid: '', refresh: '0', token
-            });
+        const out = {};
+        for (const [name, run] of Object.entries(calls)) {
+            const res = await run();
             out[name] = res.ok
-                ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 40), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count, qcPoints: res.data && res.data.qc_limit_points }
+                ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 30) }
                 : { ok: false, msg: res.msg };
         }
-
-        // A call that needs no login at all, to prove the envelope itself is fine.
-        const cfg = await kakobuyPost(ctx.env, '/api/index/config', {});
-        out.publicEndpoint = cfg.ok ? 'ok' : cfg.msg;
         return jsonOk(out);
     }
 
