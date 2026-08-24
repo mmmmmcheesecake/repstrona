@@ -308,6 +308,65 @@ function renderResults(data) {
     resultsEl.appendChild(frag);
 }
 
+// Weidian pytamy prosto z przeglądarki: usfans pozwala na CORS z naszej domeny, a to
+// samo zapytanie wysłane z workera Cloudflare jest blokowane mniej więcej co drugi raz
+// (ich własna strona blokady, HTTP 503, niezależnie od nagłówków). Z przeglądarki idzie
+// z IP odwiedzającego, którego nikt nie blokuje. /api/visual-search zostaje zapasem.
+const USFANS_API = 'https://www.usfans.com/api';
+
+async function usfansPost(path, payload) {
+    const r = await fetch(`${USFANS_API}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    // Ich API odpowiada HTTP 200 także na błędy — liczy się code i success.
+    return j && j.success !== false && j.code === 200 ? j : null;
+}
+
+// Ten sam kształt wyniku co z /api/visual-search, żeby renderResults nie musiał wiedzieć,
+// skąd przyszły dane. Trzymać zsynchronizowane z shapeUsfansRecord w workerze.
+function shapeUsfans(r) {
+    if (!r || !r.goodsId) return null;
+    const price = r.discountPrice != null ? r.discountPrice : r.price;
+    return {
+        id: `https://www.usfans.com/product/3/${encodeURIComponent(r.goodsId)}?ref=MGRSBE`,
+        goodsId: String(r.goodsId),
+        marketplace: 'weidian',
+        title: r.title || '',
+        image: typeof r.image === 'string' ? r.image : null,
+        price: typeof price === 'number' ? price : null,
+        currency: 'CNY'
+    };
+}
+
+async function searchWeidianDirect(dataUrl, page) {
+    try {
+        const up = await usfansPost('/goods/image/upload', { imageBase64: dataUrl, channel: 3 });
+        const imageId = up && up.data && up.data.imageId;
+        if (!imageId) return null;
+
+        const found = await usfansPost('/goods/search/image', {
+            pageNum: page,
+            pageSize: 20,
+            imageId,
+            channel: 3
+        });
+        const records = found && found.data && found.data.records;
+        if (!Array.isArray(records)) return null;
+
+        return {
+            channel: '3',
+            marketplace: 'weidian',
+            results: records.map(shapeUsfans).filter(Boolean)
+        };
+    } catch {
+        return null;
+    }
+}
+
 // usfans odrzuca mniej wiecej co druge polaczenie z edge'a Cloudflare — blad wraca
 // natychmiast (~0,2 s wobec ~2 s przy odpowiedzi), a kolejna proba zwykle przechodzi.
 // Ponawiamy tylko 5xx: 4xx to odpowiedz o naszym zapytaniu i drugi raz wyjdzie tak samo.
@@ -363,7 +422,13 @@ async function runSearch() {
     fd.append('channel', channel);
     fd.append('page', '1');
 
-    const data = await postSearch(fd);
+    // Weidian najpierw prosto do usfans; worker tylko gdy to nie wyjdzie.
+    let data = null;
+    if (channel === '3') {
+        const dataUrl = currentPreview || (currentFile ? await readAsDataUrl(currentFile) : null);
+        if (dataUrl) data = await searchWeidianDirect(dataUrl, 1);
+    }
+    if (!data) data = await postSearch(fd);
     submitBtn.disabled = false;
     if (!data) {
         setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');

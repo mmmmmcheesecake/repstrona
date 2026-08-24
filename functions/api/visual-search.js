@@ -33,42 +33,27 @@ const USFANS_HEADERS = {
     'Referer': 'https://www.usfans.com/'
 };
 
-// usfans drops about half the connections that come from the Cloudflare edge — the
-// failures are instant (~0.15s, where an answer takes ~2s) and the next attempt
-// usually goes through, so retry rather than telling the visitor the search broke.
-const USFANS_ATTEMPTS = 3;
+// usfans blocks about half the requests that reach it from the Cloudflare edge: its
+// own block page, HTTP 503 carrying "USFans 专属 403 页面", no matter what headers we
+// send. It is not the headers and not the rate — from a home connection nothing is
+// blocked at all. That is why the page asks usfans directly and only falls back here;
+// within one worker request every attempt gets blocked together, so two is plenty.
+const USFANS_ATTEMPTS = 2;
 
-async function usfansPost(path, payload, trace) {
+async function usfansPost(path, payload) {
     const body = JSON.stringify(payload);
     for (let i = 0; i < USFANS_ATTEMPTS; i++) {
         let r;
         try {
-            r = await fetch(`${USFANS_API}${path}`, {
-                method: 'POST',
-                headers: USFANS_HEADERS,
-                body
-            });
-        } catch (e) {
-            trace.push(`${path}: threw ${e && e.message ? e.message : e}`);
-            continue;
-        }
-        if (!r.ok) {
-            let snippet = '';
-            try { snippet = (await r.text()).slice(0, 120); } catch {}
-            trace.push(`${path}: HTTP ${r.status} ${snippet}`);
-            continue;
-        }
+            r = await fetch(`${USFANS_API}${path}`, { method: 'POST', headers: USFANS_HEADERS, body });
+        } catch { continue; }
+        if (!r.ok) continue;
         try {
             const j = await r.json();
             // Their API answers HTTP 200 for failures too, with code 10001 and
             // success false. That is a real answer — retrying it changes nothing.
-            if (j && j.success !== false && j.code === 200) return j;
-            trace.push(`${path}: code ${j && j.code} ${j && j.msg}`);
-            return null;
-        } catch (e) {
-            trace.push(`${path}: parse ${e && e.message ? e.message : e}`);
-            return null;
-        }
+            return j && j.success !== false && j.code === 200 ? j : null;
+        } catch { return null; }
     }
     return null;
 }
@@ -114,8 +99,8 @@ function shapeUsfansRecord(r) {
     };
 }
 
-async function searchWeidian(dataUrl, page, trace) {
-    const up = await usfansPost('/goods/image/upload', { imageBase64: dataUrl, channel: 3 }, trace);
+async function searchWeidian(dataUrl, page) {
+    const up = await usfansPost('/goods/image/upload', { imageBase64: dataUrl, channel: 3 });
     const imageId = up && up.data && up.data.imageId;
     if (!imageId) return null;
 
@@ -124,7 +109,7 @@ async function searchWeidian(dataUrl, page, trace) {
         pageSize: 20,
         imageId,
         channel: 3
-    }, trace);
+    });
     const records = found && found.data && found.data.records;
     if (!Array.isArray(records)) return null;
 
@@ -165,51 +150,6 @@ async function searchQcitems(file, channel, page) {
     return { results: j.results, totalPages: Number(j.totalPages) || 1 };
 }
 
-// usfans answers some edge requests with its own block page (HTTP 503 carrying
-// "USFans 专属 403 页面"). ?debug=2 fires the same upload with different header sets so
-// we can tell a header check from a plain IP block.
-async function headerProbe(dataUrl) {
-    const body = JSON.stringify({ imageBase64: dataUrl, channel: 3 });
-    const variants = {
-        current: USFANS_HEADERS,
-        spa: {
-            ...USFANS_HEADERS,
-            'X-Real-Host': 'www.usfans.com',
-            'Language': 'en_US',
-            'Currency': 'USD',
-            'timeZone': 'Europe/Warsaw'
-        },
-        browser: {
-            ...USFANS_HEADERS,
-            'X-Real-Host': 'www.usfans.com',
-            'Language': 'en_US',
-            'Currency': 'USD',
-            'timeZone': 'Europe/Warsaw',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin'
-        },
-        bare: { 'content-type': 'application/json' }
-    };
-
-    const out = {};
-    for (const [name, headers] of Object.entries(variants)) {
-        try {
-            const r = await fetch(`${USFANS_API}/goods/image/upload`, { method: 'POST', headers, body });
-            const text = (await r.text()).slice(0, 60).replace(/\s+/g, ' ');
-            out[name] = `${r.status} ${text}`;
-        } catch (e) {
-            out[name] = `threw ${e && e.message ? e.message : e}`;
-        }
-    }
-    return out;
-}
-
 export async function onRequest(ctx) {
     if (ctx.request.method !== 'POST') {
         return jsonError('method not allowed', 405);
@@ -237,26 +177,16 @@ export async function onRequest(ctx) {
     const imageData = body.get('imageData');
     if (!hasFile && typeof imageData !== 'string') return jsonError('missing image', 400);
 
-    // ?debug=1 reports what the upstream actually said: Cloudflare replaces our 5xx
-    // bodies with its own error page, so a failure is otherwise a bare status code.
-    const debug = new URL(ctx.request.url).searchParams.get('debug') === '1';
-    const trace = [];
-
     let found;
     if (channel === '3') {
         const dataUrl = await toDataUrl(imageData, hasFile ? file : null);
-        if (dataUrl && new URL(ctx.request.url).searchParams.get('debug') === '2') {
-            return new Response(JSON.stringify(await headerProbe(dataUrl)), {
-                headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-            });
-        }
         if (!dataUrl) {
             // Either the photo is past what we will base64 inside the worker, or what
             // arrived was not a data URL at all — those are different problems.
             const tooBig = hasFile && typeof file.size === 'number' && file.size > MAX_ENCODE_BYTES;
             return jsonError(tooBig ? 'image too large' : 'invalid image', tooBig ? 413 : 400);
         }
-        found = await searchWeidian(dataUrl, page, trace);
+        found = await searchWeidian(dataUrl, page);
     } else {
         found = await searchQcitems(hasFile ? file : null, channel, page);
     }
@@ -264,14 +194,10 @@ export async function onRequest(ctx) {
     // 504 for weidian on purpose: usfans dropping the connection is a different
     // failure from qcitems answering badly, and Cloudflare swaps our 5xx bodies for
     // its own error page, so the status code is all the page has to go on.
-    if (!found) {
-        if (debug) {
-            return new Response(JSON.stringify({ error: 'upstream error', trace }), {
-                headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
-            });
-        }
-        return jsonError('upstream error', channel === '3' ? 504 : 502);
-    }
+    // 504 for weidian on purpose: usfans blocking the edge is a different failure from
+    // qcitems answering badly, and Cloudflare swaps our 5xx bodies for its own error
+    // page, so the status code is all the page has to go on.
+    if (!found) return jsonError('upstream error', channel === '3' ? 504 : 502);
 
     return new Response(JSON.stringify({
         channel,
