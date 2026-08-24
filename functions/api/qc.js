@@ -316,26 +316,25 @@ export async function onRequest(ctx) {
     // Temporary: reports whether the kakobuy token works and what shape came back,
     // without echoing any of it. Their API is undocumented and a stale token looks
     // exactly like "this item has no QC" from the outside.
-    // Temporary: this account is served fine — user info and favourites both answer —
-    // and their sapi endpoints validate our params (autocomplete says "missing p url"),
-    // so the 500 lands only once they go and resolve a marketplace item. Give the
-    // lighter sapi endpoints the params they asked for: if those crash too, their
-    // marketplace backend is down rather than anything about our request.
+    // Temporary: their marketplace backend is fine — autocomplete and shop goods both
+    // answer for taobao and weidian — and only /api/sapi/item crashes. Their own site
+    // demands a login before opening taobao but not weidian, so ask for a weidian item
+    // with a token their server will reject: if that comes back with data, the endpoint
+    // works and it is our session that trips it.
     if (new URL(ctx.request.url).searchParams.get('debug') === 'variants') {
-        const call = (path, params) => kakobuyPost(ctx.env, path, params || {});
+        const item = (url, extra) => kakobuyPost(ctx.env, '/api/sapi/item', { url, tp: '', tid: '', refresh: '0', ...extra });
         const shortly = async (res) => res.ok
-            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 18) }
+            ? { ok: true, keys: Object.keys(res.data || {}).slice(0, 20), qcGroups: (res.data && res.data.qc_group || []).length, qcCount: res.data && res.data.qc_group_count }
             : res.msg;
 
-        const itemUrl = 'https://item.taobao.com/item.htm?id=776869705554';
-        const weidianUrl = 'https://weidian.com/item.html?itemID=7547810481';
+        const taobao = 'https://item.taobao.com/item.htm?id=776869705554';
+        const weidian = 'https://weidian.com/item.html?itemID=7547810481';
 
         return jsonOk({
-            autoCompTaobao: await shortly(await call('/api/sapi/autoCompInfo', { url: itemUrl })),
-            autoCompWeidian: await shortly(await call('/api/sapi/autoCompInfo', { url: weidianUrl })),
-            shopGoods: await shortly(await call('/api/sapi/shopGoodsList', { shopUrl: 'https://weidian.com/?userid=1705928291', page: 1 })),
-            itemTaobao: await shortly(await call('/api/sapi/item', { url: itemUrl, tp: '', tid: '', refresh: '0' })),
-            itemWeidian: await shortly(await call('/api/sapi/item', { url: weidianUrl, tp: '', tid: '', refresh: '0' }))
+            weidianAnonymous: await shortly(await item(weidian, { token: 'not-a-real-token' })),
+            weidianOurToken: await shortly(await item(weidian)),
+            taobaoAnonymous: await shortly(await item(taobao, { token: 'not-a-real-token' })),
+            taobaoOurToken: await shortly(await item(taobao))
         });
     }
 
