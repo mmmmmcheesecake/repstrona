@@ -395,6 +395,11 @@ button, input, select { font-family: inherit; color: inherit; }
     align-items: center;
     flex-wrap: wrap;
 }
+.vs-channel {
+    border: 1px solid var(--hairline);
+    padding: 8px 24px 8px 12px;
+    height: auto;
+}
 .vs-results {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

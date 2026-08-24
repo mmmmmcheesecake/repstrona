@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n-title="title.imageSearch">Image search — RePluG24</title>
-    <meta name="description" content="Upload any photo and RePluG24 finds the matching replica across Taobao and 1688, with QC photos and agent links.">
+    <meta name="description" content="Upload any photo and RePluG24 finds the matching replica across Weidian, Taobao and 1688, with QC photos and agent links.">
     <link rel="canonical" href="https://replug24.com/image-search">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <meta property="og:site_name" content="RePluG24">
@@ -36,7 +36,7 @@
             <a href="javascript:history.length>1?history.back():(location.href='katalog.html')" class="back-link" data-i18n="pd.back">← Back</a>
 
             <h1 class="vs-heading" data-i18n="vs.heading">Search by image</h1>
-            <p class="vs-subtitle" data-i18n="vs.subtitle">Upload a photo and find similar products on Taobao and 1688.</p>
+            <p class="vs-subtitle" data-i18n="vs.subtitle">Upload a photo and find similar products on Weidian, Taobao or 1688.</p>
 
             <form class="vs-form" id="vsForm">
                 <label class="vs-drop" id="vsDrop">
@@ -49,6 +49,11 @@
                 </label>
 
                 <div class="vs-form-row">
+                    <select id="vsChannel" class="vs-channel sort-select">
+                        <option value="3" data-i18n="vs.ch.weidian">Weidian</option>
+                        <option value="2" data-i18n="vs.ch.taobao">Taobao</option>
+                        <option value="1" data-i18n="vs.ch.alibaba">1688</option>
+                    </select>
                     <button type="submit" class="card-btn primary" id="vsSubmit" data-i18n="vs.search">Search</button>
                     <button type="button" class="card-btn" id="vsReset" data-i18n="vs.reset" hidden>Reset</button>
                 </div>
@@ -65,8 +70,8 @@
         </div>
     </footer>
 
-    <script src="i18n.js?v=27"></script>
+    <script src="i18n.js?v=28"></script>
     <script src="script.js?v=19"></script>
-    <script src="image-search.js?v=6"></script>
+    <script src="image-search.js?v=7"></script>
 </body>
 </html>

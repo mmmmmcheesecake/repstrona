@@ -7,6 +7,7 @@ const dropEl = document.getElementById('vsDrop');
 const fileInput = document.getElementById('vsFile');
 const previewEl = document.getElementById('vsPreview');
 const dropEmptyEl = document.getElementById('vsDropEmpty');
+const channelSel = document.getElementById('vsChannel');
 const form = document.getElementById('vsForm');
 const submitBtn = document.getElementById('vsSubmit');
 const resetBtn = document.getElementById('vsReset');
@@ -167,6 +168,7 @@ function saveState() {
     }
     const state = {
         preview: currentPreview,
+        channel: channelSel.value,
         results: lastResults,
         scrollY: window.scrollY || window.pageYOffset || 0,
         search: location.search,
@@ -188,7 +190,7 @@ function readState() {
         if (!raw) return null;
         const s = JSON.parse(raw);
         if (!s || Date.now() - (s.ts || 0) > VS_STATE_TTL) return null;
-        // Wejście z innymi parametrami to nowe wyszukiwanie, nie powrót z produktu.
+        // Wejście z innym ?channel= to nowe wyszukiwanie, nie powrót z produktu.
         if ((s.search || '') !== location.search) return null;
         return s;
     } catch { return null; }
@@ -197,6 +199,7 @@ function readState() {
 function restoreState() {
     const s = readState();
     if (!s) return;
+    if (['1', '2', '3'].includes(String(s.channel))) channelSel.value = String(s.channel);
     if (s.preview) {
         currentPreview = s.preview;
         currentFile = dataUrlToFile(s.preview, 'search.jpg');
@@ -259,7 +262,7 @@ function renderResults(data) {
     resultsEl.innerHTML = '';
     const list = data.results || [];
     if (!list.length) {
-        setStatus(T('vs.empty', 'No matches found for this photo.'), 'empty');
+        setStatus(T('vs.empty', 'No matches found in this channel.'), 'empty');
         return;
     }
     setStatus(T('vs.results', `${list.length} matches`, { n: list.length }), 'ok');
@@ -306,7 +309,7 @@ function renderResults(data) {
 }
 
 async function runSearch() {
-    if (!currentFile) {
+    if (!currentFile && !currentPreview) {
         setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
         return;
     }
@@ -315,9 +318,25 @@ async function runSearch() {
     resultsEl.innerHTML = '';
     lastResults = null;
 
-    // Jedno zapytanie przeszukuje Taobao i 1688 naraz — kanału nie ma już co wybierać.
+    // Weidian obsługuje usfans, które przyjmuje zdjęcie jako base64 w ciele JSON —
+    // wysyłamy pomniejszony podgląd, żeby nie kodować kilku megabajtów w workerze ani
+    // nie wypychać ich z telefonu. Taobao i 1688 idą do qcitems całym plikiem.
+    const channel = channelSel.value || '3';
     const fd = new FormData();
-    fd.append('image', currentFile);
+    if (channel === '3' && currentPreview) {
+        fd.append('imageData', currentPreview);
+    } else {
+        // Po powrocie z produktu mamy tylko podgląd — plik odtwarzamy z niego.
+        const file = currentFile || dataUrlToFile(currentPreview, 'search.jpg');
+        if (!file) {
+            setStatus(T('vs.needImage', 'Drop an image first.'), 'error');
+            submitBtn.disabled = false;
+            return;
+        }
+        fd.append('image', file);
+    }
+    fd.append('channel', channel);
+    fd.append('page', '1');
 
     try {
         const r = await fetch('/api/visual-search', { method: 'POST', body: fd });
@@ -341,6 +360,11 @@ form.addEventListener('submit', e => {
     runSearch();
 });
 
+channelSel.addEventListener('change', () => {
+    if (!currentFile && !currentPreview) return;
+    runSearch();
+});
+
 window.addEventListener('pagehide', saveState);
 window.addEventListener('beforeunload', saveState);
 document.addEventListener('visibilitychange', () => {
@@ -354,6 +378,12 @@ window.addEventListener('pageshow', e => {
     const s = readState();
     if (s && typeof s.scrollY === 'number' && s.scrollY > 0) window.scrollTo(0, s.scrollY);
 });
+
+const params = new URLSearchParams(location.search);
+const initialChannel = params.get('channel');
+if (initialChannel && ['1', '2', '3'].includes(initialChannel)) {
+    channelSel.value = initialChannel;
+}
 
 restoreState();
 
