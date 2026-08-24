@@ -272,25 +272,41 @@ function looksLikeImageUrl(url) {
 // przez CORS — więc ściąga je worker i oddaje nam samą treść. Dalej idzie już zwykłą
 // drogą: podgląd, kadrowanie i Weidian pytany wprost z przeglądarki, bo tamtędy usfans
 // odpowiada, a z workera blokuje mniej więcej co drugie zapytanie.
-async function searchByImageUrl(url) {
+async function searchByImageUrl(url, quiet) {
     setStatus(T('vs.searching', 'Searching…'), 'loading');
     try {
         const r = await fetch(`/api/fetch-image?url=${encodeURIComponent(url)}`);
         const data = await r.json().catch(() => null);
         if (!r.ok || !data || !data.dataUrl) {
-            setStatus(T('vs.pasteEmpty', 'There is no image or product link in the clipboard.'), 'empty');
-            return;
+            if (!quiet) setStatus(T('vs.linkUnknown', 'That link is not a product we can open.'), 'error');
+            return false;
         }
         const file = dataUrlToFile(data.dataUrl, 'clipboard.jpg');
         if (!file) {
-            setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
-            return;
+            if (!quiet) setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
+            return false;
         }
         await setFile(file);
         runSearch();
+        return true;
     } catch {
-        setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
+        if (!quiet) setStatus(T('vs.error', 'Search failed. Try another image.'), 'error');
+        return false;
     }
+}
+
+// Ze schowka przychodzi goły adres i nic w nim nie mówi, czy to przedmiot, czy zdjęcie.
+// Rozszerzeniu pliku ufać się nie da — połowa CDN-ów wydaje obrazki bez niego — więc
+// najpierw pytamy konwerter, a jak nie rozpozna produktu, próbujemy potraktować to
+// jako zdjęcie i dopiero wtedy się poddajemy.
+async function handlePastedLink(link) {
+    if (looksLikeImageUrl(link)) {
+        if (await searchByImageUrl(link, true)) return;
+    }
+    linkInput.value = link;
+    if (await openPastedLink(true)) return;
+    if (await searchByImageUrl(link, true)) return;
+    setStatus(T('vs.linkUnknown', 'That link is not a product we can open.'), 'error');
 }
 
 async function pasteFromClipboard() {
@@ -324,10 +340,12 @@ async function pasteFromClipboard() {
 
     // W schowku bywa adres zdjęcia albo link do przedmiotu — jedno i drugie da się
     // obsłużyć, zamiast tłumaczyć, że to nie obrazek.
+    // Telefony podają adres jako text/uri-list, nie text/plain — dlatego bierzemy
+    // wszystko, co jest tekstem, zamiast wymieniać typy z nazwy.
     const texts = [];
     for (const item of items) {
-        for (const type of ['text/plain', 'text/html']) {
-            if (!(item.types || []).includes(type)) continue;
+        for (const type of (item.types || [])) {
+            if (!type.startsWith('text/')) continue;
             try { texts.push(await (await item.getType(type)).text()); } catch {}
         }
     }
@@ -337,12 +355,7 @@ async function pasteFromClipboard() {
     for (const text of texts) {
         const link = firstUrlIn(text);
         if (!link) continue;
-        if (looksLikeImageUrl(link)) {
-            searchByImageUrl(link);
-        } else {
-            linkInput.value = link;
-            openPastedLink();
-        }
+        handlePastedLink(link);
         return;
     }
 
@@ -685,9 +698,9 @@ async function runSearch() {
 
 // Wklejony link — czyjkolwiek by nie był — zamieniamy na surowy link marketplace'u
 // i otwieramy jak każdy inny produkt: z naszym linkiem do agenta i zdjęciami QC.
-async function openPastedLink() {
+async function openPastedLink(quiet) {
     const raw = linkInput.value.trim();
-    if (!raw) return;
+    if (!raw) return false;
 
     linkBtn.disabled = true;
     setStatus(T('vs.linkChecking', 'Checking the link…'), 'loading');
@@ -696,19 +709,23 @@ async function openPastedLink() {
         const data = await r.json().catch(() => null);
         if (r.ok && data && data.url) {
             location.href = `produkt.html?${new URLSearchParams({ url: data.url }).toString()}`;
-            return;
+            return true;
         }
-        setStatus(r.status === 404
-            ? T('vs.linkUnknown', 'That link is not a product we can open.')
-            : T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+        if (!quiet) {
+            setStatus(r.status === 404
+                ? T('vs.linkUnknown', 'That link is not a product we can open.')
+                : T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+        }
+        return false;
     } catch {
-        setStatus(T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+        if (!quiet) setStatus(T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+        return false;
     } finally {
         linkBtn.disabled = false;
     }
 }
 
-linkBtn.addEventListener('click', openPastedLink);
+linkBtn.addEventListener('click', () => openPastedLink());
 linkInput.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
