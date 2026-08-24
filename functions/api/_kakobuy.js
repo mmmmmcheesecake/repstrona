@@ -208,11 +208,11 @@ async function post(env, path, params, image, extraHeaders) {
     // 202 is a sealed answer, 200 carries data in the clear. Anything else is a
     // refusal — 1005/1055 mean the token is missing or stale.
     if (j.code === 202) {
-        try { return { ok: true, data: await envelope.open(j.data), msg: null }; }
-        catch { return { ok: false, data: null, msg: 'unseal failed' }; }
+        try { return { ok: true, data: await envelope.open(j.data), msg: null, sealed: true }; }
+        catch { return { ok: false, data: null, msg: 'unseal failed', sealed: true }; }
     }
-    if (j.code === 200) return { ok: true, data: j.data, msg: null };
-    return { ok: false, data: null, msg: `${j.code} ${j.msg || ''}`.trim() };
+    if (j.code === 200) return { ok: true, data: j.data, msg: null, sealed: false };
+    return { ok: false, data: null, msg: `${j.code} ${j.msg || ''}`.trim(), sealed: false };
 }
 
 // Escape hatch for probing their API: same envelope, arbitrary params.
