@@ -15,7 +15,10 @@ const channelSel = document.getElementById('vsChannel');
 const form = document.getElementById('vsForm');
 const submitBtn = document.getElementById('vsSubmit');
 const resetBtn = document.getElementById('vsReset');
-const pasteBtn = document.getElementById('vsPaste');
+const dropTextEl = document.getElementById('vsDropText');
+const pickFileBtn = document.getElementById('vsPickFile');
+const linkInput = document.getElementById('vsLink');
+const linkBtn = document.getElementById('vsLinkGo');
 const statusEl = document.getElementById('vsStatus');
 const resultsEl = document.getElementById('vsResults');
 
@@ -262,13 +265,50 @@ async function pasteFromClipboard() {
             return;
         } catch {}
     }
+
+    // Równie często w schowku jest link do przedmiotu, nie zdjęcie — wtedy po prostu
+    // otwieramy ten produkt zamiast tłumaczyć, że to nie obrazek.
+    for (const item of items) {
+        if (!(item.types || []).includes('text/plain')) continue;
+        try {
+            const text = (await (await item.getType('text/plain')).text()).trim();
+            if (/^https?:\/\//i.test(text)) {
+                linkInput.value = text;
+                openPastedLink();
+                return;
+            }
+        } catch {}
+    }
+
     setStatus(T('vs.pasteEmpty', 'There is no image in the clipboard.'), 'empty');
 }
 
-if (navigator.clipboard && typeof navigator.clipboard.read === 'function') {
-    pasteBtn.hidden = false;
-    pasteBtn.addEventListener('click', pasteFromClipboard);
+// Kafelek jest teraz przyciskiem wklejania, bo na telefonie zdjęcie prawie zawsze
+// jest w schowku, a nie w galerii. Gdzie schowka przeczytać się nie da, zostaje tym,
+// czym był — otwiera wybór pliku.
+const CLIPBOARD_READ = Boolean(navigator.clipboard && typeof navigator.clipboard.read === 'function');
+
+if (CLIPBOARD_READ) {
+    dropTextEl.setAttribute('data-i18n', 'vs.dropPaste');
+    dropTextEl.textContent = T('vs.dropPaste', 'Tap here to paste an image');
+    pickFileBtn.hidden = false;
 }
+
+dropEl.addEventListener('click', () => {
+    if (CLIPBOARD_READ) pasteFromClipboard();
+    else fileInput.click();
+});
+
+dropEl.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    dropEl.click();
+});
+
+pickFileBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    fileInput.click();
+});
 
 resetBtn.addEventListener('click', () => {
     previewSeq++;
@@ -567,6 +607,38 @@ async function runSearch() {
     renderResults(data);
     saveState();
 }
+
+// Wklejony link — czyjkolwiek by nie był — zamieniamy na surowy link marketplace'u
+// i otwieramy jak każdy inny produkt: z naszym linkiem do agenta i zdjęciami QC.
+async function openPastedLink() {
+    const raw = linkInput.value.trim();
+    if (!raw) return;
+
+    linkBtn.disabled = true;
+    setStatus(T('vs.linkChecking', 'Checking the link…'), 'loading');
+    try {
+        const r = await fetch(`/api/convert?link=${encodeURIComponent(raw)}`);
+        const data = await r.json().catch(() => null);
+        if (r.ok && data && data.url) {
+            location.href = `produkt.html?${new URLSearchParams({ url: data.url }).toString()}`;
+            return;
+        }
+        setStatus(r.status === 404
+            ? T('vs.linkUnknown', 'That link is not a product we can open.')
+            : T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+    } catch {
+        setStatus(T('vs.linkFailed', 'Could not check the link. Try again.'), 'error');
+    } finally {
+        linkBtn.disabled = false;
+    }
+}
+
+linkBtn.addEventListener('click', openPastedLink);
+linkInput.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    openPastedLink();
+});
 
 form.addEventListener('submit', e => {
     e.preventDefault();

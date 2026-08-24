@@ -395,6 +395,47 @@ button, input, select { font-family: inherit; color: inherit; }
     align-items: center;
     flex-wrap: wrap;
 }
+.vs-drop-file {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--text-subtle);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.vs-link-box {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hairline);
+}
+.vs-link-label {
+    display: block;
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+.vs-link-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.vs-link-input {
+    flex: 1 1 260px;
+    min-width: 0;
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    background: var(--bg-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.86rem;
+    padding: 9px 12px;
+}
+.vs-link-note {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--text-subtle);
+}
 .vs-preview-wrap {
     position: relative;
     display: inline-block;
