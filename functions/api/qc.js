@@ -1,7 +1,9 @@
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
         status,
-        headers: { 'content-type': 'application/json' }
+        // _headers puts max-age=300 on everything under /api/, which would park an
+        // upstream failure in the visitor's browser for five minutes after it healed.
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
     });
 }
 
@@ -16,13 +18,27 @@ function jsonOk(body) {
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
-const SOURCE_ORDER = ['kakobuy', 'cnfans', 'usfans', 'uufinds', 'oopbuy'];
+
+// qcitems gates its API on the call coming from their own pages: with no qcitems.com
+// Referer (or Origin) every request answers 403 "Open this content through QCItems",
+// which is why QC went blank site-wide. Keep this in step with product.js and
+// visual-search.js, the other two callers.
+const QCITEMS_HEADERS = {
+    'User-Agent': UA,
+    'Accept': 'application/json',
+    'Referer': 'https://qcitems.com/',
+    'Origin': 'https://qcitems.com'
+};
+
+// A source missing here is a source dropped: flattenGroups only walks this list.
+const SOURCE_ORDER = ['kakobuy', 'cnfans', 'usfans', 'uufinds', 'oopbuy', 'acbuy'];
 const SOURCE_LABEL = {
     kakobuy: 'KakoBuy',
     cnfans: 'CNFans',
     usfans: 'USFans',
     uufinds: 'UUfinds',
-    oopbuy: 'Oopbuy'
+    oopbuy: 'Oopbuy',
+    acbuy: 'ACBuy'
 };
 
 function b64url(s) {
@@ -219,8 +235,10 @@ export async function onRequest(ctx) {
     let upstream;
     try {
         upstream = await fetch(target, {
-            headers: { 'User-Agent': UA, 'Accept': 'application/json' },
-            cf: { cacheTtl: 600, cacheEverything: true }
+            headers: QCITEMS_HEADERS,
+            // Only cache what worked: cacheTtl pinned 403s and 5xx at the edge too, so
+            // one bad minute upstream kept QC dark for ten more.
+            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
         });
     } catch {
         return jsonError('upstream fetch failed', 502);

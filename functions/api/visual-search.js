@@ -1,7 +1,9 @@
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
         status,
-        headers: { 'content-type': 'application/json' }
+        // _headers puts max-age=300 on everything under /api/, which would park an
+        // upstream failure in the visitor's browser for five minutes after it healed.
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
     });
 }
 
@@ -50,7 +52,12 @@ export async function onRequest(ctx) {
         upstream = await fetch('https://qcitems.com/api/image-search/internal', {
             method: 'POST',
             body: fwd,
-            headers: { 'User-Agent': UA }
+            // Same gate as /api/product on qcitems: no qcitems.com Referer, no results.
+            headers: {
+                'User-Agent': UA,
+                'Referer': 'https://qcitems.com/',
+                'Origin': 'https://qcitems.com'
+            }
         });
     } catch {
         return jsonError('upstream fetch failed', 502);

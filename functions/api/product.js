@@ -143,7 +143,14 @@ async function fetchQcitems(rawUrl, bypassCache) {
     let upstream;
     try {
         upstream = await fetch(`https://qcitems.com/api/product?url=${encodeURIComponent(rawUrl)}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 RePluG-Bot', 'Accept': 'application/json' },
+            // qcitems answers 403 "Open this content through QCItems" unless the call
+            // looks like it came from their own site. Mirrors QCITEMS_HEADERS in qc.js.
+            headers: {
+                'User-Agent': 'Mozilla/5.0 RePluG-Bot',
+                'Accept': 'application/json',
+                'Referer': 'https://qcitems.com/',
+                'Origin': 'https://qcitems.com'
+            },
             cf: bypassCache
                 ? { cacheTtl: 0, cacheEverything: false }
                 : { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
