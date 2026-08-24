@@ -1,3 +1,5 @@
+import { kakobuyEnabled, kakobuyItem, kakobuyQcGroups } from './_kakobuy.js';
+
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
         status,
@@ -215,6 +217,84 @@ function emptyPayload(resolvedUrl) {
     };
 }
 
+// The owner buys taobao and 1688 through kakobuy, so for those the QC comes from
+// kakobuy itself rather than from the copies qcitems mirrors. Weidian has no kakobuy
+// listing to ask about and stays on qcitems.
+const KAKOBUY_MARKETPLACES = new Set(['taobao', 'tmall', '1688']);
+
+function marketplaceSourceOf(raw) {
+    try {
+        const h = new URL(raw).hostname.toLowerCase();
+        if (h === 'taobao.com' || h.endsWith('.taobao.com')) return 'taobao';
+        if (h === 'tmall.com' || h.endsWith('.tmall.com')) return 'tmall';
+        if (h === '1688.com' || h.endsWith('.1688.com')) return '1688';
+        if (h === 'weidian.com' || h.endsWith('.weidian.com')) return 'weidian';
+    } catch {}
+    return null;
+}
+
+async function kakobuySets(env, marketplaceUrl) {
+    const res = await kakobuyItem(env, marketplaceUrl);
+    if (!res.ok) return { sets: [], info: null, msg: res.msg };
+
+    const item = res.data || {};
+    const sets = kakobuyQcGroups(item).map((g, i) => ({
+        source: 'kakobuy',
+        sourceLabel: SOURCE_LABEL.kakobuy,
+        name: `${SOURCE_LABEL.kakobuy} QC #${i + 1}`,
+        photos: g.photos.map(normalizePhoto).filter(Boolean)
+    })).filter(set => set.photos.length);
+
+    return { sets, info: item, msg: null };
+}
+
+// qcitems, unchanged in what it returns — it just no longer answers for the whole
+// endpoint, since kakobuy can have photos when qcitems has none, which is the normal
+// state of affairs for taobao while their upstream is down.
+async function qcitemsSets(marketplaceUrl) {
+    const target = `https://qcitems.com/api/product?url=${encodeURIComponent(marketplaceUrl)}`;
+
+    let upstream;
+    try {
+        upstream = await fetch(target, {
+            headers: QCITEMS_HEADERS,
+            // Only cache what worked: cacheTtl pinned 403s and 5xx at the edge too, so
+            // one bad minute upstream kept QC dark for ten more.
+            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
+        });
+    } catch {
+        return { sets: [], info: null, error: 'upstream fetch failed', status: 502 };
+    }
+    // A 400 means qcitems could not make a product out of the link (yupoo albums,
+    // shop pages, agents it does not know). That is a rejected link, not an outage.
+    if (upstream.status === 400) return { sets: [], info: null, error: 'unsupported', status: 400 };
+    if (!upstream.ok) return { sets: [], info: null, error: 'upstream error', status: 502 };
+
+    let data;
+    try { data = await upstream.json(); }
+    catch { return { sets: [], info: null, error: 'upstream parse failed', status: 502 }; }
+
+    if (data?.error) return { sets: [], info: null, error: data.error, status: 400 };
+
+    // For links it cannot resolve to a marketplace product (yupoo albums, seller shop
+    // pages) qcitems answers productId "0" / marketplace "unknown" plus a generic
+    // photo bucket under finds/0/ that is identical for every such link. Serving it
+    // would show one random product QC set on every seller item.
+    const productId = data?.productId;
+    if (!productId || String(productId) === '0' || data?.marketplace === 'unknown') {
+        return { sets: [], info: null, error: null, status: 200 };
+    }
+
+    return {
+        sets: flattenGroups(data?.qcGroups),
+        info: data?.info || null,
+        productId: data?.productId || null,
+        marketplace: data?.marketplace || null,
+        error: null,
+        status: 200
+    };
+}
+
 export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
     if (!url) return jsonError('missing url', 400);
@@ -230,47 +310,53 @@ export async function onRequest(ctx) {
         marketplaceUrl = albumResolvedUrl;
     }
 
-    const target = `https://qcitems.com/api/product?url=${encodeURIComponent(marketplaceUrl)}`;
+    const source = marketplaceSourceOf(marketplaceUrl);
+    const askKakobuy = KAKOBUY_MARKETPLACES.has(source) && kakobuyEnabled(ctx.env);
 
-    let upstream;
-    try {
-        upstream = await fetch(target, {
-            headers: QCITEMS_HEADERS,
-            // Only cache what worked: cacheTtl pinned 403s and 5xx at the edge too, so
-            // one bad minute upstream kept QC dark for ten more.
-            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
+    // Temporary: reports whether the kakobuy token works and what shape came back,
+    // without echoing any of it. Their API is undocumented and a stale token looks
+    // exactly like "this item has no QC" from the outside.
+    if (new URL(ctx.request.url).searchParams.get('debug') === 'kako') {
+        const probe = askKakobuy ? await kakobuySets(ctx.env, marketplaceUrl) : { sets: [], msg: 'not asked' };
+        const hosts = new Set();
+        probe.sets.forEach(set => set.photos.forEach(ph => {
+            try { hosts.add(new URL(ph.url, 'https://replug24.com').pathname.startsWith('/api/qcimg') ? 'proxied' : 'direct'); } catch {}
+        }));
+        return jsonOk({
+            marketplace: source,
+            tokenConfigured: kakobuyEnabled(ctx.env),
+            asked: askKakobuy,
+            msg: probe.msg || null,
+            sets: probe.sets.length,
+            photos: probe.sets.reduce((n, set) => n + set.photos.length, 0),
+            itemKeys: probe.info ? Object.keys(probe.info).slice(0, 40) : null,
+            photoDelivery: [...hosts]
         });
-    } catch {
-        return jsonError('upstream fetch failed', 502);
-    }
-    // A 400 means qcitems could not make a product out of the link (yupoo albums,
-    // shop pages, agents it does not know). That is a rejected link, not an outage —
-    // say so, instead of the generic "failed to load, try another link".
-    if (upstream.status === 400) return jsonError('unsupported', 400);
-    if (!upstream.ok) return jsonError('upstream error', 502);
-
-    let data;
-    try { data = await upstream.json(); }
-    catch { return jsonError('upstream parse failed', 502); }
-
-    if (data?.error) return jsonError(data.error, 400);
-
-    // For links it cannot resolve to a marketplace product (yupoo albums, seller shop
-    // pages) qcitems answers productId "0" / marketplace "unknown" plus a generic
-    // photo bucket under finds/0/ that is identical for every such link. Serving it
-    // would show one random product's QC on every seller item.
-    const productId = data?.productId;
-    if (!productId || String(productId) === '0' || data?.marketplace === 'unknown') {
-        return jsonOk(emptyPayload(albumResolvedUrl));
     }
 
-    const sets = flattenGroups(data?.qcGroups);
+    // Both at once: kakobuy is the source we want for taobao and 1688, but qcitems
+    // still carries the other agents' sets, and either one can come back empty.
+    const [kako, qci] = await Promise.all([
+        askKakobuy ? kakobuySets(ctx.env, marketplaceUrl) : Promise.resolve({ sets: [], info: null, msg: null }),
+        qcitemsSets(marketplaceUrl)
+    ]);
+
+    // kakobuy's own sets stand in for the copies qcitems mirrors from them, so nobody
+    // scrolls the same photos twice; USFans, ACBuy, UUfinds and CNFans follow below.
+    const sets = kako.sets.length
+        ? [...kako.sets, ...qci.sets.filter(set => set.source !== 'kakobuy')]
+        : qci.sets;
+
+    // Only let a qcitems failure speak when it is the whole story.
+    if (!sets.length && qci.error) return jsonError(qci.error, qci.status);
+    if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl));
+
     const totalPhotos = sets.reduce((n, s) => n + s.photos.length, 0);
 
     return jsonOk({
-        productId: data?.productId || null,
-        marketplace: data?.marketplace || null,
-        info: data?.info || null,
+        productId: qci.productId || null,
+        marketplace: qci.marketplace || source || null,
+        info: qci.info || null,
         sets,
         totalPhotos,
         sources: [...new Set(sets.map(s => s.sourceLabel))],

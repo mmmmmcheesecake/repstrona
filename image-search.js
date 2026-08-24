@@ -251,10 +251,13 @@ function proxiedImage(url) {
 function fmtPrice(r) {
     const p = r.discountPrice || r.price;
     if (!p) return '';
-    if (window.RePluGCurrency && r.currency === 'CNY') {
-        const usd = window.RePluGCurrency.cnyToUsd ? window.RePluGCurrency.cnyToUsd(p) : null;
-        if (typeof usd === 'number') return window.RePluGCurrency.format(usd);
+    const cur = window.RePluGCurrency;
+    if (cur && r.currency === 'CNY') {
+        const usd = cur.cnyToUsd ? cur.cnyToUsd(p) : null;
+        if (typeof usd === 'number') return cur.format(usd);
     }
+    // kakobuy converts before it answers, so those prices arrive in USD already.
+    if (cur && r.currency === 'USD' && cur.format) return cur.format(p);
     return `${p} ${r.currency || ''}`.trim();
 }
 

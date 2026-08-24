@@ -1,3 +1,5 @@
+import { kakobuyEnabled, kakobuyImageSearch } from './_kakobuy.js';
+
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
         status,
@@ -119,6 +121,84 @@ async function searchWeidian(dataUrl, page) {
     };
 }
 
+// -------------------------------------------------- taobao and 1688: kakobuy first
+//
+// The owner buys taobao and 1688 through kakobuy, so the search that fills those two
+// channels is kakobuy's own — the cards then link at the listing people actually buy
+// from. It needs KAKOBUY_TOKEN; without it, or when it comes back empty, qcitems below
+// still answers, which is what the site did before.
+const CHANNEL_TP = { '1': '1688', '2': 'taobao' };
+
+function firstString(...vals) {
+    for (const v of vals) {
+        if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
+}
+
+function firstNumber(...vals) {
+    for (const v of vals) {
+        const n = typeof v === 'string' ? parseFloat(v) : v;
+        if (typeof n === 'number' && Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+}
+
+// Their list items are not documented anywhere, and the field names differ between
+// their endpoints, so read every spelling we have seen rather than guessing one.
+function shapeKakobuyRecord(r, marketplace, currency) {
+    if (!r || typeof r !== 'object') return null;
+    const link = firstString(r.detail_url, r.detailUrl, r.url, r.goods_url);
+    const id = firstString(r.goods_id, r.goodsId, r.item_id, r.itemId, r.num_iid, r.id);
+    if (!link && !id) return null;
+    return {
+        // The page treats an absolute URL in id as the marketplace link and builds the
+        // kakobuy address from it; detail_url is exactly that raw link.
+        id: link || id,
+        goodsId: id || '',
+        marketplace,
+        title: firstString(r.title, r.name, r.goods_name, r.goodsName, r.subject) || '',
+        image: firstString(r.pic, r.img, r.image, r.goods_img, r.main_img, r.picUrl, r.imgUrl),
+        price: firstNumber(r.price, r.shop_price, r.sale_price, r.goods_price, r.min_price),
+        currency,
+        sales: firstNumber(r.sales, r.sold, r.month_sold, r.sale_num)
+    };
+}
+
+// Temporary: same idea as the one on /api/qc — their list item field names are not
+// documented, so report the shape (names and counts only, no account data) until the
+// mapping above is confirmed against a live answer.
+async function probeKakobuy(env, file, channel, page) {
+    const res = await kakobuyImageSearch(env, file, CHANNEL_TP[channel], page);
+    const data = res.data || {};
+    const list = Array.isArray(data.list) ? data.list : [];
+    return {
+        tokenConfigured: kakobuyEnabled(env),
+        ok: res.ok,
+        msg: res.msg || null,
+        dataKeys: res.ok ? Object.keys(data).slice(0, 20) : null,
+        count: list.length,
+        recordKeys: list.length ? Object.keys(list[0]).slice(0, 40) : null,
+        curSym: data.cur_sym || null,
+        mapped: list.length ? shapeKakobuyRecord(list[0], CHANNEL_MARKETPLACE[channel], 'USD') : null
+    };
+}
+
+async function searchKakobuy(env, file, channel, page) {
+    const res = await kakobuyImageSearch(env, file, CHANNEL_TP[channel], page);
+    if (!res.ok) return null;
+
+    const data = res.data || {};
+    const list = Array.isArray(data.list) ? data.list : [];
+    // We ask for USD, and cur_sym says what came back.
+    const currency = /\u00a5|cny|rmb/i.test(String(data.cur_sym || '')) ? 'CNY' : 'USD';
+    const marketplace = CHANNEL_MARKETPLACE[channel];
+    const results = list.map(r => shapeKakobuyRecord(r, marketplace, currency)).filter(Boolean);
+    if (!results.length) return null;
+
+    return { results, totalPages: Number(data.total_pages) || Number(data.pages) || 1, source: 'kakobuy' };
+}
+
 // ------------------------------------------------------- taobao and 1688: qcitems
 //
 // Without a qcitems.com Referer every one of their endpoints answers 403
@@ -147,7 +227,7 @@ async function searchQcitems(file, channel, page) {
     try { j = await r.json(); } catch { return null; }
     if (!j || j.success === false || !Array.isArray(j.results)) return null;
 
-    return { results: j.results, totalPages: Number(j.totalPages) || 1 };
+    return { results: j.results, totalPages: Number(j.totalPages) || 1, source: 'qcitems' };
 }
 
 export async function onRequest(ctx) {
@@ -177,6 +257,13 @@ export async function onRequest(ctx) {
     const imageData = body.get('imageData');
     if (!hasFile && typeof imageData !== 'string') return jsonError('missing image', 400);
 
+    if (new URL(ctx.request.url).searchParams.get('debug') === 'kako' && channel !== '3') {
+        const probe = await probeKakobuy(ctx.env, hasFile ? file : null, channel, page);
+        return new Response(JSON.stringify(probe), {
+            headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
+        });
+    }
+
     let found;
     if (channel === '3') {
         const dataUrl = await toDataUrl(imageData, hasFile ? file : null);
@@ -187,8 +274,12 @@ export async function onRequest(ctx) {
             return jsonError(tooBig ? 'image too large' : 'invalid image', tooBig ? 413 : 400);
         }
         found = await searchWeidian(dataUrl, page);
+        if (found) found.source = 'usfans';
     } else {
-        found = await searchQcitems(hasFile ? file : null, channel, page);
+        if (hasFile && kakobuyEnabled(ctx.env)) {
+            found = await searchKakobuy(ctx.env, file, channel, page);
+        }
+        if (!found) found = await searchQcitems(hasFile ? file : null, channel, page);
     }
 
     // 504 for weidian on purpose: usfans dropping the connection is a different
@@ -205,7 +296,8 @@ export async function onRequest(ctx) {
         results: found.results,
         total: found.results.length,
         page,
-        totalPages: found.totalPages
+        totalPages: found.totalPages,
+        source: found.source || null
     }), {
         headers: {
             'content-type': 'application/json',
