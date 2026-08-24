@@ -354,16 +354,32 @@ const AGENT_PLATFORM_TO_CHANNEL = { WEIDIAN: 3, TAOBAO: 2, TMALL: 2, '1688': 1, 
 // ids — image search returns nothing else — and qcitems resolves both.
 const TAOBAO_ID = /^[A-Za-z0-9_-]{6,80}$/;
 
-function refToUsfans(ref) {
+// affcode alone on item/details bounces the SPA to "item not found"; am_redirect=true
+// runs kakobuy's affiliate redirect, which resolves the item AND credits the code.
+const KAKOBUY_AFFCODE = '5zj3z';
+
+function kakobuyLink(raw) {
+    return `https://www.kakobuy.com/item/details?url=${encodeURIComponent(raw)}` +
+        `&affcode=${KAKOBUY_AFFCODE}&am_redirect=true`;
+}
+
+// usfans resolves weidian and nothing else for us — a taobao or 1688 item opens there
+// on an empty page — so those go to kakobuy, which takes the raw marketplace URL.
+// Same split as toUsfans() in produkt.js and usfansLinkFromInput() in qc.js; the three
+// have to stay in step.
+function refToAgent(ref) {
     if (!ref) return null;
-    // usfans addresses items by numeric marketplace id; a token cannot be one.
-    if (!/^\d+$/.test(ref.itemId)) return null;
-    const channel = ref.source === 'weidian' ? 3
-        : (ref.source === 'taobao' || ref.source === 'tmall') ? 2
-        : ref.source === '1688' ? 1
+    if (ref.source === 'weidian') {
+        // usfans addresses items by numeric marketplace id; a token cannot be one.
+        return /^\d+$/.test(ref.itemId)
+            ? `https://www.usfans.com/product/3/${ref.itemId}?ref=MGRSBE`
+            : null;
+    }
+    const raw = ref.source === 'taobao' ? `https://item.taobao.com/item.htm?id=${ref.itemId}`
+        : ref.source === 'tmall' ? `https://detail.tmall.com/item.htm?id=${ref.itemId}`
+        : ref.source === '1688' ? `https://detail.1688.com/offer/${ref.itemId}.html`
         : null;
-    if (!channel) return null;
-    return `https://www.usfans.com/product/${channel}/${ref.itemId}?ref=MGRSBE`;
+    return raw ? kakobuyLink(raw) : null;
 }
 
 function parseAgentUrl(raw) {
@@ -431,7 +447,7 @@ function extractAlbumItemRef(html) {
 async function fetchYupooAlbumData(albumUrl) {
     try {
         const u = new URL(albumUrl);
-        if (!/\.yupoo\.com$/i.test(u.hostname)) return { images: [], usfansUrl: null };
+        if (!/\.yupoo\.com$/i.test(u.hostname)) return { images: [], agentUrl: null };
         const r = await fetch(albumUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 RePluG-Bot',
@@ -439,7 +455,7 @@ async function fetchYupooAlbumData(albumUrl) {
             },
             cf: { cacheTtl: 3600, cacheEverything: true },
         });
-        if (!r.ok) return { images: [], usfansUrl: null };
+        if (!r.ok) return { images: [], agentUrl: null };
         const html = await r.text();
 
         const seen = new Set();
@@ -456,10 +472,10 @@ async function fetchYupooAlbumData(albumUrl) {
             photos.push(proxyImage(big));
         }
 
-        const usfansUrl = refToUsfans(extractAlbumItemRef(html));
+        const agentUrl = refToAgent(extractAlbumItemRef(html));
 
-        return { images: photos.slice(0, 16), usfansUrl };
-    } catch { return { images: [], usfansUrl: null }; }
+        return { images: photos.slice(0, 16), agentUrl };
+    } catch { return { images: [], agentUrl: null }; }
 }
 
 function emptyResult() {
@@ -530,12 +546,12 @@ export async function onRequest(ctx) {
     }
 
     if (yupoo) {
-        const { images: yupooImgs, usfansUrl } = await fetchYupooAlbumData(yupoo);
+        const { images: yupooImgs, agentUrl } = await fetchYupooAlbumData(yupoo);
         if (!result) result = emptyResult();
         const merged = [...new Set([...yupooImgs, ...(result.images || [])])];
         result.images = merged.slice(0, 20);
         if (!result.image && result.images.length) result.image = result.images[0];
-        if (usfansUrl) result.usfansUrl = usfansUrl;
+        if (agentUrl) result.agentUrl = agentUrl;
     }
 
     if (!result) {

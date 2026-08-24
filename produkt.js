@@ -367,13 +367,14 @@ async function load() {
         const data = await r.json();
         if (data.error) throw new Error(data.error);
 
-        if (data.usfansUrl) {
-            const safeUsfans = safeHttpUrl(data.usfansUrl);
-            if (safeUsfans) {
-                el('pdBuy').href = safeUsfans;
+        if (data.agentUrl) {
+            const safeAgent = safeHttpUrl(data.agentUrl);
+            if (safeAgent) {
+                el('pdBuy').href = safeAgent;
                 // Seller items are yupoo albums; QC only exists for the marketplace item
-                // the album mirrors, which is exactly what usfansUrl resolves to.
-                if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(safeUsfans)}`;
+                // the album mirrors, which is exactly what agentUrl resolves to — usfans
+                // for weidian, kakobuy for taobao and 1688.
+                if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(safeAgent)}`;
             }
         }
 
