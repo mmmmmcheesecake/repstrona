@@ -520,8 +520,13 @@ async function resolveByUrl(url, full) {
         const qc = await handleQcitems(url);
         if (qc) return jsonOk(qc);
 
-        const parsed = parseUsfans(refToUsfans(agent) || '');
-        if (parsed) return handleUsfans(parsed, full);
+        // Nothing else can resolve these for us: usfans has no taobao data at all,
+        // kakobuy's item endpoint answers 500 to anyone but their own site, and
+        // qcitems goes blank whenever the upstream it reads from is down. Hand back
+        // the agent link on its own rather than a failure — the page still opens the
+        // listing, and image search passes along the photo, name and price it has.
+        const agentUrl = refToAgent(agent);
+        if (agentUrl) return jsonOk({ ...emptyResult(), agentUrl });
     }
     return null;
 }

@@ -119,6 +119,14 @@ const imageOverride = params.get('img') || '';
 const productCategory = params.get('cat') || '';
 const yupooAlbumUrl = safeHttpUrl(params.get('yupoo')) || '';
 
+// Image search passes the price off the card it was clicked from. Kept in its own
+// currency and converted at render time, because the rates load after this runs.
+function priceFromParams() {
+    const value = parseFloat(params.get('price'));
+    if (!isFinite(value) || value <= 0) return null;
+    return { value, currency: (params.get('cur') || 'USD').toUpperCase() };
+}
+
 const state = {
     properties: [],
     skuList: [],
@@ -126,6 +134,9 @@ const state = {
     images: [],
     weightG: null,
     priceUsd: null,
+    // Only used when the item has no price of its own — taobao listings, which no
+    // upstream will resolve for us, would otherwise show a dash.
+    cardPrice: priceFromParams(),
 };
 
 function showError(msg) {
@@ -214,6 +225,11 @@ function currentUsd() {
     let p = minPrice(skus);
     if (p == null) p = minPrice(state.skuList);
     if (p == null && typeof state.priceUsd === 'number' && state.priceUsd > 0) p = state.priceUsd;
+    if (p == null && state.cardPrice) {
+        const { value, currency } = state.cardPrice;
+        const cur = window.RePluGCurrency;
+        p = currency === 'USD' ? value : (cur && cur.toUsd ? cur.toUsd(value, currency) : null);
+    }
     return p;
 }
 

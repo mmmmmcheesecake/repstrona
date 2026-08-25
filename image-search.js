@@ -487,11 +487,33 @@ function marketplaceUrl(r) {
 
 // Hand the raw marketplace link to the product page — it sends weidian to usfans
 // and taobao/1688 to kakobuy, which is the only agent that resolves those.
+//
+// The photo and price go with it because taobao items have no data source behind
+// them: qcitems reads taobao from usfans, and usfans has answered nothing for it
+// for weeks, so the product page opens on a blank gallery and a dash unless the
+// card passes down what it already showed.
 function productHref(r) {
     const url = marketplaceUrl(r);
     if (!url) return '#';
     const q = new URLSearchParams({ url, name: r.title || '' });
+    const img = safeHttpUrl(r.image);
+    if (img) q.set('img', hotlinkSafeImage(img));
+    const price = r.discountPrice || r.price;
+    if (price > 0) {
+        q.set('price', String(price));
+        q.set('cur', r.currency || 'CNY');
+    }
     return `produkt.html?${q.toString()}`;
+}
+
+// The card renders a cover directly and only reaches for the proxy if that fails;
+// the product page has no such retry, so alicdn covers (cbu01 refuses hot-links
+// carrying our Referer) go through the proxy from the start.
+function hotlinkSafeImage(url) {
+    try {
+        if (!/(^|\.)alicdn\.com$/i.test(new URL(url).hostname)) return url;
+    } catch { return url; }
+    return proxiedImage(url) || url;
 }
 
 // alicdn (taobao/1688 covers) can refuse requests carrying our Referer; the proxy
@@ -508,7 +530,7 @@ function fmtPrice(r) {
     if (!p) return '';
     const cur = window.RePluGCurrency;
     if (cur && r.currency === 'CNY') {
-        const usd = cur.cnyToUsd ? cur.cnyToUsd(p) : null;
+        const usd = cur.toUsd ? cur.toUsd(p, 'CNY') : null;
         if (typeof usd === 'number') return cur.format(usd);
     }
     // kakobuy converts before it answers, so those prices arrive in USD already.
