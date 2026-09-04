@@ -59,17 +59,83 @@ export async function onRequest(ctx) {
     }
     if (!upstream.ok) return new Response('upstream error', { status: 502 });
 
-    const headers = new Headers();
-    const ct = upstream.headers.get('content-type') || '';
-    if (!ct.toLowerCase().startsWith('image/')) {
-        return new Response('upstream is not an image', { status: 502 });
-    }
     const len = Number(upstream.headers.get('content-length') || 0);
     if (len > 15 * 1024 * 1024) {
         return new Response('image too large', { status: 413 });
     }
-    headers.set('content-type', ct);
+
+    const declared = (upstream.headers.get('content-type') || '').toLowerCase();
+    let contentType = declared.startsWith('image/') ? declared : '';
+    let body = upstream.body;
+
+    // media.usfans.com serves perfectly good JPEGs as application/octet-stream, and
+    // nosniff means the browser will not rescue them — every USFans QC photo showed
+    // as a broken tile. Trust the bytes over the header: read just enough of the
+    // stream to recognise the format, then hand the untouched stream on.
+    if (!contentType) {
+        const sniffed = await sniffImage(upstream.body);
+        if (!sniffed.type) return new Response('upstream is not an image', { status: 502 });
+        contentType = sniffed.type;
+        body = sniffed.stream;
+    }
+
+    const headers = new Headers();
+    headers.set('content-type', contentType);
     headers.set('cache-control', 'public, max-age=86400, immutable');
     headers.set('x-content-type-options', 'nosniff');
-    return new Response(upstream.body, { status: 200, headers });
+    return new Response(body, { status: 200, headers });
+}
+
+const MAGIC = [
+    ['image/jpeg', b => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
+    ['image/png', b => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47],
+    ['image/gif', b => b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46],
+    ['image/webp', b => b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+        b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50],
+    ['image/avif', b => b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70 &&
+        b[8] === 0x61 && b[9] === 0x76 && b[10] === 0x69 && b[11] === 0x66],
+    ['image/bmp', b => b[0] === 0x42 && b[1] === 0x4d],
+];
+
+// Reads the first bytes off the stream to identify the format, then replays them in
+// front of the rest so nothing is buffered beyond the header.
+async function sniffImage(stream) {
+    const reader = stream.getReader();
+    const head = [];
+    let seen = 0;
+    while (seen < 16) {
+        let chunk;
+        try { chunk = await reader.read(); }
+        catch { return { type: null }; }
+        if (chunk.done) break;
+        if (chunk.value?.length) {
+            head.push(chunk.value);
+            seen += chunk.value.length;
+        }
+    }
+
+    const probe = new Uint8Array(seen);
+    let at = 0;
+    for (const c of head) { probe.set(c, at); at += c.length; }
+
+    const hit = MAGIC.find(([, test]) => {
+        try { return test(probe); } catch { return false; }
+    });
+    if (!hit) {
+        reader.cancel().catch(() => {});
+        return { type: null };
+    }
+
+    return {
+        type: hit[0],
+        stream: new ReadableStream({
+            start(controller) { for (const c of head) controller.enqueue(c); },
+            async pull(controller) {
+                const { value, done } = await reader.read();
+                if (done) controller.close();
+                else controller.enqueue(value);
+            },
+            cancel(reason) { reader.cancel(reason); }
+        })
+    };
 }

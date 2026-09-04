@@ -122,13 +122,21 @@ function ensureLightbox() {
     return lb;
 }
 
+// Photos whose host stopped serving them are marked broken and pulled out of the
+// grid, so the lightbox has to count and step over the ones that are still there.
+function livePhotos() {
+    return allPhotos.filter(p => !p.broken);
+}
+
 function openLightbox(idx) {
-    if (idx < 0 || idx >= allPhotos.length) return;
+    const photo = allPhotos[idx];
+    if (!photo || photo.broken) return;
     const lb = ensureLightbox();
     lightboxIdx = idx;
     const img = lb.querySelector('.qc-lb-img');
-    img.src = allPhotos[idx];
-    lb.querySelector('.qc-lb-counter').textContent = `${idx + 1} / ${allPhotos.length}`;
+    img.src = photo.url;
+    const live = livePhotos();
+    lb.querySelector('.qc-lb-counter').textContent = `${live.indexOf(photo) + 1} / ${live.length}`;
     lb.classList.add('open');
     document.body.style.overflow = 'hidden';
 }
@@ -144,11 +152,11 @@ function closeLightbox() {
 }
 
 function navLightbox(dir) {
-    if (lightboxIdx < 0 || !allPhotos.length) return;
-    let next = lightboxIdx + dir;
-    if (next < 0) next = allPhotos.length - 1;
-    if (next >= allPhotos.length) next = 0;
-    openLightbox(next);
+    const live = livePhotos();
+    if (lightboxIdx < 0 || !live.length) return;
+    const at = live.indexOf(allPhotos[lightboxIdx]);
+    const next = at < 0 ? 0 : (at + dir + live.length) % live.length;
+    openLightbox(allPhotos.indexOf(live[next]));
 }
 
 document.addEventListener('keydown', e => {
@@ -158,6 +166,15 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'ArrowRight') navLightbox(1);
 });
 
+function updateCount() {
+    const n = livePhotos().length;
+    if (!n) {
+        setStatus(T('qc.unavailable', 'QC photos are temporarily unavailable — the site hosting them is not responding.'), 'empty');
+        return;
+    }
+    setStatus(T('qc.results', `${n} QC photos`, { n }), 'ok');
+}
+
 function renderResponse(data, rawInput) {
     clearResults();
     const sets = data.sets || [];
@@ -165,7 +182,11 @@ function renderResponse(data, rawInput) {
     // item it mirrors, which is what the fallback button has to point at.
     const linkSource = /^https:\/\//i.test(data.resolvedUrl || '') ? data.resolvedUrl : rawInput;
     if (!sets.length) {
-        setStatus(T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
+        // The API sets `unavailable` when it found photos but their host refused to
+        // serve them — a different thing from a product nobody has QC'd yet.
+        setStatus(data.unavailable
+            ? T('qc.unavailable', 'QC photos are temporarily unavailable — the site hosting them is not responding.')
+            : T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
         appendUsfansFallback(linkSource);
         return;
     }
@@ -190,8 +211,9 @@ function renderResponse(data, rawInput) {
         const grid = document.createElement('div');
         grid.className = 'qc-grid';
         set.photos.forEach(p => {
+            const photo = { url: p.url, broken: false };
             const flatIdx = allPhotos.length;
-            allPhotos.push(p.url);
+            allPhotos.push(photo);
 
             const tile = document.createElement('button');
             tile.type = 'button';
@@ -204,16 +226,15 @@ function renderResponse(data, rawInput) {
             img.alt = '';
             img.draggable = false;
             img.addEventListener('error', () => {
+                // A photo that fails here means its host stopped serving it — the whole
+                // set usually goes at once. Take the tile out instead of leaving a grid
+                // of warning marks, take the set out when nothing is left in it, and let
+                // the count say what actually loaded.
                 console.warn('[qc] image failed:', p.url);
-                tile.classList.add('qc-tile-broken');
-                tile.disabled = true;
-                img.style.display = 'none';
-                if (!tile.querySelector('.qc-tile-broken-mark')) {
-                    const mark = document.createElement('span');
-                    mark.className = 'qc-tile-broken-mark';
-                    mark.textContent = '⚠️';
-                    tile.appendChild(mark);
-                }
+                photo.broken = true;
+                tile.remove();
+                if (!grid.children.length) block.remove();
+                updateCount();
             });
             img.addEventListener('contextmenu', e => e.preventDefault());
             tile.appendChild(img);

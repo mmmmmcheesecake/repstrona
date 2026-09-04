@@ -52,11 +52,55 @@ function proxyImage(originalUrl) {
 
 function normalizePhoto(p) {
     if (!p) return null;
-    if (typeof p === 'string') return { url: proxyImage(p), timestamp: null };
+    // `origin` is dropped before the payload leaves onRequest; it is only here so the
+    // reachability check below can ask the real host rather than our own proxy.
+    if (typeof p === 'string') return { url: proxyImage(p), origin: p, timestamp: null };
     if (typeof p === 'object' && typeof p.url === 'string') {
-        return { url: proxyImage(p.url), timestamp: p.timestamp || null };
+        return { url: proxyImage(p.url), origin: p.url, timestamp: p.timestamp || null };
     }
     return null;
+}
+
+function photoHost(photo) {
+    try { return new URL(photo.origin).hostname.toLowerCase(); } catch { return null; }
+}
+
+// qcitems keeps every photo it has ever scraped on its own R2 bucket, and in September
+// 2026 that bucket stopped being public: cdn.finds.vectoreps.pl answers 403 "This
+// bucket cannot be viewed" to everyone, their own site included. Their API still hands
+// out those URLs, so a product looks like it has 161 QC photos and the page fills with
+// broken tiles. Sample one photo per host and drop the sets we cannot actually serve —
+// nothing is hardcoded, so the sets come back by themselves once the host does.
+async function reachableSets(sets) {
+    const sample = new Map();
+    for (const set of sets) {
+        for (const photo of set.photos) {
+            const host = photoHost(photo);
+            if (host && !sample.has(host)) sample.set(host, photo.origin);
+        }
+    }
+    const checks = await Promise.all(
+        [...sample].map(async ([host, url]) => [host, await hostServesImages(url)])
+    );
+    const alive = new Set(checks.filter(([, ok]) => ok).map(([host]) => host));
+
+    return sets
+        .map(set => ({ ...set, photos: set.photos.filter(p => alive.has(photoHost(p))) }))
+        .filter(set => set.photos.length);
+}
+
+async function hostServesImages(sampleUrl) {
+    let u;
+    try { u = new URL(sampleUrl); } catch { return false; }
+    const headers = { 'User-Agent': UA, 'Accept': 'image/*' };
+    if (/\.yupoo\.com$/i.test(u.hostname)) headers['Referer'] = `https://${u.hostname}/`;
+
+    let r;
+    try { r = await fetch(sampleUrl, { method: 'HEAD', headers }); }
+    catch { return false; }
+    // Not every CDN answers HEAD; only a refusal counts as down.
+    if (r.status === 405 || r.status === 501) return true;
+    return r.ok;
 }
 
 function flattenGroups(qcGroups) {
@@ -205,7 +249,7 @@ async function resolveYupooAlbum(albumUrl) {
     return build ? build(ref.itemId) : null;
 }
 
-function emptyPayload(resolvedUrl) {
+function emptyPayload(resolvedUrl, extra) {
     return {
         productId: null,
         marketplace: null,
@@ -214,6 +258,7 @@ function emptyPayload(resolvedUrl) {
         totalPhotos: 0,
         sources: [],
         resolvedUrl: resolvedUrl || null,
+        ...extra,
     };
 }
 
@@ -338,15 +383,23 @@ export async function onRequest(ctx) {
     if (!sets.length && qci.error) return jsonError(qci.error, qci.status);
     if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl));
 
-    const totalPhotos = sets.reduce((n, s) => n + s.photos.length, 0);
+    const live = (await reachableSets(sets)).map(set => ({
+        ...set,
+        photos: set.photos.map(({ url, timestamp }) => ({ url, timestamp }))
+    }));
+    // There are photos, we just cannot serve any of them today. Say so instead of
+    // claiming the product has no QC.
+    if (!live.length) return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }));
+
+    const totalPhotos = live.reduce((n, s) => n + s.photos.length, 0);
 
     return jsonOk({
         productId: qci.productId || null,
         marketplace: qci.marketplace || source || null,
         info: qci.info || null,
-        sets,
+        sets: live,
         totalPhotos,
-        sources: [...new Set(sets.map(s => s.sourceLabel))],
+        sources: [...new Set(live.map(s => s.sourceLabel))],
         // Only set for yupoo albums: the marketplace item the album mirrors, so the QC
         // page can offer an agent link for a URL no agent would accept.
         resolvedUrl: albumResolvedUrl,
