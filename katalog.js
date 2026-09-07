@@ -1441,9 +1441,12 @@ function writeQcFlag(link, n) {
 }
 
 async function flagQc(p) {
-    // Seller tiles are yupoo albums, which no QC source can resolve — do not spend a
-    // request per tile finding that out again.
-    if (!p.link || p.isShopStub || p.hasQc || /\.yupoo\.com\//i.test(p.link)) return;
+    // Nothing to ask about for two kinds of link, and a taobao shop puts three hundred
+    // of them on screen at once: yupoo albums, which no QC source resolves, and taobao
+    // items, which no agent has QC for — usfans photographs weidian orders only.
+    if (!p.link || p.isShopStub || p.hasQc) return;
+    if (/\.yupoo\.com\//i.test(p.link)) return;
+    if (/usfans\.com\/product\/[12]\//i.test(p.link) || /(^|\.)taobao\.com\//i.test(p.link)) return;
 
     const cached = readQcFlag(p.link);
     if (cached !== undefined) {
