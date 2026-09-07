@@ -947,14 +947,36 @@ function jsonResponse(body, maxAge = 900) {
     });
 }
 
+// Set by readSheet when Sheets refuses, read by ?debug=1 in the same request.
+let lastSheetsError = null;
+
 async function readSheet(apiKey, gender) {
     const sheetId = SHEET_IDS[gender];
     const hasHeaderRow = gender !== 'women';
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}` +
         `?fields=sheets.data.rowData.values(formattedValue,hyperlink)` +
         `&includeGridData=true&key=${apiKey}`;
-    const r = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-    if (!r.ok) return null;
+    // Only cache what worked. cacheEverything used to pin whatever came back, so one
+    // bad answer from Sheets stayed nailed to the edge for five more minutes — which
+    // is how a hiccup turned into a catalog that was empty for everyone. The women
+    // sheet felt it and the men one did not: men is the default, so its entry is
+    // almost always warm, while a women request usually goes all the way to Google.
+    // One retry on top, because the failures we have seen came back on the next try.
+    let r = null;
+    for (let attempt = 0; attempt < 2 && !(r && r.ok); attempt++) {
+        try {
+            r = await fetch(url, {
+                cf: { cacheTtlByStatus: { '200-299': 300, '300-599': 0 }, cacheEverything: true }
+            });
+        } catch { r = null; }
+    }
+    if (!r || !r.ok) {
+        // Cloudflare swaps our 5xx bodies for its own error page, so the reason never
+        // reaches the client. Carry it out of here and let ?debug=1 report it.
+        const body = r ? await r.text().catch(() => '') : 'fetch threw';
+        lastSheetsError = { status: r ? r.status : 0, body: body.slice(0, 500) };
+        return null;
+    }
     const json = await r.json();
     const rows = json?.sheets?.[0]?.data?.[0]?.rowData ?? [];
 
@@ -1023,6 +1045,17 @@ export async function onRequest(ctx) {
     const genderParam = params.get('gender');
     const gender = genderParam === 'women' ? 'women' : 'men';
     const data = await readSheet(apiKey, gender);
+    if (params.get('debug') === '1') {
+        // 200 on purpose: a 5xx would come back as Cloudflare's own error page, and
+        // then there is no way to see what Sheets actually said. No spreadsheet id
+        // here — that would hand every visitor the raw source document.
+        return jsonResponse({
+            gender,
+            ok: Boolean(data),
+            products: data ? data.products.length : 0,
+            sheetsError: lastSheetsError,
+        }, 0);
+    }
     if (!data) return new Response('Sheets API error', { status: 502 });
 
     if (params.get('sellers') === '1') {
