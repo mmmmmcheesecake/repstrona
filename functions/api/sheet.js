@@ -1105,7 +1105,10 @@ async function fetchTaobaoStub(env, shopId, extras) {
     // canned thousand, so the card can say how many items are behind it.
     const kako = kakobuyEnabled(env) ? await fetchKakobuyShopPage(env, shopId, 1) : null;
     if (kako) {
-        productCount = kako.total;
+        // Their total is capped: two shops of visibly different size both report 999,
+        // the same way usfans reports 1000 for everything. A made-up count on the card
+        // is worse than none, and the card reads "view shop" without one.
+        productCount = kako.total && kako.total < 999 ? kako.total : null;
         cover = cover || proxyAlicdnImage(kako.items.find(i => i?.goodsimg)?.goodsimg || '') || null;
     }
     if (!cover) {
