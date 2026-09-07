@@ -1016,11 +1016,25 @@ async function fetchKakobuyShopPage(env, shopId, page) {
     };
 }
 
+// The glossary turns the vocabulary it knows into english and leaves the rest in
+// chinese, which on a taobao listing reads as "Autismss 宝藏屋 三张翻白眼脸 Shirt 2025".
+// Strip what is left when enough of a name survives it — and keep the mixed version
+// when it does not, since a name in chinese still beats no name at all.
+function taobaoDisplayName(raw) {
+    const translated = weidianDisplayName(raw) || String(raw || '').trim();
+    const stripped = cleanWeidianName(translated)
+        .replace(/[！？，。、；：（）【】]/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/^[\s\-–—,.!?]+|[\s\-–—,.]+$/g, '')
+        .trim();
+    return /[a-z0-9]{3}/i.test(stripped) ? stripped : translated;
+}
+
 function kakobuyShopItemToProduct(item, shopId, shopName) {
     const raw = String(item?.goodsname || '').replace(/\s+/g, ' ').trim();
     // Keep the Chinese title when the glossary has nothing to say: an item with no name
     // is dropped, and a shop that drops most of its items reads as a broken shop.
-    const name = weidianDisplayName(raw) || raw;
+    const name = taobaoDisplayName(raw) || raw;
     const marketplaceUrl = item?.goodsurl;
     if (!name || !marketplaceUrl) return null;
 
@@ -1354,24 +1368,6 @@ export async function onRequest(ctx) {
             return jsonResponse(products.map(compact), 300);
         }
         const tbMatch = shopParam.match(/^tb-(\d+)$/);
-        if (tbMatch && params.get('via') === 'kakobuy') {
-            // Temporary. Says whether kakobuy will list a taobao shop for us at all —
-            // it needs a login token, and a stale one looks exactly like a shop with
-            // nothing in it. Reports the shape, never the token.
-            const shopUrl = `https://shop${tbMatch[1]}.taobao.com/`;
-            const res = await kakobuyShopGoods(ctx.env, shopUrl, 1);
-            const paging = res.data?.goods_paging;
-            const list = Array.isArray(paging) ? paging : (paging?.list || paging?.data || paging?.records || null);
-            return jsonResponse({
-                tokenConfigured: kakobuyEnabled(ctx.env),
-                ok: res.ok,
-                msg: res.msg,
-                shopInfo: res.data?.shop_info || null,
-                pagingKeys: paging && !Array.isArray(paging) ? Object.keys(paging).slice(0, 20) : null,
-                count: Array.isArray(list) ? list.length : null,
-                sample: Array.isArray(list) && list[0] ? list[0] : null,
-            }, 0);
-        }
         if (tbMatch) {
             const shopId = tbMatch[1];
             const products = await fetchTaobaoShop(ctx.env, shopId, params.get('name') || null);
