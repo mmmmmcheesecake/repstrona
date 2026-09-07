@@ -225,6 +225,13 @@ export function kakobuyItem(env, marketplaceUrl) {
     return post(env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' });
 }
 
+// Their own shop page calls this: shopUrl is the marketplace shop address. Unlike
+// sapi/item it answered us from the edge when last tested, and unlike usfans it has no
+// per-address search guard — which is the whole reason to try it for taobao shops.
+export function kakobuyShopGoods(env, shopUrl, page) {
+    return post(env, '/api/sapi/shopGoodsList', { shopUrl, page: page || 1 });
+}
+
 // tp filters the marketplace: '1688', 'taobao', or '' for everything they index.
 export function kakobuyImageSearch(env, image, tp, page) {
     return post(env, '/api/sapi/imageSearch', { page: page || 1, tp: tp || '' }, image);

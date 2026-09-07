@@ -1,3 +1,5 @@
+import { kakobuyEnabled, kakobuyShopGoods } from './_kakobuy.js';
+
 const SHEET_IDS = {
     men:   '1pc2KcMDWELMeQUW_ZvjHEvDa56inb3IcoHJ9STyGVkk',
     women: '1TraN-QZhqFgzaCSKgfqWhIG0BHSBq0jyktaU7i_pjco',
@@ -1263,6 +1265,23 @@ export async function onRequest(ctx) {
             return jsonResponse(products.map(compact), 300);
         }
         const tbMatch = shopParam.match(/^tb-(\d+)$/);
+        if (tbMatch && params.get('via') === 'kakobuy') {
+            // Temporary. Says whether kakobuy will list a taobao shop for us at all —
+            // it needs a login token, and a stale one looks exactly like a shop with
+            // nothing in it. Reports the shape, never the token.
+            const shopUrl = `https://shop${tbMatch[1]}.taobao.com/`;
+            const res = await kakobuyShopGoods(ctx.env, shopUrl, 1);
+            const list = res.data?.list || res.data?.goods_list || res.data?.data || null;
+            return jsonResponse({
+                tokenConfigured: kakobuyEnabled(ctx.env),
+                ok: res.ok,
+                msg: res.msg,
+                sealed: res.sealed ?? null,
+                dataKeys: res.data ? Object.keys(res.data).slice(0, 20) : null,
+                count: Array.isArray(list) ? list.length : null,
+                sample: Array.isArray(list) && list[0] ? list[0] : null,
+            }, 0);
+        }
         if (tbMatch) {
             const shopId = tbMatch[1];
             const products = await fetchTaobaoShop(shopId, params.get('name') || null);
