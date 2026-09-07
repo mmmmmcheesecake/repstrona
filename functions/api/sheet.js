@@ -1255,7 +1255,10 @@ export async function onRequest(ctx) {
         const stubs = shopIds.length
             ? (await Promise.all(shopIds.map(id => fetchShopStub(id, data.sellerExtras.get(id))))).map(compact)
             : [];
-        return jsonResponse(stubs, 1800);
+        // Half an hour outlived the sheet itself: the upstream read refreshes every
+        // five minutes, so anything past that was serving staleness to a shop owner
+        // watching for a row they just added.
+        return jsonResponse(stubs, 300);
     }
 
     const deduped = clusterByName(dropKakobuyDuplicates(dedupByLink(groupByImageOrLink(data.products)))).map(compact);

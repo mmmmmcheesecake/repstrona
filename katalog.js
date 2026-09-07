@@ -489,7 +489,7 @@ function mapApiProduct(p) {
 
 async function fetchProducts() {
     const [sheetRes, aiTags, tileImages] = await Promise.all([
-        fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}`),
+        fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}&v=3`),
         fetchTags(),
         fetchTileImages(),
     ]);
@@ -509,7 +509,7 @@ function fetchSellerStubs() {
     if (sellerStubsPromise) return sellerStubsPromise;
     sellerStubsPromise = (async () => {
         try {
-            const r = await fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}&sellers=1`);
+            const r = await fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}&sellers=1&v=3`);
             if (!r.ok) return [];
             const data = await r.json();
             if (!Array.isArray(data)) return [];
