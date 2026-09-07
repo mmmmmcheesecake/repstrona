@@ -27,7 +27,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // Referer (or Origin) every request answers 403 "Open this content through QCItems",
 // which is why QC went blank site-wide. Keep this in step with product.js and
 // visual-search.js, the other two callers.
-const QCITEMS_HEADERS = {
+export const QCITEMS_HEADERS = {
     'User-Agent': UA,
     'Accept': 'application/json',
     'Referer': 'https://qcitems.com/',
@@ -136,7 +136,7 @@ const USFANS_CHANNEL_URL = {
     '3': id => `https://weidian.com/item.html?itemID=${id}`,
 };
 
-function toMarketplaceUrl(raw) {
+export function toMarketplaceUrl(raw) {
     let u;
     try { u = new URL(raw); } catch { return raw; }
 
@@ -270,13 +270,13 @@ function emptyPayload(resolvedUrl, extra) {
 // sit on media.usfans.com, which stayed up through the September qcitems outage, and
 // the same answer carries the measured weight and box size — better shipping data than
 // anything qcitems returns.
-const USFANS_QC_HEADERS = {
+export const USFANS_QC_HEADERS = {
     'User-Agent': UA,
     'Accept': 'application/json',
     'Referer': 'https://usfans.com/'
 };
 
-function weidianItemId(marketplaceUrl) {
+export function weidianItemId(marketplaceUrl) {
     try {
         const u = new URL(marketplaceUrl);
         const h = u.hostname.toLowerCase();

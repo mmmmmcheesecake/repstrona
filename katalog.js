@@ -1078,6 +1078,16 @@ function escapeHtml(s) {
     }[c]));
 }
 
+// Says the item has real photos of the goods behind it, which is the thing shoppers
+// look for first. Drawn rather than typed so it reads at 9px on a phone.
+function qcBadgeHTML() {
+    const label = T('qc.badge', 'QC');
+    return `<span class="card-qc" title="${escapeHtml(T('qc.badgeTitle', 'QC photos available'))}">` +
+        `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.4 4.6 9 10 3.2" fill="none" ` +
+        `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+        `${escapeHtml(label)}</span>`;
+}
+
 function cardHTML(p) {
     const img = getCardImage(p);
     const imgTag = img
@@ -1102,6 +1112,7 @@ function cardHTML(p) {
     <a href="${escapeHtml(detailHref)}" class="product-card" data-key="${escapeHtml(productKey(p))}">
         <div class="card-img ${!img ? 'no-img' : ''}">${imgTag}
             ${p.batch ? `<span class="card-batch ${batchClass(p.batch)}">${escapeHtml(p.batch)}</span>` : ''}
+            ${p.hasQc ? qcBadgeHTML() : ''}
         </div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(p.name)}</p>
@@ -1282,6 +1293,59 @@ function showError(msg) {
 const enrichCache = new Map();
 const enrichPromises = new Map();
 
+// Whether an item has QC photos, asked once per tile and remembered. The answer is
+// cached hard at the edge, so this is usually a hit that never reaches an agent; the
+// copy in localStorage saves even that on a second visit. A day matches what the API
+// promises — a warehouse either photographed an item or it did not, and that changes
+// over days.
+const QC_FLAG_TTL = 24 * 60 * 60 * 1000;
+const qcFlagCache = new Map();
+
+function readQcFlag(link) {
+    if (qcFlagCache.has(link)) return qcFlagCache.get(link);
+    try {
+        const raw = localStorage.getItem(`qcflag:${link}`);
+        if (!raw) return undefined;
+        const { n, t } = JSON.parse(raw);
+        if (!t || Date.now() - t > QC_FLAG_TTL) return undefined;
+        qcFlagCache.set(link, n);
+        return n;
+    } catch { return undefined; }
+}
+
+function writeQcFlag(link, n) {
+    qcFlagCache.set(link, n);
+    // Private windows and blocked site data both throw here; the badge just costs a
+    // fetch next time.
+    try { localStorage.setItem(`qcflag:${link}`, JSON.stringify({ n, t: Date.now() })); } catch {}
+}
+
+async function flagQc(p) {
+    // Seller tiles are yupoo albums, which no QC source can resolve — do not spend a
+    // request per tile finding that out again.
+    if (!p.link || p.isShopStub || p.hasQc || /\.yupoo\.com\//i.test(p.link)) return;
+
+    const cached = readQcFlag(p.link);
+    if (cached !== undefined) {
+        if (cached > 0) { p.hasQc = true; updateCard(p); }
+        return;
+    }
+    let n = null;
+    try {
+        const r = await fetch(`/api/qcflag?url=${encodeURIComponent(p.link)}`);
+        if (!r.ok) return;
+        n = (await r.json()).qc;
+    } catch { return; }
+    // null means nobody could tell us — leave it uncached so the next load asks again.
+    if (typeof n !== 'number') return;
+
+    writeQcFlag(p.link, n);
+    if (n > 0) {
+        p.hasQc = true;
+        updateCard(p);
+    }
+}
+
 async function enrichProduct(p) {
     if (!p.link || p.isShopStub) return;
     const key = p.link;
@@ -1361,6 +1425,9 @@ function updateCard(p) {
         if (priceEl) priceEl.textContent = getDisplayPrice(p);
 
         const imgWrap = card.querySelector('.card-img');
+        if (p.hasQc && imgWrap && !imgWrap.querySelector('.card-qc')) {
+            imgWrap.insertAdjacentHTML('beforeend', qcBadgeHTML());
+        }
         const newImg = getCardImage(p);
         if (imgWrap && newImg) {
             const existing = imgWrap.querySelector('img');
@@ -1381,7 +1448,7 @@ function updateCard(p) {
 
 function setupLazyEnrichment() {
     if (!('IntersectionObserver' in window)) {
-        allProducts.forEach(p => enrichProduct(p));
+        allProducts.forEach(p => { enrichProduct(p); flagQc(p); });
         return;
     }
     const observer = new IntersectionObserver(entries => {
@@ -1389,7 +1456,10 @@ function setupLazyEnrichment() {
             if (!entry.isIntersecting) return;
             const key = entry.target.dataset.key;
             const p = getProductByKey(key);
-            if (p) enrichProduct(p);
+            if (p) {
+                enrichProduct(p);
+                flagQc(p);
+            }
             observer.unobserve(entry.target);
         });
     }, { rootMargin: '300px' });

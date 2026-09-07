@@ -756,6 +756,29 @@ button, input, select { font-family: inherit; color: inherit; }
 .batch-OG  { color: #c08400; }
 .batch-other { color: var(--text-muted); }
 
+/* Positive signal, so it is filled rather than the neutral chip the batch uses. Sits
+   opposite the batch badge so the two never overlap on a narrow tile. */
+.card-qc {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: #15803d;
+    color: #fff;
+}
+.card-qc svg {
+    width: 9px;
+    height: 9px;
+    flex: none;
+}
+
 .card-body {
     padding: 0;
     display: flex;
