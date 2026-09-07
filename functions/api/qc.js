@@ -9,11 +9,13 @@ function jsonError(message, status) {
     });
 }
 
-function jsonOk(body) {
+function jsonOk(body, { store = true } = {}) {
     return new Response(JSON.stringify(body), {
         headers: {
             'content-type': 'application/json',
-            'cache-control': 'public, max-age=600',
+            // An outage answers 200 as well (see onRequest), and parking that for ten
+            // minutes would keep QC dark long after the host came back.
+            'cache-control': store ? 'public, max-age=600' : 'no-store',
             'x-content-type-options': 'nosniff'
         }
     });
@@ -379,7 +381,14 @@ export async function onRequest(ctx) {
         ? [...kako.sets, ...qci.sets.filter(set => set.source !== 'kakobuy')]
         : qci.sets;
 
-    // Only let a qcitems failure speak when it is the whole story.
+    // Only let a qcitems failure speak when it is the whole story. An outage there is
+    // not a rejected link: when their backend is down every /api path answers 502,
+    // ours included, and a 5xx of ours never reaches the browser intact — Cloudflare
+    // swaps it for its own error page, the JSON parse fails and the visitor is told to
+    // try another link over a link that was fine. Only a 4xx means the link itself.
+    if (!sets.length && qci.error && qci.status >= 500) {
+        return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }), { store: false });
+    }
     if (!sets.length && qci.error) return jsonError(qci.error, qci.status);
     if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl));
 
@@ -389,7 +398,7 @@ export async function onRequest(ctx) {
     }));
     // There are photos, we just cannot serve any of them today. Say so instead of
     // claiming the product has no QC.
-    if (!live.length) return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }));
+    if (!live.length) return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }), { store: false });
 
     const totalPhotos = live.reduce((n, s) => n + s.photos.length, 0);
 
