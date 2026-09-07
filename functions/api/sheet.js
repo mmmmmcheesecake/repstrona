@@ -1271,13 +1271,14 @@ export async function onRequest(ctx) {
             // nothing in it. Reports the shape, never the token.
             const shopUrl = `https://shop${tbMatch[1]}.taobao.com/`;
             const res = await kakobuyShopGoods(ctx.env, shopUrl, 1);
-            const list = res.data?.list || res.data?.goods_list || res.data?.data || null;
+            const paging = res.data?.goods_paging;
+            const list = Array.isArray(paging) ? paging : (paging?.list || paging?.data || paging?.records || null);
             return jsonResponse({
                 tokenConfigured: kakobuyEnabled(ctx.env),
                 ok: res.ok,
                 msg: res.msg,
-                sealed: res.sealed ?? null,
-                dataKeys: res.data ? Object.keys(res.data).slice(0, 20) : null,
+                shopInfo: res.data?.shop_info || null,
+                pagingKeys: paging && !Array.isArray(paging) ? Object.keys(paging).slice(0, 20) : null,
                 count: Array.isArray(list) ? list.length : null,
                 sample: Array.isArray(list) && list[0] ? list[0] : null,
             }, 0);
