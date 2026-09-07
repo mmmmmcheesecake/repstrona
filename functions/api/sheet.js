@@ -211,11 +211,31 @@ function parseYupooSubdomain(link) {
     } catch { return null; }
 }
 
+// shop102246172.taobao.com, and the world.taobao.com/shop/... form of the same thing.
+function parseTaobaoShopId(link) {
+    if (!link) return null;
+    try {
+        const u = new URL(link);
+        if (!/(^|\.)taobao\.com$/i.test(u.hostname)) return null;
+        // An item link is not a shop link, whatever subdomain it sits on.
+        if (/\/item(\.htm|\.html|\/)/i.test(u.pathname)) return null;
+
+        const sub = u.hostname.match(/^shop(\d+)\.taobao\.com$/i);
+        if (sub) return sub[1];
+        const numId = u.searchParams.get('user_number_id') || u.searchParams.get('shop_id');
+        if (numId && /^\d+$/.test(numId)) return numId;
+        return null;
+    } catch { return null; }
+}
+
 function parseShopFromLink(link) {
     const weidianId = parseWeidianShopId(link);
     if (weidianId) return weidianId;
     const yupooSub = parseYupooSubdomain(link);
     if (yupooSub) return `yp-${yupooSub}`;
+    const taobaoId = parseTaobaoShopId(link);
+    // Namespaced, or a taobao shop id would be read back as a weidian one.
+    if (taobaoId) return `tb-${taobaoId}`;
     return null;
 }
 
@@ -825,6 +845,144 @@ async function fetchWeidianItemsMeta(shopId) {
     };
 }
 
+// Taobao's own pages answer a server with their login wall, and no agent API we can
+// reach resolves a taobao shop. usfans does: their keyword search takes a shopId on
+// channel 2 and lists the shop anonymously, with English titles, images and prices —
+// the same call their own shop-home page makes.
+//
+// Fixed at 20 per page; asking for more comes back empty. They also cap the reported
+// total at 1000 while paging well past it, so the count they give is not worth
+// repeating and we stop when a short page says the shop ran out.
+const TAOBAO_PAGE_SIZE = 20;
+const TAOBAO_MAX_PAGES = 15;
+
+async function fetchTaobaoShopPage(shopId, pageNum) {
+    let r;
+    try {
+        r = await fetch('https://usfans.com/api/goods/search/keyword', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': WEIDIAN_UA,
+                'Referer': 'https://usfans.com/'
+            },
+            body: JSON.stringify({ channel: 2, shopId: String(shopId), pageNum, pageSize: TAOBAO_PAGE_SIZE }),
+            cf: { cacheTtlByStatus: { '200-299': 1800, '300-599': 0 }, cacheEverything: true },
+        });
+    } catch { return null; }
+    if (!r.ok) return null;
+
+    let data;
+    try { data = await r.json(); } catch { return null; }
+    if (data?.code !== 200) return null;
+    return Array.isArray(data?.data?.records) ? data.data.records : [];
+}
+
+async function fetchTaobaoShopItems(shopId) {
+    // One round trip to usfans runs half a second to two seconds from the edge, so
+    // fifteen of them in a row would be a fifteen-second click. Ask for the first page
+    // alone — it says whether the shop answers at all — then the rest at once.
+    const first = await fetchTaobaoShopPage(shopId, 1);
+    if (!first || first.length < TAOBAO_PAGE_SIZE) return first || [];
+
+    const rest = await Promise.all(
+        Array.from({ length: TAOBAO_MAX_PAGES - 1 }, (_, i) => fetchTaobaoShopPage(shopId, i + 2))
+    );
+
+    const items = [...first];
+    for (const page of rest) {
+        // A refusal reads the same as the end of the shop from here; either way there
+        // is nothing after it worth keeping in order.
+        if (!page || !page.length) break;
+        items.push(...page);
+    }
+    return items;
+}
+
+// img.alicdn.com refuses a hotlink carrying a replug24 Referer, so these have to go
+// through the proxy, which sends none.
+function proxyAlicdnImage(url) {
+    if (!url) return url;
+    try {
+        const u = new URL(url);
+        if (!/\.alicdn\.com$/i.test(u.hostname)) return url;
+        return `/api/qcimg?u=${b64urlEncode(url)}`;
+    } catch { return url; }
+}
+
+function taobaoItemToProduct(item, shopId, shopName) {
+    const name = (item?.title || '').replace(/\s+/g, ' ').trim();
+    if (!name || !item?.goodsId) return null;
+
+    // priceCurrency is their conversion to the session currency (USD for us); price is
+    // the yuan figure. Prefer theirs, fall back to our own rate.
+    const usdDirect = Number(item.priceCurrency);
+    const cny = Number(item.price);
+    const usd = isFinite(usdDirect) && usdDirect > 0
+        ? Math.round(usdDirect)
+        : (isFinite(cny) && cny > 0 ? Math.round(cny / CNY_PER_USD) : null);
+
+    const img = proxyAlicdnImage(item.image || '');
+    const bm = yupooBrandModel(name);
+
+    return {
+        name,
+        batch: '',
+        // usfans is where these are bought: they are the only agent that resolves the
+        // item at all, and the id here is their own token, not a taobao number.
+        link: `https://usfans.com/product/2/${item.goodsId}?ref=MGRSBE`,
+        price: usd != null ? `$${usd}` : '',
+        livePrice: usd,
+        image: img,
+        description: '',
+        budgetLink: null,
+        categoryOverride: 'Sellers',
+        brandOverride: bm.brand,
+        modelOverride: bm.model,
+        imageOverride: img || null,
+        tileImage: null,
+        shopId: `tb-${shopId}`,
+        shopName: shopName || null,
+        yupooAlbumUrl: null,
+    };
+}
+
+async function fetchTaobaoShop(shopId, shopName) {
+    const items = await fetchTaobaoShopItems(shopId);
+    const out = [];
+    for (const it of items) {
+        const p = taobaoItemToProduct(it, shopId, shopName);
+        if (p) out.push(p);
+    }
+    return out;
+}
+
+async function fetchTaobaoStub(shopId, extras) {
+    const first = await fetchTaobaoShopPage(shopId, 1);
+    const cover = extras?.image
+        || proxyAlicdnImage((first || []).find(i => i?.image)?.image || '')
+        || null;
+    // Their total is capped at 1000 for every shop, so it says nothing; the card falls
+    // back to "view shop" when there is no count.
+    const shopName = extras?.name || `Shop ${shopId}`;
+
+    return {
+        name: shopName,
+        link: `https://shop${shopId}.taobao.com/`,
+        image: cover || '',
+        imageOverride: cover || null,
+        description: extras?.description || null,
+        categoryOverride: 'Sellers',
+        brandOverride: 'Other',
+        modelOverride: 'Other',
+        shopId: `tb-${shopId}`,
+        shopName,
+        productCount: null,
+        isShopStub: true,
+    };
+}
+
 async function fetchWeidianStub(shopId, extras) {
     const meta = await fetchWeidianShopMeta(shopId);
     const shopName = meta?.name || `Shop ${shopId}`;
@@ -881,6 +1039,8 @@ async function fetchYupooStub(subdomain, extras) {
 function fetchShopStub(shopId, extras) {
     const ypMatch = shopId.match(/^yp-([a-zA-Z0-9-]+)$/);
     if (ypMatch) return fetchYupooStub(ypMatch[1], extras);
+    const tbMatch = shopId.match(/^tb-(\d+)$/);
+    if (tbMatch) return fetchTaobaoStub(tbMatch[1], extras);
     return fetchWeidianStub(shopId, extras);
 }
 
@@ -991,13 +1151,17 @@ async function readSheet(apiKey, gender) {
         const name = (get(0).formattedValue || '').trim();
         const link = get(2).hyperlink || null;
         if (!link) continue;
-        if (!name) {
+        // A row with no name is a shop row. A taobao shop link is one too even when it
+        // is named — no taobao product link looks like this, and the name saves the
+        // card from reading "Shop 102246172", which is all their API would give us.
+        const taobaoShopId = parseTaobaoShopId(link);
+        if (!name || taobaoShopId) {
             const shopId = parseShopFromLink(link);
             if (shopId) {
                 shopIds.add(shopId);
                 const image = cleanCellError(get(4).hyperlink || (get(4).formattedValue || '').trim()) || null;
                 const description = (get(5).formattedValue || '').trim() || null;
-                if (image || description) sellerExtras.set(shopId, { image, description });
+                if (image || description || name) sellerExtras.set(shopId, { image, description, name: name || null });
             }
             continue;
         }
@@ -1038,6 +1202,14 @@ export async function onRequest(ctx) {
         if (ypMatch) {
             const { products, reachable } = await fetchYupooShop(ypMatch[1]);
             if (!reachable) return upstreamUnavailable();
+            return jsonResponse(products.map(compact), 300);
+        }
+        const tbMatch = shopParam.match(/^tb-(\d+)$/);
+        if (tbMatch) {
+            const products = await fetchTaobaoShop(tbMatch[1], params.get('name') || null);
+            // usfans turns away a share of what the edge sends them, and an empty shop
+            // here is far more likely to be that than a shop with nothing in it.
+            if (!products.length) return upstreamUnavailable();
             return jsonResponse(products.map(compact), 300);
         }
     }
