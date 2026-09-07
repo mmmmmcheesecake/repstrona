@@ -867,7 +867,8 @@ async function fetchWeidianItemsMeta(shopId) {
 // total at 1000 while paging well past it, so the count they give is not worth
 // repeating and we stop when a short page says the shop ran out.
 const TAOBAO_PAGE_SIZE = 20;
-const TAOBAO_MAX_PAGES = 15;
+const TAOBAO_MAX_PAGES = 6;
+const TAOBAO_PAGE_GAP_MS = 600;
 
 async function fetchTaobaoShopPage(shopId, pageNum) {
     let r;
@@ -888,27 +889,29 @@ async function fetchTaobaoShopPage(shopId, pageNum) {
 
     let data;
     try { data = await r.json(); } catch { return null; }
+    // 90000 is their abuse guard. It is what a burst earns, and it lands on every page
+    // of that burst including the first, which is how this endpoint looked "blocked
+    // from the edge" when it was only answering our own rudeness.
+    if (data?.code === 90000) return 'risk';
     if (data?.code !== 200) return null;
     return Array.isArray(data?.data?.records) ? data.data.records : [];
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function fetchTaobaoShopItems(shopId) {
-    // One round trip to usfans runs half a second to two seconds from the edge, so
-    // fifteen of them in a row would be a fifteen-second click. Ask for the first page
-    // alone — it says whether the shop answers at all — then the rest at once.
-    const first = await fetchTaobaoShopPage(shopId, 1);
-    if (!first || first.length < TAOBAO_PAGE_SIZE) return first || [];
-
-    const rest = await Promise.all(
-        Array.from({ length: TAOBAO_MAX_PAGES - 1 }, (_, i) => fetchTaobaoShopPage(shopId, i + 2))
-    );
-
-    const items = [...first];
-    for (const page of rest) {
-        // A refusal reads the same as the end of the shop from here; either way there
-        // is nothing after it worth keeping in order.
-        if (!page || !page.length) break;
-        items.push(...page);
+    // One page at a time, with a pause. Asking for all of them at once earns `90000
+    // search risk error` on every page and leaves the address refused for a long while
+    // afterwards — measured from a browser, and the reason this looked like an edge
+    // block from here. A cold listing costs a handful of seconds; the answer is cached
+    // at the edge, so only the first visitor waits.
+    const items = [];
+    for (let page = 1; page <= TAOBAO_MAX_PAGES; page++) {
+        const records = await fetchTaobaoShopPage(shopId, page);
+        if (!records || records === 'risk' || !records.length) break;
+        items.push(...records);
+        if (records.length < TAOBAO_PAGE_SIZE) break;
+        if (page < TAOBAO_MAX_PAGES) await sleep(TAOBAO_PAGE_GAP_MS);
     }
     return items;
 }
@@ -972,8 +975,9 @@ async function fetchTaobaoShop(shopId, shopName) {
 
 async function fetchTaobaoStub(shopId, extras) {
     const first = await fetchTaobaoShopPage(shopId, 1);
+    const records = Array.isArray(first) ? first : [];
     const cover = extras?.image
-        || proxyAlicdnImage((first || []).find(i => i?.image)?.image || '')
+        || proxyAlicdnImage(records.find(i => i?.image)?.image || '')
         || null;
     // Their total is capped at 1000 for every shop, so it says nothing; the card falls
     // back to "view shop" when there is no count.
