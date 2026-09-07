@@ -138,6 +138,15 @@ function cleanCellError(s) {
     return s;
 }
 
+// A link column is normally a real hyperlink, but a URL pasted as plain text — or
+// pasted into a cell formatted as text — never becomes one, and the row then vanishes
+// from the site with nothing anywhere to say why. Read the text when it is a URL.
+function cellLink(cell) {
+    if (cell?.hyperlink) return cell.hyperlink;
+    const text = cleanCellError((cell?.formattedValue || '').trim());
+    return /^https?:\/\/\S+$/i.test(text) ? text : null;
+}
+
 // Column N ("featured_items"): any non-empty, non-falsey mark means featured.
 function isFeatured(v) {
     const s = String(v || '').trim().toLowerCase();
@@ -1148,7 +1157,7 @@ async function readSheet(apiKey, gender) {
         if (isHeader) { isHeader = false; continue; }
         const get = (i) => cells[i] || {};
         const name = (get(0).formattedValue || '').trim();
-        const link = get(2).hyperlink || null;
+        const link = cellLink(get(2));
         if (!link) continue;
         // A row with no name is a shop row. A taobao shop link is one too even when it
         // is named — no taobao product link looks like this, and the name saves the
@@ -1171,7 +1180,7 @@ async function readSheet(apiKey, gender) {
             price:       (get(3).formattedValue || '').trim(),
             image:       cleanCellError(get(4).hyperlink || (get(4).formattedValue || '').trim()) || '',
             description: (get(5).formattedValue || '').trim(),
-            budgetLink:  normalizeRef(get(6).hyperlink) || null,
+            budgetLink:  normalizeRef(cellLink(get(6))) || null,
             categoryOverride: (get(7).formattedValue || '').trim() || null,
             brandOverride:    (get(8).formattedValue || '').trim() || null,
             modelOverride:    (get(9).formattedValue || '').trim() || null,

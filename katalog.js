@@ -1268,6 +1268,7 @@ function renderSellerTiles() {
     empty.style.display = 'none';
     grid.style.display = 'grid';
     grid.innerHTML = sellers.map(sellerCardHTML).join('');
+    fillTaobaoCovers(sellers, grid);
 
     grid.querySelectorAll('.seller-card').forEach(el => {
         const go = () => selectSeller(el.dataset.shop);
@@ -1276,6 +1277,39 @@ function renderSellerTiles() {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
         });
     });
+}
+
+// The worker builds every other seller card with a cover, but a taobao one cannot: the
+// only source is usfans and they refuse the Cloudflare edge outright. Ask from here,
+// once per shop, and drop the first product photo into the card.
+const taobaoCoverCache = new Map();
+
+function fillTaobaoCovers(sellers, grid) {
+    for (const s of sellers) {
+        if (s.cover || !/^tb-\d+$/.test(s.shopId || '')) continue;
+
+        let promise = taobaoCoverCache.get(s.shopId);
+        if (!promise) {
+            promise = usfansShopPage(s.shopId.replace(/^tb-/, ''), 1)
+                .then(records => proxyAlicdn((records || []).find(r => r?.image)?.image || ''))
+                .catch(() => '');
+            taobaoCoverCache.set(s.shopId, promise);
+        }
+        promise.then(cover => {
+            if (!cover) return;
+            s.cover = cover;
+            const card = grid.querySelector(`.seller-card[data-shop="${CSS.escape(s.shopId)}"]`);
+            const wrap = card && card.querySelector('.card-img');
+            if (!wrap || wrap.querySelector('img')) return;
+            wrap.classList.remove('no-img');
+            const img = document.createElement('img');
+            img.src = cover;
+            img.alt = s.shopName || '';
+            img.loading = 'lazy';
+            img.onerror = function () { wrap.classList.add('no-img'); this.remove(); };
+            wrap.prepend(img);
+        });
+    }
 }
 
 function ensureSellerBack() {
