@@ -264,6 +264,105 @@ function emptyPayload(resolvedUrl, extra) {
     };
 }
 
+// usfans hands out the QC photos its own warehouse took, through the endpoint that
+// estimates shipping — no login, no signature, no points. Two thirds of the weidian
+// catalogue has a set (measured: 19 of 30 sampled items, 4-6 photos each), the photos
+// sit on media.usfans.com, which stayed up through the September qcitems outage, and
+// the same answer carries the measured weight and box size — better shipping data than
+// anything qcitems returns.
+const USFANS_QC_HEADERS = {
+    'User-Agent': UA,
+    'Accept': 'application/json',
+    'Referer': 'https://usfans.com/'
+};
+
+function weidianItemId(marketplaceUrl) {
+    try {
+        const u = new URL(marketplaceUrl);
+        const h = u.hostname.toLowerCase();
+        if (h !== 'weidian.com' && !h.endsWith('.weidian.com')) return null;
+        // Shops that sell by offerId keep it in goodsId upstream too, so either id works.
+        const id = u.searchParams.get('itemID') || u.searchParams.get('itemId') || u.searchParams.get('offerId');
+        return id && /^\d+$/.test(id) ? id : null;
+    } catch { return null; }
+}
+
+// media.usfans.com is Alibaba OSS and the frames are ~4 MB each — twenty of those is a
+// 90 MB page. Ask OSS for the width we are about to draw: 4.4 MB drops to 85 KB for a
+// tile and 800 KB for the lightbox, which is still more detail than a screen shows.
+function ossWidth(url, width) {
+    return `${url}${url.includes('?') ? '&' : '?'}x-oss-process=image/resize,w_${width}`;
+}
+
+// The path carries the day the warehouse shot it: /2026/08/29/163539/uuid.jpg.
+function usfansPhotoDate(url) {
+    const m = url.match(/\/(20\d{2})\/(\d{2})\/(\d{2})\//);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
+function usfansPhoto(raw) {
+    if (typeof raw !== 'string' || !/^https:\/\//i.test(raw)) return null;
+    return {
+        url: proxyImage(ossWidth(raw, 1600)),
+        thumb: proxyImage(ossWidth(raw, 400)),
+        origin: raw,
+        timestamp: usfansPhotoDate(raw)
+    };
+}
+
+function usfansInfo(d) {
+    const out = {};
+    for (const key of ['weight', 'length', 'width', 'height', 'avgArrivalDays']) {
+        const v = d?.[key];
+        if (typeof v === 'number' && v > 0) out[key] = v;
+    }
+    return Object.keys(out).length ? out : null;
+}
+
+async function usfansSets(marketplaceUrl) {
+    const itemId = weidianItemId(marketplaceUrl);
+    if (!itemId) return { sets: [], info: null, itemId: null, answered: true };
+
+    const miss = { sets: [], info: null, itemId, answered: false };
+    let r;
+    try {
+        r = await fetch(`https://usfans.com/api/goods/estimate-info?channel=3&goodsId=${itemId}`, {
+            headers: USFANS_QC_HEADERS,
+            cf: { cacheTtlByStatus: { '200-299': 600, '300-599': 0 }, cacheEverything: true }
+        });
+    } catch { return miss; }
+    // usfans turns away a large share of what the Cloudflare edge sends it, answering
+    // 503 with their own block page. Nothing to be done from here — report that we got
+    // no answer and let the page ask again from the visitor's own address, which their
+    // CORS allows by name.
+    if (!r.ok) return miss;
+
+    let data;
+    try { data = await r.json(); } catch { return miss; }
+    if (data?.code !== 200 || !data?.data) return miss;
+
+    const photos = (Array.isArray(data.data.qcImages) ? data.data.qcImages : [])
+        .map(usfansPhoto)
+        .filter(Boolean);
+
+    return {
+        sets: photos.length
+            ? [{ source: 'usfans', sourceLabel: SOURCE_LABEL.usfans, name: `${SOURCE_LABEL.usfans} QC`, photos }]
+            : [],
+        info: usfansInfo(data.data),
+        itemId,
+        answered: true
+    };
+}
+
+// usfans measured the item; qcitems reports what it scraped. Where both speak, the
+// measurement wins — the weight qcitems returns has been wrong often enough to throw
+// off the shipping estimate.
+function mergeInfo(qciInfo, usfInfo) {
+    if (!qciInfo && !usfInfo) return null;
+    return { ...(qciInfo || {}), ...(usfInfo || {}) };
+}
+
 // The owner buys taobao and 1688 through kakobuy, so for those we ask kakobuy for the
 // QC first and let qcitems fill in around it. Dormant as it stands: their item
 // endpoint answers 500 to anything that is not their own site — from the edge, with or
@@ -370,16 +469,29 @@ export async function onRequest(ctx) {
     // exactly like "this item has no QC" from the outside.
     // Both at once: kakobuy is the source we want for taobao and 1688, but qcitems
     // still carries the other agents' sets, and either one can come back empty.
-    const [kako, qci] = await Promise.all([
+    const [kako, qci, usf] = await Promise.all([
         askKakobuy ? kakobuySets(ctx.env, marketplaceUrl) : Promise.resolve({ sets: [], info: null, msg: null }),
-        qcitemsSets(marketplaceUrl)
+        qcitemsSets(marketplaceUrl),
+        usfansSets(marketplaceUrl)
     ]);
 
-    // kakobuy's own sets stand in for the copies qcitems mirrors from them, so nobody
-    // scrolls the same photos twice; USFans, ACBuy, UUfinds and CNFans follow below.
-    const sets = kako.sets.length
-        ? [...kako.sets, ...qci.sets.filter(set => set.source !== 'kakobuy')]
-        : qci.sets;
+    // Photos we fetched ourselves stand in for the copies qcitems mirrors from the same
+    // agent, so nobody scrolls the same set twice. kakobuy goes by source, since their
+    // photos carry different URLs upstream; usfans goes by URL, because their sets and
+    // ours are literally the same files on media.usfans.com — matching on source alone
+    // would throw away the shots from other buyers' orders that qcitems does have.
+    const mine = new Set(usf.sets.flatMap(set => set.photos.map(p => p.origin)));
+    const qciSets = qci.sets
+        .filter(set => !(kako.sets.length && set.source === 'kakobuy'))
+        .map(set => ({ ...set, photos: set.photos.filter(p => !mine.has(p.origin)) }))
+        .filter(set => set.photos.length);
+
+    // Ours first: they are the item this shop actually sends people to buy, and they
+    // are the ones still standing when qcitems is down.
+    const sets = [...kako.sets, ...usf.sets, ...qciSets];
+
+    // Told to the page so it can ask usfans itself when the edge got turned away.
+    const usfansHint = { usfansItemId: usf.itemId, usfansPending: !usf.answered };
 
     // Only let a qcitems failure speak when it is the whole story. An outage there is
     // not a rejected link: when their backend is down every /api path answers 502,
@@ -387,26 +499,29 @@ export async function onRequest(ctx) {
     // swaps it for its own error page, the JSON parse fails and the visitor is told to
     // try another link over a link that was fine. Only a 4xx means the link itself.
     if (!sets.length && qci.error && qci.status >= 500) {
-        return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }), { store: false });
+        return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true, ...usfansHint }), { store: false });
     }
-    if (!sets.length && qci.error) return jsonError(qci.error, qci.status);
-    if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl));
+    // A link qcitems rejects can still be one usfans knows, so only let the error stand
+    // when we have nothing else to offer and nothing else to try.
+    if (!sets.length && qci.error && !usfansHint.usfansPending) return jsonError(qci.error, qci.status);
+    if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl, usfansHint), { store: !usfansHint.usfansPending });
 
     const live = (await reachableSets(sets)).map(set => ({
         ...set,
-        photos: set.photos.map(({ url, timestamp }) => ({ url, timestamp }))
+        photos: set.photos.map(({ url, thumb, timestamp }) => ({ url, thumb, timestamp }))
     }));
     // There are photos, we just cannot serve any of them today. Say so instead of
     // claiming the product has no QC.
-    if (!live.length) return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true }), { store: false });
+    if (!live.length) return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true, ...usfansHint }), { store: false });
 
     const totalPhotos = live.reduce((n, s) => n + s.photos.length, 0);
 
     return jsonOk({
         productId: qci.productId || null,
         marketplace: qci.marketplace || source || null,
-        info: qci.info || null,
+        info: mergeInfo(qci.info, usf.info),
         sets: live,
+        ...usfansHint,
         totalPhotos,
         sources: [...new Set(live.map(s => s.sourceLabel))],
         // Only set for yupoo albums: the marketplace item the album mirrors, so the QC

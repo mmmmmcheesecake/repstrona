@@ -14,6 +14,10 @@ const results = document.getElementById('qcResults');
 let lastQuery = '';
 let allPhotos = [];
 let lightboxIdx = -1;
+let setCount = 0;
+// The "open at agent" button is appended once and stays last: sets that arrive after
+// it — usfans answering the browser directly — slot in above it.
+let fallbackEl = null;
 
 function setStatus(text, kind) {
     status.textContent = text || '';
@@ -23,6 +27,8 @@ function setStatus(text, kind) {
 function clearResults() {
     results.innerHTML = '';
     allPhotos = [];
+    setCount = 0;
+    fallbackEl = null;
 }
 
 function fmtDate(ts) {
@@ -85,6 +91,7 @@ function appendUsfansFallback(rawInput) {
     if (!link) return;
     const wrap = document.createElement('div');
     wrap.className = 'qc-fallback';
+    fallbackEl = wrap;
     const a = document.createElement('a');
     a.href = link;
     a.target = '_blank';
@@ -175,84 +182,147 @@ function updateCount() {
     setStatus(T('qc.results', `${n} QC photos`, { n }), 'ok');
 }
 
+function renderSet(set) {
+    const n = ++setCount;
+    const block = document.createElement('section');
+    block.className = 'qc-set';
+
+    const header = document.createElement('div');
+    header.className = 'qc-set-header';
+    const title = document.createElement('span');
+    title.className = 'qc-set-title';
+    title.textContent = T('qc.setName', `QC Photos set #${n}`, { n });
+    header.appendChild(title);
+    // Whose warehouse shot these. Worth saying now that sets come from more than one
+    // place: usfans we fetch ourselves, the rest arrive through qcitems.
+    if (set.sourceLabel) {
+        const src = document.createElement('span');
+        src.className = 'qc-set-source';
+        src.textContent = set.sourceLabel;
+        header.appendChild(src);
+    }
+    block.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'qc-grid';
+    set.photos.forEach(p => {
+        const photo = { url: p.url, broken: false };
+        const flatIdx = allPhotos.length;
+        allPhotos.push(photo);
+
+        const tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'qc-tile';
+        tile.addEventListener('click', () => openLightbox(flatIdx));
+
+        const img = document.createElement('img');
+        // A tile-sized copy where the source can make one; the full frame waits for the
+        // lightbox. usfans serves 4 MB originals, and twenty of those is not a page.
+        img.src = p.thumb || p.url;
+        img.loading = 'lazy';
+        img.alt = '';
+        img.draggable = false;
+        img.addEventListener('error', () => {
+            // A photo that fails here means its host stopped serving it — the whole
+            // set usually goes at once. Take the tile out instead of leaving a grid
+            // of warning marks, take the set out when nothing is left in it, and let
+            // the count say what actually loaded.
+            console.warn('[qc] image failed:', img.src);
+            photo.broken = true;
+            tile.remove();
+            if (!grid.children.length) block.remove();
+            updateCount();
+        });
+        img.addEventListener('contextmenu', e => e.preventDefault());
+        tile.appendChild(img);
+
+        const date = fmtDate(p.timestamp);
+        if (date) {
+            const cap = document.createElement('span');
+            cap.className = 'qc-tile-date';
+            cap.textContent = date;
+            tile.appendChild(cap);
+        }
+        grid.appendChild(tile);
+    });
+    block.appendChild(grid);
+    if (fallbackEl) results.insertBefore(block, fallbackEl);
+    else results.appendChild(block);
+}
+
+function qcimg(url) {
+    try {
+        const b64 = btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return `/api/qcimg?u=${b64}`;
+    } catch { return url; }
+}
+
+// media.usfans.com is Alibaba OSS, so it can hand back the size we are about to draw.
+function ossWidth(url, w) {
+    return `${url}${url.includes('?') ? '&' : '?'}x-oss-process=image/resize,w_${w}`;
+}
+
+// The worker asks usfans from the Cloudflare edge, and usfans turns a large share of
+// that away with their own block page. Their CORS names replug24, so the visitor's own
+// browser gets an answer where the edge did not — and these are the photos that stay
+// up when qcitems is down. Only runs when the worker says it came back empty-handed.
+async function appendUsfansQc(itemId, forQuery) {
+    let payload;
+    try {
+        const r = await fetch(`https://usfans.com/api/goods/estimate-info?channel=3&goodsId=${encodeURIComponent(itemId)}`);
+        if (!r.ok) return;
+        payload = await r.json();
+    } catch (e) {
+        console.warn('[qc] usfans direct failed', e);
+        return;
+    }
+    // The visitor asked about something else while this was in flight.
+    if (lastQuery !== forQuery) return;
+
+    const d = payload && payload.code === 200 ? payload.data : null;
+    const photos = (d && Array.isArray(d.qcImages) ? d.qcImages : [])
+        .filter(u => typeof u === 'string' && /^https:\/\//i.test(u))
+        .map(u => ({
+            url: qcimg(ossWidth(u, 1600)),
+            thumb: qcimg(ossWidth(u, 400)),
+            // The path carries the day the warehouse shot it: /2026/08/29/163539/….
+            timestamp: (u.match(/\/(20\d{2})\/(\d{2})\/(\d{2})\//) || []).slice(1, 4).join('-') || null
+        }));
+    if (!photos.length) return;
+
+    renderSet({ source: 'usfans', sourceLabel: 'USFans', photos });
+    // Their answer carries the measured weight and box size too, which is what the
+    // shipping line reads — show it if qcitems gave us nothing to show.
+    if (!results.querySelector('.qc-info')) {
+        const info = renderInfo(d);
+        if (info) results.insertBefore(info, results.firstChild);
+    }
+    updateCount();
+}
+
 function renderResponse(data, rawInput) {
     clearResults();
     const sets = data.sets || [];
     // A yupoo album is not a link any agent opens; the API hands back the marketplace
     // item it mirrors, which is what the fallback button has to point at.
     const linkSource = /^https:\/\//i.test(data.resolvedUrl || '') ? data.resolvedUrl : rawInput;
-    if (!sets.length) {
+
+    if (sets.length) {
+        setStatus(T('qc.results', `${data.totalPhotos} QC photos`, { n: data.totalPhotos }), 'ok');
+        const info = renderInfo(data.info);
+        if (info) results.appendChild(info);
+        sets.forEach(renderSet);
+    } else {
         // The API sets `unavailable` when it found photos but their host refused to
         // serve them — a different thing from a product nobody has QC'd yet.
         setStatus(data.unavailable
             ? T('qc.unavailable', 'QC photos are temporarily unavailable — the site hosting them is not responding.')
             : T('qc.empty', 'No QC photos found for this product yet.'), 'empty');
-        appendUsfansFallback(linkSource);
-        return;
     }
-    setStatus(T('qc.results', `${data.totalPhotos} QC photos`, { n: data.totalPhotos }), 'ok');
-
-    const info = renderInfo(data.info);
-    if (info) results.appendChild(info);
-
-    sets.forEach((set, i) => {
-        const n = i + 1;
-        const block = document.createElement('section');
-        block.className = 'qc-set';
-
-        const header = document.createElement('div');
-        header.className = 'qc-set-header';
-        const title = document.createElement('span');
-        title.className = 'qc-set-title';
-        title.textContent = T('qc.setName', `QC Photos set #${n}`, { n });
-        header.appendChild(title);
-        block.appendChild(header);
-
-        const grid = document.createElement('div');
-        grid.className = 'qc-grid';
-        set.photos.forEach(p => {
-            const photo = { url: p.url, broken: false };
-            const flatIdx = allPhotos.length;
-            allPhotos.push(photo);
-
-            const tile = document.createElement('button');
-            tile.type = 'button';
-            tile.className = 'qc-tile';
-            tile.addEventListener('click', () => openLightbox(flatIdx));
-
-            const img = document.createElement('img');
-            img.src = p.url;
-            img.loading = 'lazy';
-            img.alt = '';
-            img.draggable = false;
-            img.addEventListener('error', () => {
-                // A photo that fails here means its host stopped serving it — the whole
-                // set usually goes at once. Take the tile out instead of leaving a grid
-                // of warning marks, take the set out when nothing is left in it, and let
-                // the count say what actually loaded.
-                console.warn('[qc] image failed:', p.url);
-                photo.broken = true;
-                tile.remove();
-                if (!grid.children.length) block.remove();
-                updateCount();
-            });
-            img.addEventListener('contextmenu', e => e.preventDefault());
-            tile.appendChild(img);
-
-            const date = fmtDate(p.timestamp);
-            if (date) {
-                const cap = document.createElement('span');
-                cap.className = 'qc-tile-date';
-                cap.textContent = date;
-                tile.appendChild(cap);
-            }
-            grid.appendChild(tile);
-        });
-        block.appendChild(grid);
-        results.appendChild(block);
-    });
 
     appendUsfansFallback(linkSource);
+
+    if (data.usfansPending && data.usfansItemId) appendUsfansQc(data.usfansItemId, rawInput);
 }
 
 async function runCheck(url) {
