@@ -142,9 +142,13 @@ function cleanCellError(s) {
 // pasted into a cell formatted as text — never becomes one, and the row then vanishes
 // from the site with nothing anywhere to say why. Read the text when it is a URL.
 function cellLink(cell) {
-    if (cell?.hyperlink) return cell.hyperlink;
     const text = cleanCellError((cell?.formattedValue || '').trim());
-    return /^https?:\/\/\S+$/i.test(text) ? text : null;
+    // A cell keeps the hyperlink it was given even after its text is replaced, so a URL
+    // typed over an old link leaves the two disagreeing and the sheet showing one thing
+    // while the site reads another. What is on screen is what the person meant. A cell
+    // whose text is a label rather than a URL still goes by its hyperlink.
+    if (/^https?:\/\/\S+$/i.test(text)) return text;
+    return cell?.hyperlink || null;
 }
 
 // Column N ("featured_items"): any non-empty, non-falsey mark means featured.
@@ -1151,10 +1155,11 @@ async function readSheet(apiKey, gender) {
     const products = [];
     const shopIds = new Set();
     const sellerExtras = new Map();
-    // Rows the walk drops, reported by ?debug=1. A row that vanishes from the site
-    // otherwise leaves no trace of why, which is how a shop can sit in the sheet for
-    // days looking like a bug in the shop code.
-    const skipped = { noLink: 0, noLinkButNamed: [], unparsedShopLink: [] };
+    // Counted for ?debug=1: a row the walk drops leaves no trace of why anywhere, which
+    // is how a shop can sit in the sheet for days looking like a bug in the shop code.
+    // The count alone locates the problem; the rows themselves are not ours to publish
+    // on an endpoint anyone can read.
+    let skippedNoLink = 0;
     let isHeader = hasHeaderRow;
     for (const row of rows) {
         const cells = row.values ?? [];
@@ -1163,9 +1168,7 @@ async function readSheet(apiKey, gender) {
         const name = (get(0).formattedValue || '').trim();
         const link = cellLink(get(2));
         if (!link) {
-            const text = (get(2).formattedValue || '').trim();
-            skipped.noLink++;
-            if (text) skipped.noLinkButNamed.push(`${name || '(bez nazwy)'} :: ${text.slice(0, 60)}`);
+            skippedNoLink++;
             continue;
         }
         // A row with no name is a shop row. A taobao shop link is one too even when it
@@ -1174,7 +1177,6 @@ async function readSheet(apiKey, gender) {
         const taobaoShopId = parseTaobaoShopId(link);
         if (!name || taobaoShopId) {
             const shopId = parseShopFromLink(link);
-            if (!shopId) skipped.unparsedShopLink.push(link.slice(0, 80));
             if (shopId) {
                 shopIds.add(shopId);
                 const image = cleanCellError(get(4).hyperlink || (get(4).formattedValue || '').trim()) || null;
@@ -1199,7 +1201,7 @@ async function readSheet(apiKey, gender) {
             featured:         isFeatured(get(13).formattedValue),
         });
     }
-    return { products, shopIds: [...shopIds], sellerExtras, skipped };
+    return { products, shopIds: [...shopIds], sellerExtras, skippedNoLink };
 }
 
 export async function onRequest(ctx) {
@@ -1243,8 +1245,8 @@ export async function onRequest(ctx) {
             gender,
             ok: Boolean(data),
             products: data ? data.products.length : 0,
-            shopIds: data ? data.shopIds : [],
-            skipped: data ? data.skipped : null,
+            shops: data ? data.shopIds.length : 0,
+            skippedNoLink: data ? data.skippedNoLink : null,
             sheetsError: lastSheetsError,
         }, 0);
     }
