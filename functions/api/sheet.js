@@ -996,7 +996,84 @@ async function storeTaobaoListing(shopId, products) {
     } catch {}
 }
 
-async function fetchTaobaoShop(shopId, shopName) {
+// kakobuy lists the same shop through the endpoint their own shop page calls, and it
+// is the better source of the two: no per-address search guard, real pagination, and
+// the item links come out pointing at the agent this shop actually sends taobao buyers
+// to, with the owner's affiliate code on them. The one thing it does worse is names —
+// they come back in Chinese, where usfans returns English — so they go through the same
+// glossary the weidian shops use.
+const KAKOBUY_PAGE_GAP_MS = 300;
+
+async function fetchKakobuyShopPage(env, shopId, page) {
+    const res = await kakobuyShopGoods(env, `https://shop${shopId}.taobao.com/`, page);
+    if (!res.ok) return null;
+    const paging = res.data?.goods_paging;
+    if (!paging) return null;
+    return {
+        items: Array.isArray(paging.data) ? paging.data : [],
+        total: Number(paging.total) || null,
+        lastPage: Number(paging.last_page) || null,
+    };
+}
+
+function kakobuyShopItemToProduct(item, shopId, shopName) {
+    const raw = String(item?.goodsname || '').replace(/\s+/g, ' ').trim();
+    // Keep the Chinese title when the glossary has nothing to say: an item with no name
+    // is dropped, and a shop that drops most of its items reads as a broken shop.
+    const name = weidianDisplayName(raw) || raw;
+    const marketplaceUrl = item?.goodsurl;
+    if (!name || !marketplaceUrl) return null;
+
+    const cny = Number(item.goodsprice);
+    const usd = isFinite(cny) && cny > 0 ? Math.round(cny / CNY_PER_USD) : null;
+    const img = proxyAlicdnImage(item.goodsimg || '');
+    const bm = yupooBrandModel(name);
+
+    return {
+        name,
+        batch: '',
+        link: `https://www.kakobuy.com/item/details?url=${encodeURIComponent(marketplaceUrl)}` +
+            `&affcode=5zj3z&am_redirect=true`,
+        price: usd != null ? `$${usd}` : '',
+        livePrice: usd,
+        image: img,
+        description: '',
+        budgetLink: null,
+        categoryOverride: 'Sellers',
+        brandOverride: bm.brand,
+        modelOverride: bm.model,
+        imageOverride: img || null,
+        tileImage: null,
+        shopId: `tb-${shopId}`,
+        shopName: shopName || null,
+        yupooAlbumUrl: null,
+    };
+}
+
+async function fetchKakobuyShop(env, shopId, shopName) {
+    if (!kakobuyEnabled(env)) return [];
+    const out = [];
+
+    for (let page = 1; page <= TAOBAO_MAX_PAGES; page++) {
+        const res = await fetchKakobuyShopPage(env, shopId, page);
+        if (!res || !res.items.length) break;
+
+        for (const item of res.items) {
+            const product = kakobuyShopItemToProduct(item, shopId, shopName);
+            if (product) out.push(product);
+        }
+        if (res.lastPage && page >= res.lastPage) break;
+        if (page < TAOBAO_MAX_PAGES) await sleep(KAKOBUY_PAGE_GAP_MS);
+    }
+    return out;
+}
+
+async function fetchTaobaoShop(env, shopId, shopName) {
+    // kakobuy answers us and usfans currently does not, but usfans has the English
+    // titles, so it stays as the second attempt rather than being dropped.
+    const viaKakobuy = await fetchKakobuyShop(env, shopId, shopName);
+    if (viaKakobuy.length) return viaKakobuy;
+
     const items = await fetchTaobaoShopItems(shopId);
     const out = [];
     for (const it of items) {
@@ -1006,11 +1083,23 @@ async function fetchTaobaoShop(shopId, shopName) {
     return out;
 }
 
-async function fetchTaobaoStub(shopId, extras) {
-    const first = await fetchTaobaoShopPage(shopId, 1);
-    const records = Array.isArray(first) ? first : [];
-    let cover = extras?.image || proxyAlicdnImage(records.find(i => i?.image)?.image || '') || null;
-    // Guard on: take the cover off the listing we kept rather than showing a blank card.
+async function fetchTaobaoStub(env, shopId, extras) {
+    let cover = extras?.image || null;
+    let productCount = null;
+
+    // kakobuy first here too, and unlike usfans it reports a real total rather than a
+    // canned thousand, so the card can say how many items are behind it.
+    const kako = kakobuyEnabled(env) ? await fetchKakobuyShopPage(env, shopId, 1) : null;
+    if (kako) {
+        productCount = kako.total;
+        cover = cover || proxyAlicdnImage(kako.items.find(i => i?.goodsimg)?.goodsimg || '') || null;
+    }
+    if (!cover) {
+        const first = await fetchTaobaoShopPage(shopId, 1);
+        const records = Array.isArray(first) ? first : [];
+        cover = proxyAlicdnImage(records.find(i => i?.image)?.image || '') || null;
+    }
+    // Both refused: take the cover off the listing we kept rather than show a blank card.
     if (!cover) {
         const stale = await cachedTaobaoListing(shopId);
         cover = stale?.find(p => p.image)?.image || null;
@@ -1030,7 +1119,7 @@ async function fetchTaobaoStub(shopId, extras) {
         modelOverride: 'Other',
         shopId: `tb-${shopId}`,
         shopName,
-        productCount: null,
+        productCount,
         isShopStub: true,
     };
 }
@@ -1088,11 +1177,11 @@ async function fetchYupooStub(subdomain, extras) {
     };
 }
 
-function fetchShopStub(shopId, extras) {
+function fetchShopStub(env, shopId, extras) {
     const ypMatch = shopId.match(/^yp-([a-zA-Z0-9-]+)$/);
     if (ypMatch) return fetchYupooStub(ypMatch[1], extras);
     const tbMatch = shopId.match(/^tb-(\d+)$/);
-    if (tbMatch) return fetchTaobaoStub(tbMatch[1], extras);
+    if (tbMatch) return fetchTaobaoStub(env, tbMatch[1], extras);
     return fetchWeidianStub(shopId, extras);
 }
 
@@ -1285,7 +1374,7 @@ export async function onRequest(ctx) {
         }
         if (tbMatch) {
             const shopId = tbMatch[1];
-            const products = await fetchTaobaoShop(shopId, params.get('name') || null);
+            const products = await fetchTaobaoShop(ctx.env, shopId, params.get('name') || null);
             if (products.length) {
                 const payload = products.map(compact);
                 ctx.waitUntil(storeTaobaoListing(shopId, payload));
@@ -1320,7 +1409,7 @@ export async function onRequest(ctx) {
     if (params.get('sellers') === '1') {
         const shopIds = data.shopIds.filter(id => !DISABLED_SHOPS.has(id));
         const stubs = shopIds.length
-            ? (await Promise.all(shopIds.map(id => fetchShopStub(id, data.sellerExtras.get(id))))).map(compact)
+            ? (await Promise.all(shopIds.map(id => fetchShopStub(ctx.env, id, data.sellerExtras.get(id))))).map(compact)
             : [];
         // Half an hour outlived the sheet itself: the upstream read refreshes every
         // five minutes, so anything past that was serving staleness to a shop owner
