@@ -536,8 +536,28 @@ function mergeSellerStubs(stubs) {
 // the worker builds; the worker stays the preferred path for the day they let it
 // through, and for its cache.
 const TAOBAO_PAGE_SIZE = 20;
-const TAOBAO_MAX_PAGES = 15;
+// Fifteen pages at once got every one of them answered `90000 search risk error`, and
+// the address stayed refused for minutes afterwards — page one included, so the shop
+// came up empty and the catalogue showed a load failure. One page at a time, with a
+// pause between, and six of them: a hundred and twenty items is a shop worth browsing
+// without being greedy with somebody else's search endpoint.
+const TAOBAO_MAX_PAGES = 6;
+const TAOBAO_PAGE_GAP_MS = 800;
 const CNY_PER_USD = 7.2;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Per-tab and best-effort: a private window or blocked site data throws on both.
+function readSessionJson(key) {
+    try {
+        const raw = sessionStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function writeSessionJson(key, value) {
+    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
 
 function b64url(s) {
     try {
@@ -561,6 +581,9 @@ async function usfansShopPage(shopId, pageNum) {
         });
         if (!r.ok) return null;
         const data = await r.json();
+        // 90000 is their abuse guard, not a failure of this page: asking again right
+        // away digs the hole deeper, so callers stop rather than retry.
+        if (data?.code === 90000) return 'risk';
         if (data?.code !== 200) return null;
         return Array.isArray(data?.data?.records) ? data.data.records : [];
     } catch { return null; }
@@ -587,20 +610,28 @@ function usfansRecordToProduct(item, shopKey, shopName) {
 
 async function loadTaobaoShopFromBrowser(shopKey, shopName) {
     const numericId = shopKey.replace(/^tb-/, '');
-    const first = await usfansShopPage(numericId, 1);
-    if (!first || !first.length) return [];
+    const out = [];
 
-    let records = first;
-    if (first.length === TAOBAO_PAGE_SIZE) {
-        const rest = await Promise.all(
-            Array.from({ length: TAOBAO_MAX_PAGES - 1 }, (_, i) => usfansShopPage(numericId, i + 2))
-        );
-        for (const page of rest) {
-            if (!page || !page.length) break;
-            records = records.concat(page);
+    for (let page = 1; page <= TAOBAO_MAX_PAGES; page++) {
+        let records = await usfansShopPage(numericId, page);
+
+        // One retry, only for the first page and only after a real pause: without it a
+        // visitor who arrives inside somebody else's cooldown sees an empty shop.
+        if (page === 1 && (records === 'risk' || records === null)) {
+            await sleep(2000);
+            records = await usfansShopPage(numericId, 1);
         }
+        // Their guard is on, or the shop ran out. Either way, keep what we have.
+        if (!records || records === 'risk' || !records.length) break;
+
+        for (const r of records) {
+            const product = usfansRecordToProduct(r, shopKey, shopName);
+            if (product) out.push(product);
+        }
+        if (records.length < TAOBAO_PAGE_SIZE) break;
+        if (page < TAOBAO_MAX_PAGES) await sleep(TAOBAO_PAGE_GAP_MS);
     }
-    return records.map(r => usfansRecordToProduct(r, shopKey, shopName)).filter(Boolean);
+    return out;
 }
 
 const shopFetchCache = new Map();
@@ -621,8 +652,15 @@ async function loadShopProducts(shopId) {
             if (!isTaobao) throw e;
         }
         const shopName = uniqueSellers().find(s => s.shopId === shopId)?.shopName || null;
+
+        // Listing a shop costs six paced calls against an endpoint that bans bursts, so
+        // do not spend them twice on one visit.
+        const cached = readSessionJson(`tbshop:${shopId}`);
+        if (cached) return cached.map(mapApiProduct);
+
         const products = await loadTaobaoShopFromBrowser(shopId, shopName);
         if (!products.length) throw new Error('Shop returned nothing');
+        writeSessionJson(`tbshop:${shopId}`, products);
         return products;
     })();
     shopFetchCache.set(shopId, promise);
@@ -640,7 +678,12 @@ function fetchAllSellerProducts() {
     allSellerProductsPromise = (async () => {
         const stubs = await fetchSellerStubs();
         mergeSellerStubs(stubs);
-        const shopIds = [...new Set(stubs.map(s => s.shopId).filter(Boolean))];
+        // Taobao shops are left out on purpose. Every other kind is listed by the
+        // worker in one call, but a taobao one costs six paced browser calls against
+        // an endpoint that bans bursts — doing that for each of them on every catalogue
+        // load is what tripped the guard in the first place. They fill in when opened.
+        const shopIds = [...new Set(stubs.map(s => s.shopId).filter(Boolean))]
+            .filter(id => !/^tb-\d+$/.test(id));
         const results = await Promise.all(
             shopIds.map(id => loadShopProducts(id).catch(() => []))
         );
@@ -1023,7 +1066,12 @@ async function selectSeller(shopId, opts = {}) {
             bumpProductsVersion();
         } catch (e) {
             console.error(e);
-            showError(T('state.errorProducts', 'Failed to load products.'));
+            // The spinner lives inside the grid and showError does not touch it, so an
+            // error message with a spinner still turning beneath it read as a page that
+            // was somehow both failed and still trying.
+            const grid = document.getElementById('productsGrid');
+            if (grid) grid.innerHTML = '';
+            showError(T('sellers.error', 'Could not load this shop right now. Try again in a moment.'));
             return;
         }
     }
@@ -1290,9 +1338,18 @@ function fillTaobaoCovers(sellers, grid) {
 
         let promise = taobaoCoverCache.get(s.shopId);
         if (!promise) {
-            promise = usfansShopPage(s.shopId.replace(/^tb-/, ''), 1)
-                .then(records => proxyAlicdn((records || []).find(r => r?.image)?.image || ''))
-                .catch(() => '');
+            const key = `tbcover:${s.shopId}`;
+            const saved = readSessionJson(key);
+            promise = saved
+                ? Promise.resolve(saved)
+                : usfansShopPage(s.shopId.replace(/^tb-/, ''), 1)
+                    .then(records => {
+                        if (!records || records === 'risk') return '';
+                        const cover = proxyAlicdn(records.find(r => r?.image)?.image || '');
+                        if (cover) writeSessionJson(key, cover);
+                        return cover;
+                    })
+                    .catch(() => '');
             taobaoCoverCache.set(s.shopId, promise);
         }
         promise.then(cover => {
