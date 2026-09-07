@@ -963,6 +963,37 @@ function taobaoItemToProduct(item, shopId, shopName) {
     };
 }
 
+// usfans guards their search endpoint per address: a burst earns `90000 search risk
+// error` and the refusal outlasts it by a long while — for us, for the edge, and for a
+// visitor's own browser. Nothing about the shop has changed in the meantime, so the
+// last listing that did come through is a far better answer than an empty shop. Keep it
+// in the edge cache for a day and fall back to it whenever the guard is on.
+//
+// The key is a URL only because that is what the Cache API takes; it is never routed.
+const TAOBAO_CACHE_SECONDS = 86400;
+
+function taobaoCacheKey(shopId) {
+    return new Request(`https://replug24.com/__cache/taobao/${shopId}`);
+}
+
+async function cachedTaobaoListing(shopId) {
+    try {
+        const hit = await caches.default.match(taobaoCacheKey(shopId));
+        return hit ? await hit.json() : null;
+    } catch { return null; }
+}
+
+async function storeTaobaoListing(shopId, products) {
+    try {
+        await caches.default.put(taobaoCacheKey(shopId), new Response(JSON.stringify(products), {
+            headers: {
+                'content-type': 'application/json',
+                'cache-control': `public, max-age=${TAOBAO_CACHE_SECONDS}`
+            }
+        }));
+    } catch {}
+}
+
 async function fetchTaobaoShop(shopId, shopName) {
     const items = await fetchTaobaoShopItems(shopId);
     const out = [];
@@ -976,9 +1007,12 @@ async function fetchTaobaoShop(shopId, shopName) {
 async function fetchTaobaoStub(shopId, extras) {
     const first = await fetchTaobaoShopPage(shopId, 1);
     const records = Array.isArray(first) ? first : [];
-    const cover = extras?.image
-        || proxyAlicdnImage(records.find(i => i?.image)?.image || '')
-        || null;
+    let cover = extras?.image || proxyAlicdnImage(records.find(i => i?.image)?.image || '') || null;
+    // Guard on: take the cover off the listing we kept rather than showing a blank card.
+    if (!cover) {
+        const stale = await cachedTaobaoListing(shopId);
+        cover = stale?.find(p => p.image)?.image || null;
+    }
     // Their total is capped at 1000 for every shop, so it says nothing; the card falls
     // back to "view shop" when there is no count.
     const shopName = extras?.name || `Shop ${shopId}`;
@@ -1230,11 +1264,18 @@ export async function onRequest(ctx) {
         }
         const tbMatch = shopParam.match(/^tb-(\d+)$/);
         if (tbMatch) {
-            const products = await fetchTaobaoShop(tbMatch[1], params.get('name') || null);
-            // usfans turns away a share of what the edge sends them, and an empty shop
-            // here is far more likely to be that than a shop with nothing in it.
-            if (!products.length) return upstreamUnavailable();
-            return jsonResponse(products.map(compact), 300);
+            const shopId = tbMatch[1];
+            const products = await fetchTaobaoShop(shopId, params.get('name') || null);
+            if (products.length) {
+                const payload = products.map(compact);
+                ctx.waitUntil(storeTaobaoListing(shopId, payload));
+                return jsonResponse(payload, 1800);
+            }
+            // Their guard is on, or they answered with nothing. Yesterday's shop beats
+            // no shop, and the browser fallback only runs when this comes back empty.
+            const stale = await cachedTaobaoListing(shopId);
+            if (stale && stale.length) return jsonResponse(stale, 300);
+            return upstreamUnavailable();
         }
     }
 
