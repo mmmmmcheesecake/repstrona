@@ -1151,6 +1151,10 @@ async function readSheet(apiKey, gender) {
     const products = [];
     const shopIds = new Set();
     const sellerExtras = new Map();
+    // Rows the walk drops, reported by ?debug=1. A row that vanishes from the site
+    // otherwise leaves no trace of why, which is how a shop can sit in the sheet for
+    // days looking like a bug in the shop code.
+    const skipped = { noLink: 0, noLinkButNamed: [], unparsedShopLink: [] };
     let isHeader = hasHeaderRow;
     for (const row of rows) {
         const cells = row.values ?? [];
@@ -1158,13 +1162,19 @@ async function readSheet(apiKey, gender) {
         const get = (i) => cells[i] || {};
         const name = (get(0).formattedValue || '').trim();
         const link = cellLink(get(2));
-        if (!link) continue;
+        if (!link) {
+            const text = (get(2).formattedValue || '').trim();
+            skipped.noLink++;
+            if (text) skipped.noLinkButNamed.push(`${name || '(bez nazwy)'} :: ${text.slice(0, 60)}`);
+            continue;
+        }
         // A row with no name is a shop row. A taobao shop link is one too even when it
         // is named — no taobao product link looks like this, and the name saves the
         // card from reading "Shop 102246172", which is all their API would give us.
         const taobaoShopId = parseTaobaoShopId(link);
         if (!name || taobaoShopId) {
             const shopId = parseShopFromLink(link);
+            if (!shopId) skipped.unparsedShopLink.push(link.slice(0, 80));
             if (shopId) {
                 shopIds.add(shopId);
                 const image = cleanCellError(get(4).hyperlink || (get(4).formattedValue || '').trim()) || null;
@@ -1189,7 +1199,7 @@ async function readSheet(apiKey, gender) {
             featured:         isFeatured(get(13).formattedValue),
         });
     }
-    return { products, shopIds: [...shopIds], sellerExtras };
+    return { products, shopIds: [...shopIds], sellerExtras, skipped };
 }
 
 export async function onRequest(ctx) {
@@ -1233,6 +1243,8 @@ export async function onRequest(ctx) {
             gender,
             ok: Boolean(data),
             products: data ? data.products.length : 0,
+            shopIds: data ? data.shopIds : [],
+            skipped: data ? data.skipped : null,
             sheetsError: lastSheetsError,
         }, 0);
     }
