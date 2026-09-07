@@ -1504,6 +1504,72 @@ function writeQcFlag(link, n) {
     try { localStorage.setItem(`qcflag:${link}`, JSON.stringify({ n, t: Date.now() })); } catch {}
 }
 
+// usfans refuses the Cloudflare edge for roughly six requests in ten, so the worker
+// often cannot tell whether an item has QC photos and the tile goes unbadged even
+// though the photos are there — measured at five badges across twelve items that all
+// have QC, with no wrong answers, only missing ones. The visitor's own address is
+// served, so ask from here when the worker came back unsure.
+//
+// Paced on purpose. Bursting their search endpoint earned a ban that outlasted the
+// afternoon, and there is no reason to find out the hard way whether this endpoint is
+// guarded the same way: two at a time, a gap between starts, and only for tiles someone
+// is actually looking at.
+const QC_MAX_INFLIGHT = 2;
+const QC_GAP_MS = 250;
+const qcQueue = [];
+let qcInFlight = 0;
+
+function weidianIdFromLink(link) {
+    try {
+        const u = new URL(link, location.href);
+        const host = u.hostname.toLowerCase();
+        if (host === 'usfans.com' || host.endsWith('.usfans.com')) {
+            const m = u.pathname.match(/\/product\/3\/(\d+)/);
+            return m ? m[1] : null;
+        }
+        if (host === 'weidian.com' || host.endsWith('.weidian.com')) {
+            const id = u.searchParams.get('itemID') || u.searchParams.get('itemId') || u.searchParams.get('offerId');
+            return id && /^\d+$/.test(id) ? id : null;
+        }
+    } catch {}
+    return null;
+}
+
+function pumpQcQueue() {
+    if (qcInFlight >= QC_MAX_INFLIGHT) return;
+    const job = qcQueue.shift();
+    if (!job) return;
+    qcInFlight++;
+    job().finally(() => {
+        qcInFlight--;
+        setTimeout(pumpQcQueue, QC_GAP_MS);
+    });
+}
+
+// Resolves to the photo count, or null when usfans did not answer either.
+function usfansQcCount(link) {
+    const itemId = weidianIdFromLink(link);
+    if (!itemId) return Promise.resolve(null);
+
+    return new Promise(resolve => {
+        qcQueue.push(async () => {
+            // A request that never settles would stall the queue behind it.
+            const abort = new AbortController();
+            const timer = setTimeout(() => abort.abort(), 8000);
+            try {
+                const r = await fetch(`https://usfans.com/api/goods/estimate-info?channel=3&goodsId=${itemId}`,
+                    { signal: abort.signal });
+                if (!r.ok) return resolve(null);
+                const d = await r.json();
+                if (d?.code !== 200 || !d?.data) return resolve(null);
+                resolve(Array.isArray(d.data.qcImages) ? d.data.qcImages.length : 0);
+            } catch { resolve(null); }
+            finally { clearTimeout(timer); }
+        });
+        pumpQcQueue();
+    });
+}
+
 async function flagQc(p) {
     // Nothing to ask about for two kinds of link, and a taobao shop puts three hundred
     // of them on screen at once: yupoo albums, which no QC source resolves, and taobao
@@ -1520,10 +1586,11 @@ async function flagQc(p) {
     let n = null;
     try {
         const r = await fetch(`/api/qcflag?url=${encodeURIComponent(p.link)}`);
-        if (!r.ok) return;
-        n = (await r.json()).qc;
-    } catch { return; }
-    // null means nobody could tell us — leave it uncached so the next load asks again.
+        if (r.ok) n = (await r.json()).qc;
+    } catch {}
+
+    // The worker could not find out. Ask usfans ourselves before giving up on the tile.
+    if (typeof n !== 'number') n = await usfansQcCount(p.link);
     if (typeof n !== 'number') return;
 
     writeQcFlag(p.link, n);
