@@ -43,6 +43,19 @@ export async function onRequest(ctx) {
         return new Response('host not allowed', { status: 403 });
     }
 
+    // The agents' CDNs are the only copy of these photos, and one of them has already
+    // gone dark on us this month: qcitems' bucket started answering 403 to everyone and
+    // took every set it hosted with it. Anything served through here gets kept, so the
+    // next time a host disappears the photos are still ours to show. Dormant until an
+    // R2 bucket is bound as QC_ARCHIVE — without it this file behaves exactly as before.
+    const archive = ctx.env?.QC_ARCHIVE || null;
+    const key = archive ? await archiveKey(original) : null;
+
+    if (archive && key) {
+        const kept = await archive.get(key).catch(() => null);
+        if (kept) return archivedResponse(kept);
+    }
+
     const upstreamHeaders = { 'User-Agent': UA, 'Accept': 'image/*' };
     if (/\.yupoo\.com$/i.test(target.hostname)) {
         upstreamHeaders['Referer'] = `https://${target.hostname}/`;
@@ -83,7 +96,39 @@ export async function onRequest(ctx) {
     headers.set('content-type', contentType);
     headers.set('cache-control', 'public, max-age=86400, immutable');
     headers.set('x-content-type-options', 'nosniff');
+
+    if (archive && key) {
+        // Split the stream: the visitor gets their copy at full speed while the other
+        // half goes to the bucket, so archiving costs the request nothing.
+        const [toVisitor, toArchive] = body.tee();
+        ctx.waitUntil(
+            archive.put(key, toArchive, {
+                httpMetadata: { contentType },
+                customMetadata: { src: original.slice(0, 900) },
+            }).catch(() => {})
+        );
+        return new Response(toVisitor, { status: 200, headers });
+    }
     return new Response(body, { status: 200, headers });
+}
+
+// Content-addressed by the URL that produced it, resize parameters included — a 400px
+// tile and a 1600px lightbox frame are different pictures and both are worth keeping.
+async function archiveKey(originalUrl) {
+    try {
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(originalUrl));
+        const hex = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+        return `img/${hex.slice(0, 2)}/${hex}`;
+    } catch { return null; }
+}
+
+function archivedResponse(object) {
+    const headers = new Headers();
+    headers.set('content-type', object.httpMetadata?.contentType || 'image/jpeg');
+    headers.set('cache-control', 'public, max-age=86400, immutable');
+    headers.set('x-content-type-options', 'nosniff');
+    headers.set('x-qc-archive', 'hit');
+    return new Response(object.body, { status: 200, headers });
 }
 
 const MAGIC = [

@@ -73,7 +73,17 @@ function photoHost(photo) {
 // out those URLs, so a product looks like it has 161 QC photos and the page fills with
 // broken tiles. Sample one photo per host and drop the sets we cannot actually serve —
 // nothing is hardcoded, so the sets come back by themselves once the host does.
-async function reachableSets(sets) {
+// A host that stopped serving is no reason to drop a set we already keep copies of.
+async function archived(env, sampleUrl) {
+    if (!env?.QC_ARCHIVE) return false;
+    try {
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sampleUrl));
+        const hex = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+        return Boolean(await env.QC_ARCHIVE.head(`img/${hex.slice(0, 2)}/${hex}`));
+    } catch { return false; }
+}
+
+async function reachableSets(env, sets) {
     const sample = new Map();
     for (const set of sets) {
         for (const photo of set.photos) {
@@ -82,7 +92,7 @@ async function reachableSets(sets) {
         }
     }
     const checks = await Promise.all(
-        [...sample].map(async ([host, url]) => [host, await hostServesImages(url)])
+        [...sample].map(async ([host, url]) => [host, await hostServesImages(url) || await archived(env, url)])
     );
     const alive = new Set(checks.filter(([, ok]) => ok).map(([host]) => host));
 
@@ -446,6 +456,29 @@ async function qcitemsSets(marketplaceUrl) {
     };
 }
 
+// A gallery is photos plus the shape they arrive in, and the shape lives upstream. When
+// qcitems went down every product lost its sets even though half the photos were still
+// being served fine. So whenever a listing succeeds, keep the shape too — then an outage
+// can be answered out of the archive instead of with an apology.
+function manifestKey(marketplaceUrl) {
+    return `sets/${encodeURIComponent(marketplaceUrl).slice(0, 400)}.json`;
+}
+
+async function readManifest(env, marketplaceUrl) {
+    if (!env?.QC_ARCHIVE) return null;
+    try {
+        const kept = await env.QC_ARCHIVE.get(manifestKey(marketplaceUrl));
+        return kept ? await kept.json() : null;
+    } catch { return null; }
+}
+
+function writeManifest(env, marketplaceUrl, payload) {
+    if (!env?.QC_ARCHIVE) return Promise.resolve();
+    return env.QC_ARCHIVE.put(manifestKey(marketplaceUrl), JSON.stringify(payload), {
+        httpMetadata: { contentType: 'application/json' },
+    }).catch(() => {});
+}
+
 export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
     if (!url) return jsonError('missing url', 400);
@@ -498,6 +531,11 @@ export async function onRequest(ctx) {
     // ours included, and a 5xx of ours never reaches the browser intact — Cloudflare
     // swaps it for its own error page, the JSON parse fails and the visitor is told to
     // try another link over a link that was fine. Only a 4xx means the link itself.
+    if (!sets.length) {
+        // Photos we have already kept outlive the site that indexed them.
+        const kept = await readManifest(ctx.env, marketplaceUrl);
+        if (kept?.sets?.length) return jsonOk({ ...kept, fromArchive: true }, { store: false });
+    }
     if (!sets.length && qci.error && qci.status >= 500) {
         return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true, ...usfansHint }), { store: false });
     }
@@ -506,7 +544,7 @@ export async function onRequest(ctx) {
     if (!sets.length && qci.error && !usfansHint.usfansPending) return jsonError(qci.error, qci.status);
     if (!sets.length) return jsonOk(emptyPayload(albumResolvedUrl, usfansHint), { store: !usfansHint.usfansPending });
 
-    const live = (await reachableSets(sets)).map(set => ({
+    const live = (await reachableSets(ctx.env, sets)).map(set => ({
         ...set,
         photos: set.photos.map(({ url, thumb, timestamp }) => ({ url, thumb, timestamp }))
     }));
@@ -516,7 +554,7 @@ export async function onRequest(ctx) {
 
     const totalPhotos = live.reduce((n, s) => n + s.photos.length, 0);
 
-    return jsonOk({
+    const payload = {
         productId: qci.productId || null,
         marketplace: qci.marketplace || source || null,
         info: mergeInfo(qci.info, usf.info),
@@ -527,5 +565,7 @@ export async function onRequest(ctx) {
         // Only set for yupoo albums: the marketplace item the album mirrors, so the QC
         // page can offer an agent link for a URL no agent would accept.
         resolvedUrl: albumResolvedUrl,
-    });
+    };
+    ctx.waitUntil(writeManifest(ctx.env, marketplaceUrl, payload));
+    return jsonOk(payload);
 }
