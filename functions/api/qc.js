@@ -73,32 +73,6 @@ function photoHost(photo) {
 // out those URLs, so a product looks like it has 161 QC photos and the page fills with
 // broken tiles. Sample one photo per host and drop the sets we cannot actually serve —
 // nothing is hardcoded, so the sets come back by themselves once the host does.
-// The same photo reaches us under more than one hostname — qcitems hands out kakobuy's
-// files from both kk-oss-wh-hk.kakobuy.com and a kk-oss-wh-hk.kakobyy.com spelling of
-// it, which put sixteen shots and two whole sets on the page twice. The filenames are
-// content hashes, so the path identifies the photo and the host does not.
-function photoPath(photo) {
-    try {
-        const u = new URL(photo.origin);
-        return `${u.pathname}${u.search}`;
-    } catch { return photo.origin; }
-}
-
-function dropRepeatedPhotos(sets) {
-    const seen = new Set();
-    return sets
-        .map(set => ({
-            ...set,
-            photos: set.photos.filter(photo => {
-                const key = photoPath(photo);
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            })
-        }))
-        .filter(set => set.photos.length);
-}
-
 async function reachableSets(sets) {
     const sample = new Map();
     for (const set of sets) {
@@ -514,7 +488,7 @@ export async function onRequest(ctx) {
 
     // Ours first: they are the item this shop actually sends people to buy, and they
     // are the ones still standing when qcitems is down.
-    const sets = dropRepeatedPhotos([...kako.sets, ...usf.sets, ...qciSets]);
+    const sets = [...kako.sets, ...usf.sets, ...qciSets];
 
     // Told to the page so it can ask usfans itself when the edge got turned away.
     const usfansHint = { usfansItemId: usf.itemId, usfansPending: !usf.answered };
