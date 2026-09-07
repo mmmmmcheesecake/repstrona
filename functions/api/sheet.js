@@ -915,13 +915,12 @@ function taobaoItemToProduct(item, shopId, shopName) {
     const name = (item?.title || '').replace(/\s+/g, ' ').trim();
     if (!name || !item?.goodsId) return null;
 
-    // priceCurrency is their conversion to the session currency (USD for us); price is
-    // the yuan figure. Prefer theirs, fall back to our own rate.
-    const usdDirect = Number(item.priceCurrency);
+    // Their priceCurrency is not a straight conversion — 98 yuan comes back as 16.28,
+    // which is neither the market rate nor a rate at all once fees are folded in. Use
+    // the yuan figure and our own rate, the way every weidian item in the catalogue is
+    // priced, so a shop does not read dearer than the rest of the site.
     const cny = Number(item.price);
-    const usd = isFinite(usdDirect) && usdDirect > 0
-        ? Math.round(usdDirect)
-        : (isFinite(cny) && cny > 0 ? Math.round(cny / CNY_PER_USD) : null);
+    const usd = isFinite(cny) && cny > 0 ? Math.round(cny / CNY_PER_USD) : null;
 
     const img = proxyAlicdnImage(item.image || '');
     const bm = yupooBrandModel(name);

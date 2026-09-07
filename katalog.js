@@ -529,15 +529,101 @@ function mergeSellerStubs(stubs) {
     if (added) bumpProductsVersion();
 }
 
+// Taobao's own pages answer a server with their login wall, so a taobao shop is only
+// listable through usfans — and usfans refuses that particular call from the Cloudflare
+// edge every single time (measured: 0 of 8). Their CORS names replug24, so the shop
+// gets listed here instead, from the visitor's own address. Same call, same shape as
+// the worker builds; the worker stays the preferred path for the day they let it
+// through, and for its cache.
+const TAOBAO_PAGE_SIZE = 20;
+const TAOBAO_MAX_PAGES = 15;
+const CNY_PER_USD = 7.2;
+
+function b64url(s) {
+    try {
+        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch { return null; }
+}
+
+// img.alicdn.com refuses a hotlink carrying a replug24 Referer; the proxy sends none.
+function proxyAlicdn(url) {
+    if (!/^https?:\/\/[^/]*\.alicdn\.com\//i.test(url || '')) return url || '';
+    const token = b64url(url);
+    return token ? `/api/qcimg?u=${token}` : url;
+}
+
+async function usfansShopPage(shopId, pageNum) {
+    try {
+        const r = await fetch('https://usfans.com/api/goods/search/keyword', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: 2, shopId: String(shopId), pageNum, pageSize: TAOBAO_PAGE_SIZE })
+        });
+        if (!r.ok) return null;
+        const data = await r.json();
+        if (data?.code !== 200) return null;
+        return Array.isArray(data?.data?.records) ? data.data.records : [];
+    } catch { return null; }
+}
+
+function usfansRecordToProduct(item, shopKey, shopName) {
+    const name = (item?.title || '').replace(/\s+/g, ' ').trim();
+    if (!name || !item?.goodsId) return null;
+    const cny = Number(item.price);
+    const usd = isFinite(cny) && cny > 0 ? Math.round(cny / CNY_PER_USD) : null;
+    const img = proxyAlicdn(item.image || '');
+    return mapApiProduct({
+        name,
+        link: `https://usfans.com/product/2/${item.goodsId}?ref=MGRSBE`,
+        price: usd != null ? `$${usd}` : '',
+        livePrice: usd,
+        image: img,
+        imageOverride: img || null,
+        categoryOverride: 'Sellers',
+        shopId: shopKey,
+        shopName: shopName || null,
+    });
+}
+
+async function loadTaobaoShopFromBrowser(shopKey, shopName) {
+    const numericId = shopKey.replace(/^tb-/, '');
+    const first = await usfansShopPage(numericId, 1);
+    if (!first || !first.length) return [];
+
+    let records = first;
+    if (first.length === TAOBAO_PAGE_SIZE) {
+        const rest = await Promise.all(
+            Array.from({ length: TAOBAO_MAX_PAGES - 1 }, (_, i) => usfansShopPage(numericId, i + 2))
+        );
+        for (const page of rest) {
+            if (!page || !page.length) break;
+            records = records.concat(page);
+        }
+    }
+    return records.map(r => usfansRecordToProduct(r, shopKey, shopName)).filter(Boolean);
+}
+
 const shopFetchCache = new Map();
 async function loadShopProducts(shopId) {
     if (shopFetchCache.has(shopId)) return shopFetchCache.get(shopId);
     const promise = (async () => {
-        const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}&v=2`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        if (!Array.isArray(data)) throw new Error('Bad shop response');
-        return data.map(mapApiProduct);
+        const isTaobao = /^tb-\d+$/.test(shopId);
+        try {
+            const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}&v=2`);
+            if (r.ok) {
+                const data = await r.json();
+                if (Array.isArray(data) && data.length) return data.map(mapApiProduct);
+                if (!isTaobao) throw new Error('Bad shop response');
+            } else if (!isTaobao) {
+                throw new Error(`HTTP ${r.status}`);
+            }
+        } catch (e) {
+            if (!isTaobao) throw e;
+        }
+        const shopName = uniqueSellers().find(s => s.shopId === shopId)?.shopName || null;
+        const products = await loadTaobaoShopFromBrowser(shopId, shopName);
+        if (!products.length) throw new Error('Shop returned nothing');
+        return products;
     })();
     shopFetchCache.set(shopId, promise);
     try {
