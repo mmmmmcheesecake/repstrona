@@ -547,16 +547,23 @@ const CNY_PER_USD = 7.2;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Per-tab and best-effort: a private window or blocked site data throws on both.
-function readSessionJson(key) {
+// Kept for a day rather than a tab: usfans bans an address that asks too often, so the
+// fewer times a returning visitor has to list the same shop, the better. Best-effort —
+// a private window or blocked site data throws on both.
+const TAOBAO_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+function readStoredJson(key) {
     try {
-        const raw = sessionStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const { v, t } = JSON.parse(raw);
+        if (!t || Date.now() - t > TAOBAO_CACHE_TTL) return null;
+        return v;
     } catch { return null; }
 }
 
-function writeSessionJson(key, value) {
-    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch {}
+function writeStoredJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify({ v: value, t: Date.now() })); } catch {}
 }
 
 function b64url(s) {
@@ -654,13 +661,13 @@ async function loadShopProducts(shopId) {
         const shopName = uniqueSellers().find(s => s.shopId === shopId)?.shopName || null;
 
         // Listing a shop costs six paced calls against an endpoint that bans bursts, so
-        // do not spend them twice on one visit.
-        const cached = readSessionJson(`tbshop:${shopId}`);
+        // do not spend them again on a shop this browser already listed today.
+        const cached = readStoredJson(`tbshop:${shopId}`);
         if (cached) return cached.map(mapApiProduct);
 
         const products = await loadTaobaoShopFromBrowser(shopId, shopName);
         if (!products.length) throw new Error('Shop returned nothing');
-        writeSessionJson(`tbshop:${shopId}`, products);
+        writeStoredJson(`tbshop:${shopId}`, products);
         return products;
     })();
     shopFetchCache.set(shopId, promise);
@@ -1339,14 +1346,14 @@ function fillTaobaoCovers(sellers, grid) {
         let promise = taobaoCoverCache.get(s.shopId);
         if (!promise) {
             const key = `tbcover:${s.shopId}`;
-            const saved = readSessionJson(key);
+            const saved = readStoredJson(key);
             promise = saved
                 ? Promise.resolve(saved)
                 : usfansShopPage(s.shopId.replace(/^tb-/, ''), 1)
                     .then(records => {
                         if (!records || records === 'risk') return '';
                         const cover = proxyAlicdn(records.find(r => r?.image)?.image || '');
-                        if (cover) writeSessionJson(key, cover);
+                        if (cover) writeStoredJson(key, cover);
                         return cover;
                     })
                     .catch(() => '');
