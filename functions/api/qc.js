@@ -82,6 +82,42 @@ function photoHost(photo) {
 // out those URLs, so a product looks like it has 161 QC photos and the page fills with
 // broken tiles. Sample one photo per host and drop the sets we cannot actually serve —
 // nothing is hardcoded, so the sets come back by themselves once the host does.
+// Which of a kept gallery's photos do we actually still hold? Only asked when every
+// source has refused, so the cost is paid on a day when nothing else works anyway —
+// capped all the same, since a product can carry three hundred photos and the answer
+// only needs to fill a page.
+const ARCHIVE_CHECK_CAP = 60;
+
+async function archivedOnly(env, sets) {
+    if (!env?.QC_ARCHIVE) return [];
+    let checked = 0;
+    const out = [];
+
+    for (const set of sets) {
+        const photos = [];
+        for (const photo of set.photos) {
+            if (checked >= ARCHIVE_CHECK_CAP) break;
+            checked++;
+            const original = decodeProxied(photo.url);
+            if (original && await archived(env, original)) photos.push(photo);
+        }
+        if (photos.length) out.push({ ...set, photos });
+        if (checked >= ARCHIVE_CHECK_CAP) break;
+    }
+    return out;
+}
+
+// The manifest holds our own proxy URLs; the archive is keyed by what they wrap.
+function decodeProxied(proxyUrl) {
+    try {
+        const token = String(proxyUrl).split('u=')[1];
+        if (!token) return null;
+        let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        return atob(b64);
+    } catch { return null; }
+}
+
 // A host that stopped serving is no reason to drop a set we already keep copies of.
 async function archived(env, sampleUrl) {
     if (!env?.QC_ARCHIVE) return false;
@@ -551,9 +587,19 @@ export async function onRequest(ctx) {
     // swaps it for its own error page, the JSON parse fails and the visitor is told to
     // try another link over a link that was fine. Only a 4xx means the link itself.
     if (!sets.length) {
-        // Photos we have already kept outlive the site that indexed them.
+        // Photos we have already kept outlive the site that indexed them. The manifest
+        // remembers the whole gallery, though, and the archive holds a slice of it — so
+        // show the slice rather than three hundred tiles that will fail one by one.
         const kept = await readManifest(ctx.env, marketplaceUrl);
-        if (kept?.sets?.length) return jsonOk({ ...kept, fromArchive: true }, { store: false });
+        const fromArchive = kept?.sets?.length ? await archivedOnly(ctx.env, kept.sets) : [];
+        if (fromArchive.length) {
+            return jsonOk({
+                ...kept,
+                sets: fromArchive,
+                totalPhotos: fromArchive.reduce((n, set) => n + set.photos.length, 0),
+                fromArchive: true,
+            }, { store: false });
+        }
     }
     if (!sets.length && qci.error && qci.status >= 500) {
         return jsonOk(emptyPayload(albumResolvedUrl, { unavailable: true, ...usfansHint }), { store: false });
