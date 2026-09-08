@@ -52,14 +52,23 @@ function proxyImage(originalUrl) {
     return `/api/qcimg?u=${b64url(originalUrl)}`;
 }
 
+// `origin` is dropped before the payload leaves onRequest. It is the URL we actually
+// serve — sizing included — so the reachability check asks the real host for the real
+// picture, and the archive lookup hashes the same string the proxy stored it under.
+function sizedPhoto(rawUrl, timestamp) {
+    const view = ossWidth(rawUrl, VIEW_WIDTH);
+    return {
+        url: proxyImage(view),
+        thumb: proxyImage(ossWidth(rawUrl, THUMB_WIDTH)),
+        origin: view,
+        timestamp: timestamp || null,
+    };
+}
+
 function normalizePhoto(p) {
     if (!p) return null;
-    // `origin` is dropped before the payload leaves onRequest; it is only here so the
-    // reachability check below can ask the real host rather than our own proxy.
-    if (typeof p === 'string') return { url: proxyImage(p), origin: p, timestamp: null };
-    if (typeof p === 'object' && typeof p.url === 'string') {
-        return { url: proxyImage(p.url), origin: p.url, timestamp: p.timestamp || null };
-    }
+    if (typeof p === 'string') return sizedPhoto(p, null);
+    if (typeof p === 'object' && typeof p.url === 'string') return sizedPhoto(p.url, p.timestamp);
     return null;
 }
 
@@ -297,10 +306,25 @@ export function weidianItemId(marketplaceUrl) {
     } catch { return null; }
 }
 
-// media.usfans.com is Alibaba OSS and the frames are ~4 MB each — twenty of those is a
-// 90 MB page. Ask OSS for the width we are about to draw: 4.4 MB drops to 85 KB for a
-// tile and 800 KB for the lightbox, which is still more detail than a screen shows.
+// Every host these photos come from is Alibaba OSS, and every one of them serves
+// multi-megabyte originals: usfans 4.3 MB, kakobuy 2.2 MB, acbuy 1.7 MB. A gallery of
+// 177 of those is a few hundred megabytes, and until now only the usfans ones were
+// being asked for at a sane size — the qcitems ones went out whole, as grid thumbnails.
+// Ask each host for the width about to be drawn: 400px for a tile (~55 KB), 800px for
+// the lightbox (~170 KB).
+const OSS_HOSTS = ['media.usfans.com', '.kakobuy.com', '.kakobyy.com', 'oss.acbuy.com'];
+const THUMB_WIDTH = 400;
+const VIEW_WIDTH = 800;
+
+function ossCapable(url) {
+    try {
+        const host = new URL(url).hostname.toLowerCase();
+        return OSS_HOSTS.some(h => (h.startsWith('.') ? host.endsWith(h) : host === h));
+    } catch { return false; }
+}
+
 function ossWidth(url, width) {
+    if (!ossCapable(url)) return url;
     return `${url}${url.includes('?') ? '&' : '?'}x-oss-process=image/resize,w_${width}`;
 }
 
@@ -312,12 +336,7 @@ function usfansPhotoDate(url) {
 
 function usfansPhoto(raw) {
     if (typeof raw !== 'string' || !/^https:\/\//i.test(raw)) return null;
-    return {
-        url: proxyImage(ossWidth(raw, 1600)),
-        thumb: proxyImage(ossWidth(raw, 400)),
-        origin: raw,
-        timestamp: usfansPhotoDate(raw)
-    };
+    return sizedPhoto(raw, usfansPhotoDate(raw));
 }
 
 function usfansInfo(d) {

@@ -141,6 +141,12 @@ function openLightbox(idx) {
     const lb = ensureLightbox();
     lightboxIdx = idx;
     const img = lb.querySelector('.qc-lb-img');
+    // The archive holds the viewing size for the first photos of a product and the tile
+    // size for the rest, so when an outage means the big one is not there, show the
+    // small one rather than an empty frame.
+    img.onerror = () => {
+        if (photo.thumb && img.src !== photo.thumb) img.src = photo.thumb;
+    };
     img.src = photo.url;
     const live = livePhotos();
     lb.querySelector('.qc-lb-counter').textContent = `${live.indexOf(photo) + 1} / ${live.length}`;
@@ -206,7 +212,7 @@ function renderSet(set) {
     const grid = document.createElement('div');
     grid.className = 'qc-grid';
     set.photos.forEach(p => {
-        const photo = { url: p.url, broken: false };
+        const photo = { url: p.url, thumb: p.thumb || null, broken: false };
         const flatIdx = allPhotos.length;
         allPhotos.push(photo);
 
@@ -283,7 +289,9 @@ async function appendUsfansQc(itemId, forQuery) {
     const photos = (d && Array.isArray(d.qcImages) ? d.qcImages : [])
         .filter(u => typeof u === 'string' && /^https:\/\//i.test(u))
         .map(u => ({
-            url: qcimg(ossWidth(u, 1600)),
+            // Same widths the worker serves, or these photos would miss the archive
+            // and arrive as multi-megabyte originals.
+            url: qcimg(ossWidth(u, 800)),
             thumb: qcimg(ossWidth(u, 400)),
             // The path carries the day the warehouse shot it: /2026/08/29/163539/….
             timestamp: (u.match(/\/(20\d{2})\/(\d{2})\/(\d{2})\//) || []).slice(1, 4).join('-') || null
