@@ -77,39 +77,47 @@ export async function onRequest(ctx) {
         return new Response('image too large', { status: 413 });
     }
 
+    // Read the whole picture before answering. Streaming it through and handing a
+    // tee'd branch to the bucket looked tidier and archived one photo in eight: the
+    // branch nobody is reading gets dropped when the response finishes. These are
+    // capped at 15 MB above, so holding one in memory is the cheaper problem.
+    let bytes;
+    try { bytes = await upstream.arrayBuffer(); }
+    catch { return new Response('upstream failed', { status: 502 }); }
+
     const declared = (upstream.headers.get('content-type') || '').toLowerCase();
     let contentType = declared.startsWith('image/') ? declared : '';
-    let body = upstream.body;
 
     // media.usfans.com serves perfectly good JPEGs as application/octet-stream, and
     // nosniff means the browser will not rescue them — every USFans QC photo showed
-    // as a broken tile. Trust the bytes over the header: read just enough of the
-    // stream to recognise the format, then hand the untouched stream on.
+    // as a broken tile. Trust the bytes over the header.
     if (!contentType) {
-        const sniffed = await sniffImage(upstream.body);
-        if (!sniffed.type) return new Response('upstream is not an image', { status: 502 });
-        contentType = sniffed.type;
-        body = sniffed.stream;
+        contentType = sniffImageBytes(new Uint8Array(bytes));
+        if (!contentType) return new Response('upstream is not an image', { status: 502 });
+    }
+
+    if (archive && key) {
+        ctx.waitUntil(
+            archive.put(key, bytes, {
+                httpMetadata: { contentType },
+                customMetadata: { src: original.slice(0, 900) },
+            }).catch(() => {})
+        );
     }
 
     const headers = new Headers();
     headers.set('content-type', contentType);
     headers.set('cache-control', 'public, max-age=86400, immutable');
     headers.set('x-content-type-options', 'nosniff');
+    return new Response(bytes, { status: 200, headers });
+}
 
-    if (archive && key) {
-        // Split the stream: the visitor gets their copy at full speed while the other
-        // half goes to the bucket, so archiving costs the request nothing.
-        const [toVisitor, toArchive] = body.tee();
-        ctx.waitUntil(
-            archive.put(key, toArchive, {
-                httpMetadata: { contentType },
-                customMetadata: { src: original.slice(0, 900) },
-            }).catch(() => {})
-        );
-        return new Response(toVisitor, { status: 200, headers });
+function sniffImageBytes(b) {
+    if (b.length < 12) return null;
+    for (const [type, test] of MAGIC) {
+        if (test(b)) return type;
     }
-    return new Response(body, { status: 200, headers });
+    return null;
 }
 
 // Content-addressed by the URL that produced it, resize parameters included — a 400px
@@ -142,45 +150,3 @@ const MAGIC = [
     ['image/bmp', b => b[0] === 0x42 && b[1] === 0x4d],
 ];
 
-// Reads the first bytes off the stream to identify the format, then replays them in
-// front of the rest so nothing is buffered beyond the header.
-async function sniffImage(stream) {
-    const reader = stream.getReader();
-    const head = [];
-    let seen = 0;
-    while (seen < 16) {
-        let chunk;
-        try { chunk = await reader.read(); }
-        catch { return { type: null }; }
-        if (chunk.done) break;
-        if (chunk.value?.length) {
-            head.push(chunk.value);
-            seen += chunk.value.length;
-        }
-    }
-
-    const probe = new Uint8Array(seen);
-    let at = 0;
-    for (const c of head) { probe.set(c, at); at += c.length; }
-
-    const hit = MAGIC.find(([, test]) => {
-        try { return test(probe); } catch { return false; }
-    });
-    if (!hit) {
-        reader.cancel().catch(() => {});
-        return { type: null };
-    }
-
-    return {
-        type: hit[0],
-        stream: new ReadableStream({
-            start(controller) { for (const c of head) controller.enqueue(c); },
-            async pull(controller) {
-                const { value, done } = await reader.read();
-                if (done) controller.close();
-                else controller.enqueue(value);
-            },
-            cancel(reason) { reader.cancel(reason); }
-        })
-    };
-}
