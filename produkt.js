@@ -468,8 +468,7 @@ function batchClass(b) {
 }
 
 fetch('/content/settings.json').then(r => r.json()).then(s => {
-    const elD = document.getElementById('nav-discord');
-    if (elD && s.discordUrl) elD.href = s.discordUrl;
+    // The Discord link is wired for every page in script.js.
 }).catch(() => {});
 
 if (window.RePluGCurrency) {

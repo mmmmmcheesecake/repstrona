@@ -508,13 +508,7 @@
             });
         }
 
-        const dEl = document.getElementById('buyCheaperDiscord');
-        if (dEl) {
-            fetch('/content/settings.json')
-                .then(r => r.json())
-                .then(s => { if (s && s.discordUrl) dEl.href = s.discordUrl; })
-                .catch(() => {});
-        }
+        // #buyCheaperDiscord and the navbar link are both wired in script.js.
     }
 
     function bindInfoTips() {

@@ -251,6 +251,33 @@ function applyDiscord(d, url) {
 // ===== START =====
 loadAll().catch(err => console.warn('Data loading error:', err));
 
+// ===== DISCORD LINK =====
+// Five pages each fetched settings.json and wired this themselves, and the cart was
+// the one that forgot — its navbar Discord button sat on href="#" and did nothing.
+// One place, every page, since script.js is on all of them. Opening in a new tab is
+// the point of an invite link: sending a shopper to Discord should not close the shop.
+function applyDiscordLinks(url) {
+    if (!url) return;
+    document.querySelectorAll('#nav-discord, #buyCheaperDiscord, .discord-link').forEach(el => {
+        el.href = url;
+        el.target = '_blank';
+        el.rel = 'noopener';
+    });
+}
+
+function bindDiscordLinks() {
+    fetch('/content/settings.json')
+        .then(r => (r.ok ? r.json() : null))
+        .then(s => applyDiscordLinks(s && s.discordUrl))
+        .catch(() => {});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindDiscordLinks);
+} else {
+    bindDiscordLinks();
+}
+
 // ===== USFANS WELCOME POPUP =====
 function shouldShowUsfansPopup() {
     const path = location.pathname;

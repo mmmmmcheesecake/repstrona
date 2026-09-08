@@ -1981,8 +1981,7 @@ function enableHorizontalWheel(el) {
 document.querySelectorAll('.cat-scroll').forEach(enableHorizontalWheel);
 
 fetch('/content/settings.json').then(r => r.json()).then(s => {
-    const el = document.getElementById('nav-discord');
-    if (el && s.discordUrl) el.href = s.discordUrl;
+    // The Discord link is wired for every page in script.js.
 }).catch(() => {});
 
 if (window.RePluGCurrency) {
