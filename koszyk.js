@@ -148,6 +148,12 @@
         }
     }
 
+    // USFans hand new accounts a shipping discount, and the popup on the front page
+    // offers it by name. The cart is where it means something, so let it be applied to
+    // the estimate — then send the visitor to claim it. Same number the popup states.
+    const SHIPPING_COUPON_PCT = 40;
+    let couponApplied = false;
+
     function shippingUsd(kg, region) {
         const r = SHIPPING_RATES[region] || SHIPPING_RATES.PL;
         const billable = Math.max(kg, 0.5);
@@ -283,12 +289,64 @@
         if (wEl) wEl.textContent = formatWeight(totalKg);
 
         const region = getRegion();
-        const shipping = shippingUsd(totalKg, region);
+        const fullShipping = shippingUsd(totalKg, region);
+        const shipping = couponApplied
+            ? fullShipping * (1 - SHIPPING_COUPON_PCT / 100)
+            : fullShipping;
+
         const shipEl = document.getElementById('cartShippingValue');
-        if (shipEl) shipEl.textContent = formatUsd(shipping);
+        if (shipEl) {
+            shipEl.textContent = '';
+            if (couponApplied) {
+                // The price it would have been, struck through, so the discount is
+                // visible rather than just a smaller number.
+                const was = document.createElement('s');
+                was.className = 'cart-shipping-was';
+                was.textContent = formatUsd(fullShipping);
+                shipEl.append(was, ' ', formatUsd(shipping));
+            } else {
+                shipEl.textContent = formatUsd(fullShipping);
+            }
+        }
 
         const grandEl = document.getElementById('cartGrandValue');
         if (grandEl) grandEl.textContent = formatUsd(subtotal + shipping);
+
+        renderCoupon();
+    }
+
+    function renderCoupon() {
+        const btn = document.getElementById('cartCouponBtn');
+        const note = document.getElementById('cartCouponNote');
+        if (!btn) return;
+
+        btn.textContent = couponApplied
+            ? T('cart.coupon.claim', 'Claim the coupon')
+            : T('cart.coupon.use', `Use coupon −${SHIPPING_COUPON_PCT}%`, { pct: SHIPPING_COUPON_PCT });
+        btn.classList.toggle('is-applied', couponApplied);
+        if (note) {
+            note.hidden = !couponApplied;
+            note.textContent = T('cart.coupon.note',
+                `−${SHIPPING_COUPON_PCT}% off shipping applied`, { pct: SHIPPING_COUPON_PCT });
+        }
+    }
+
+    function bindCoupon() {
+        const btn = document.getElementById('cartCouponBtn');
+        if (!btn || btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => {
+            if (!couponApplied) {
+                couponApplied = true;
+                updateTotals();
+                return;
+            }
+            // Second press is the point of the whole thing: the coupon is USFans', and
+            // the popup is where it gets claimed.
+            if (window.RePluGUsfansPopup && typeof window.RePluGUsfansPopup.show === 'function') {
+                window.RePluGUsfansPopup.show();
+            }
+        });
     }
 
     function render() {
@@ -501,6 +559,7 @@
         bindClone();
         bindBuyCheaper();
         bindInfoTips();
+        bindCoupon();
 
         const regionSel = document.getElementById('cartRegion');
         if (regionSel) {

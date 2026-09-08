@@ -1617,6 +1617,49 @@ button, input, select { font-family: inherit; color: inherit; }
     transition: border-color 0.12s;
 }
 .cart-region:hover { border-color: var(--text); }
+/* Sits under the shipping estimate: apply the USFans shipping coupon to the number,
+   then send the visitor to claim it. */
+.cart-coupon-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 6px;
+}
+.cart-coupon-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    color: #15803d;
+    background: none;
+    border: 1px solid #15803d;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.cart-coupon-btn:hover {
+    background: #15803d;
+    color: #fff;
+}
+.cart-coupon-btn.is-applied {
+    color: var(--text);
+    border-color: var(--text);
+}
+.cart-coupon-btn.is-applied:hover {
+    background: var(--text);
+    color: var(--bg);
+}
+.cart-coupon-note {
+    font-size: 0.7rem;
+    color: #15803d;
+    letter-spacing: 0.02em;
+}
+.cart-shipping-was {
+    color: var(--text-subtle);
+    margin-right: 6px;
+}
+
 .cart-grand-row {
     display: flex;
     justify-content: space-between;

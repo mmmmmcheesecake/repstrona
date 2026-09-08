@@ -6,7 +6,7 @@
     <title data-i18n-title="cart.title">Cart — RePluG24</title>
     <meta name="robots" content="noindex, follow">
     <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="stylesheet" href="style.css?v=65">
+    <link rel="stylesheet" href="style.css?v=66">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -84,6 +84,10 @@
                     </span>
                     <span class="cart-shipping-value" id="cartShippingValue"></span>
                 </div>
+                <div class="cart-coupon-row">
+                    <button type="button" class="cart-coupon-btn" id="cartCouponBtn"></button>
+                    <span class="cart-coupon-note" id="cartCouponNote" hidden></span>
+                </div>
                 <div class="cart-grand-row">
                     <span class="cart-grand-label" data-i18n="cart.grandTotal">Grand total (est.)</span>
                     <span class="cart-grand-value" id="cartGrandValue"></span>
@@ -150,10 +154,10 @@
         </div>
     </footer>
 
-    <script src="i18n.js?v=35"></script>
+    <script src="i18n.js?v=36"></script>
     <script src="script.js?v=19"></script>
     <script src="currency.js?v=4"></script>
     <script src="cart.js?v=5"></script>
-    <script src="koszyk.js?v=9"></script>
+    <script src="koszyk.js?v=10"></script>
 </body>
 </html>
