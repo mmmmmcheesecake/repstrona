@@ -597,8 +597,10 @@ async function fetchAllWeidianItems(shopId) {
 // Measured across 5559 album titles: "￥110 L33996-H99" is 49% of them, another 3% put
 // it mid-title as in "缺尺码表￥259 L33521-H30", a handful spell it "price: 268 CNY",
 // and the "110￥" this used to be the only form of does not occur at all. So every
-// yupoo seller but one showed its whole catalogue without a price.
-const YUPOO_PRICE_RE = /[¥￥]\s*(\d{1,6}(?:\.\d{1,2})?)|(\d{1,6}(?:\.\d{1,2})?)\s*[¥￥]|(\d{1,6}(?:\.\d{1,2})?)\s*(?:RMB|CNY)\b/i;
+// yupoo seller but one showed its whole catalogue without a price. One seller writes
+// theirs as "￥~35" and "￥~ 169" — about, rather than exactly — which is 1368 of that
+// shop's listings on its own, hence the tilde.
+const YUPOO_PRICE_RE = /[¥￥]\s*[~≈约]?\s*(\d{1,6}(?:\.\d{1,2})?)|(\d{1,6}(?:\.\d{1,2})?)\s*[¥￥]|(\d{1,6}(?:\.\d{1,2})?)\s*(?:RMB|CNY)\b/i;
 
 function parseYupooTitle(rawTitle) {
     let s = String(rawTitle || '').trim();
