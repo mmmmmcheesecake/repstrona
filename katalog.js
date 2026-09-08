@@ -1243,6 +1243,13 @@ function cardHTML(p) {
         if (p.budgetLink) q.set('budget', p.budgetLink);
         const safeOverride = safeImageUrl(p.imageOverride);
         if (safeOverride) q.set('img', safeOverride);
+        // A taobao item has no upstream that will resolve it — kakobuy links carry
+        // their own id, not a taobao one — so the price on this tile is the only price
+        // the product page will ever have. Hand it over.
+        if (/kakobuy\.com|taobao\.com/i.test(p.link) && typeof p.livePrice === 'number' && p.livePrice > 0) {
+            q.set('price', String(p.livePrice));
+            q.set('cur', 'USD');
+        }
         if (p.category) q.set('cat', p.category);
         const safeYupoo = safeHttpUrl(p.yupooAlbumUrl);
         if (safeYupoo) q.set('yupoo', safeYupoo);

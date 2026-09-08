@@ -379,9 +379,19 @@ async function load() {
         const apiQs = new URLSearchParams({ url: productUrl, full: '1' });
         if (yupooAlbumUrl) apiQs.set('yupoo', yupooAlbumUrl);
         const r = await fetch(`/api/product?${apiQs.toString()}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        if (data.error) throw new Error(data.error);
+        let data = r.ok ? await r.json().catch(() => null) : null;
+
+        // Taobao is the case with no upstream at all: usfans wants a login for that
+        // channel, qcitems reads taobao from usfans and has nothing, and a kakobuy link
+        // carries kakobuy's own id where a taobao number would go — so the API answers
+        // "unsupported url" and every item of a taobao shop showed a failure page. The
+        // tile we arrived from already knows the name, the photo and the price, and the
+        // buy button was wired before this call. Show that rather than an apology.
+        if (!data || data.error) {
+            const haveCardData = sheetName && (imageOverride || state.cardPrice);
+            if (!haveCardData) throw new Error(data?.error || `HTTP ${r.status}`);
+            data = {};
+        }
 
         if (data.agentUrl) {
             const safeAgent = safeHttpUrl(data.agentUrl);
