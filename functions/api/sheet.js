@@ -593,17 +593,32 @@ async function fetchAllWeidianItems(shopId) {
     return out;
 }
 
+// Sellers write the price on either side of the yuan mark and not always at the front.
+// Measured across 5559 album titles: "￥110 L33996-H99" is 49% of them, another 3% put
+// it mid-title as in "缺尺码表￥259 L33521-H30", a handful spell it "price: 268 CNY",
+// and the "110￥" this used to be the only form of does not occur at all. So every
+// yupoo seller but one showed its whole catalogue without a price.
+const YUPOO_PRICE_RE = /[¥￥]\s*(\d{1,6}(?:\.\d{1,2})?)|(\d{1,6}(?:\.\d{1,2})?)\s*[¥￥]|(\d{1,6}(?:\.\d{1,2})?)\s*(?:RMB|CNY)\b/i;
+
 function parseYupooTitle(rawTitle) {
     let s = String(rawTitle || '').trim();
     let priceCny = null;
-    const priceM = s.match(/^(\d+)\s*[¥￥]/);
+    const priceM = s.match(YUPOO_PRICE_RE);
     if (priceM) {
-        priceCny = parseInt(priceM[1], 10);
-        s = s.slice(priceM[0].length).trim();
+        const value = parseFloat(priceM[1] || priceM[2] || priceM[3]);
+        if (isFinite(value) && value > 0) {
+            priceCny = value;
+            // Lift it out of the name wherever it sat, so the tile is not titled with
+            // its own price.
+            s = `${s.slice(0, priceM.index)} ${s.slice(priceM.index + priceM[0].length)}`.trim();
+        }
     }
     const batches = [];
     s = s.replace(/【([^】]+)】/g, (_, b) => { batches.push(b.trim()); return ' '; });
-    const name = s.replace(/\s+/g, ' ').trim();
+    // Some albums are titled with nothing but their price. Taking the price out would
+    // leave them nameless, and a nameless item is dropped — which would have deleted
+    // seven hundred of one seller's listings in the name of fixing their prices.
+    const name = s.replace(/\s+/g, ' ').trim() || String(rawTitle || '').trim();
     return { name, priceCny, batchRaw: batches[0] || '' };
 }
 
