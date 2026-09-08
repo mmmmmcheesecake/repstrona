@@ -338,7 +338,8 @@
         btn.addEventListener('click', () => {
             if (!couponApplied) {
                 couponApplied = true;
-                updateTotals();
+                // updateTotal takes the items it is summing; the cart is the source.
+                updateTotal(getItems());
                 return;
             }
             // Second press is the point of the whole thing: the coupon is USFans', and
