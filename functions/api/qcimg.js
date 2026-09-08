@@ -77,10 +77,13 @@ export async function onRequest(ctx) {
         return new Response('image too large', { status: 413 });
     }
 
-    // Read the whole picture before answering. Streaming it through and handing a
-    // tee'd branch to the bucket looked tidier and archived one photo in eight: the
-    // branch nobody is reading gets dropped when the response finishes. These are
-    // capped at 15 MB above, so holding one in memory is the cheaper problem.
+    // Read the whole picture before answering, then serve and store the same bytes.
+    // This replaced a tee'd stream whose archive branch went to waitUntil. That version
+    // was abandoned on a measurement that turned out to be worthless — a shell loop
+    // whose requests were failing before they reached us — so it may well have worked.
+    // This one is verified end to end (eight photos, eight archived) and is the simpler
+    // thing to reason about: the size is capped at 15 MB a few lines above, so holding
+    // one in memory is the cheaper problem.
     let bytes;
     try { bytes = await upstream.arrayBuffer(); }
     catch { return new Response('upstream failed', { status: 502 }); }
