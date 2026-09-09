@@ -1530,6 +1530,9 @@ function weidianIdFromLink(link) {
     try {
         const u = new URL(link, location.href);
         const host = u.hostname.toLowerCase();
+        // A seller tile is an album; only the worker can resolve one, so the direct
+        // usfans fallback sits this one out rather than guessing.
+        if (host.endsWith('.yupoo.com')) return null;
         if (host === 'usfans.com' || host.endsWith('.usfans.com')) {
             const m = u.pathname.match(/\/product\/3\/(\d+)/);
             return m ? m[1] : null;
@@ -1578,11 +1581,12 @@ function usfansQcCount(link) {
 }
 
 async function flagQc(p) {
-    // Nothing to ask about for two kinds of link, and a taobao shop puts three hundred
-    // of them on screen at once: yupoo albums, which no QC source resolves, and taobao
-    // items, which no agent has QC for — usfans photographs weidian orders only.
+    // Taobao items are the one kind with nothing to ask about — no agent has QC for
+    // them, usfans photographs weidian orders only — and a taobao shop puts three
+    // hundred tiles on screen at once. Seller tiles link to a yupoo album, which the
+    // flag endpoint now resolves to the item it mirrors, so they are asked about like
+    // anything else.
     if (!p.link || p.isShopStub || p.hasQc) return;
-    if (/\.yupoo\.com\//i.test(p.link)) return;
     if (/usfans\.com\/product\/[12]\//i.test(p.link) || /(^|\.)taobao\.com\//i.test(p.link)) return;
 
     const cached = readQcFlag(p.link);

@@ -287,7 +287,7 @@ function extractAlbumItemRef(html) {
     return null;
 }
 
-async function resolveYupooAlbum(albumUrl) {
+export async function resolveYupooAlbum(albumUrl) {
     let u;
     try { u = new URL(albumUrl); } catch { return null; }
     let r;

@@ -1,4 +1,4 @@
-import { toMarketplaceUrl, weidianItemId, USFANS_QC_HEADERS, QCITEMS_HEADERS } from './qc.js';
+import { toMarketplaceUrl, weidianItemId, resolveYupooAlbum, USFANS_QC_HEADERS, QCITEMS_HEADERS } from './qc.js';
 
 // Does this item have QC photos at all? The catalogue asks once per tile it shows, so
 // the answer has to be small and it has to cache: whether a warehouse has photographed
@@ -74,12 +74,20 @@ export async function onRequest(ctx) {
     const url = new URL(ctx.request.url).searchParams.get('url');
     if (!url) return answer(null, 0);
 
-    // Yupoo albums are left alone. Resolving one costs a page fetch, and qcitems cannot
-    // make a product out of an album anyway — it answers with the generic bucket that
-    // would badge every seller tile alike.
-    if (/\.yupoo\.com\//i.test(url)) return answer(null, 0);
-
-    const marketplaceUrl = toMarketplaceUrl(url);
+    // A seller tile links to a yupoo album, and an album is not something any QC source
+    // can look up — but it names the marketplace item it mirrors, which is. That
+    // resolution costs a page fetch, so it only happens for tiles someone is looking
+    // at, and the answer is cached like any other.
+    let marketplaceUrl;
+    if (/\.yupoo\.com\//i.test(url)) {
+        marketplaceUrl = await resolveYupooAlbum(url);
+        // Either the album carries no marketplace link — plenty do not — or yupoo was
+        // unreachable. An hour is long enough to stop us re-reading the same album on
+        // every scroll, short enough that a bad minute at yupoo does not stick.
+        if (!marketplaceUrl) return answer(0, 3600);
+    } else {
+        marketplaceUrl = toMarketplaceUrl(url);
+    }
 
     const usfans = await usfansCount(marketplaceUrl);
     if (usfans) return answer(usfans, DAY);
