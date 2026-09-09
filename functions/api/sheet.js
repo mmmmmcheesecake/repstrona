@@ -624,6 +624,34 @@ function parseYupooTitle(rawTitle) {
     return { name, priceCny, batchRaw: batches[0] || '' };
 }
 
+// Sellers keep housekeeping albums next to their goods: how-to-order guides, a Discord
+// invite, a WhatsApp number, "all items", a size chart. They arrive shaped exactly like
+// products and sat in the catalogue as tiles with no price and nothing to buy.
+//
+// Aimed at administrative phrasings rather than at words, because the words alone catch
+// real goods: "Catalogue Tee" is a t-shirt and "Instagram-style bedroom rug" is a rug.
+// Checked against all 26027 seller titles on the site — it removes 70 of them, and
+// every one of those is a notice.
+const SELLER_JUNK_RULES = [
+    // The whole title is the platform, give or take an emoji.
+    /^\s*[^a-z0-9]{0,4}(discord|whats\s*app|wechat|telegram|instagram|tiktok|linktree|line|qq)\s*(server|link|group|chat|contact)?\s*[^a-z0-9]{0,4}$/i,
+    /^\s*(new\s+yupoo|new\s+yupoo\s+address|all\s+items?|all\s+item\s+catalogue|brand\s*品牌分类|品牌分类)\s*$/i,
+    /how\s+to\s+(use|order|buy)|size\s+(guide|chart)|about\s+agent/i,
+    /join\s+(our|my|us|the)?\s*\w*\s*discord|discord\s+(server|link|group)|[-–]\s*discord\b|discord\s+and\s+customer\s+service/i,
+    /(whats\s*app|wechat|telegram|line|kakao)\s*[:：]\s*\+?\d|(whats\s*app|wechat)\s*[:：]/i,
+    /follow\s+my\s+(tiktok|instagram)/i,
+    /click\s+here|check\s+this\s*[:：]?\s*$/i,
+    /latest\s+news\s+and\s+giveaways|giveaway/i,
+    /alipay\s+and\s+wechat\s+pay/i,
+    /whats\s*app\s*[-–]\s*direct\s+shipping|direct\s+shipping\s+on\s+discord/i,
+    /^\s*more\s+(book|bag|new\s+retail)/i,
+];
+
+function isSellerNotice(name) {
+    const t = String(name || '');
+    return SELLER_JUNK_RULES.some(re => re.test(t));
+}
+
 function yupooBatchCode(rawBatch) {
     const t = (rawBatch || '').toUpperCase();
     if (/\bLJR\b/.test(t)) return 'LJR';
@@ -1232,6 +1260,7 @@ async function fetchYupooShop(subdomain) {
     for (const a of albums) {
         const parsed = parseYupooTitle(a.title);
         if (!parsed.name) continue;
+        if (isSellerNotice(a.title) || isSellerNotice(parsed.name)) continue;
         const bm = yupooBrandModel(parsed.name);
         const usd = parsed.priceCny && parsed.priceCny > 0
             ? Math.round(parsed.priceCny / CNY_PER_USD) : null;
