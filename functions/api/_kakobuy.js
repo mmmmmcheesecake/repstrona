@@ -225,6 +225,13 @@ export function kakobuyItem(env, marketplaceUrl) {
     return post(env, '/api/sapi/item', { url: marketplaceUrl, tp: '', tid: '', refresh: '0' });
 }
 
+// Their type-ahead: give it a marketplace URL and it answers with what it knows about
+// the item without an order behind it. Cheaper than sapi/item and, unlike sapi/item,
+// it has answered us from the edge before.
+export function kakobuyAutoComp(env, url) {
+    return post(env, '/api/sapi/autoCompInfo', { url });
+}
+
 // Their own shop page calls this: shopUrl is the marketplace shop address. Unlike
 // sapi/item it answered us from the edge when last tested, and unlike usfans it has no
 // per-address search guard — which is the whole reason to try it for taobao shops.

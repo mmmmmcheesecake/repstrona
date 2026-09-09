@@ -1,3 +1,4 @@
+import { kakobuyItem, kakobuyAutoComp } from './_kakobuy.js';
 function parseUsfans(rawUrl) {
     try {
         const u = new URL(rawUrl);
@@ -538,6 +539,31 @@ async function readResponse(r) {
 }
 
 export async function onRequest(ctx) {
+    // Temporary: which kakobuy endpoint, if any, will price a single taobao item for
+    // us. Reports shapes and the price-looking fields, never the token. Comes out once
+    // it has answered.
+    const probeUrl = new URL(ctx.request.url).searchParams.get('kakoprobe');
+    if (probeUrl) {
+        const [item, auto] = await Promise.all([
+            kakobuyItem(ctx.env, probeUrl),
+            kakobuyAutoComp(ctx.env, probeUrl),
+        ]);
+        const shape = (res) => ({
+            ok: res.ok,
+            msg: res.msg,
+            keys: res.data && typeof res.data === 'object' ? Object.keys(res.data).slice(0, 25) : null,
+            priceish: res.data && typeof res.data === 'object'
+                ? Object.fromEntries(Object.entries(res.data)
+                    .filter(([k]) => /price|cur_|money|amount/i.test(k))
+                    .slice(0, 10))
+                : null,
+        });
+        return new Response(JSON.stringify({ item: shape(item), autoComp: shape(auto) }, null, 2), {
+            headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+        });
+    }
+
+
     const params = new URL(ctx.request.url).searchParams;
     const url = params.get('url');
     const full = params.get('full') === '1';
