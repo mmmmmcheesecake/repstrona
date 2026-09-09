@@ -1,11 +1,19 @@
-const ALLOWED_HOST_SUFFIXES = [
+export const ALLOWED_HOST_SUFFIXES = [
     '.vectoreps.pl',
     '.qcitems.com',
     '.usfans.com',
     '.kakobuy.com',
+    // kakobuy serves the same files from a kakobyy.com spelling of its own name, and
+    // qcitems hands out both. Six hundred photos in a sample of twenty-five products
+    // came from it, every one of them refused here — which is why galleries appeared
+    // for a moment and then emptied themselves tile by tile.
+    '.kakobyy.com',
     '.cnfans.com',
     '.uufinds.com',
     '.oopbuy.com',
+    // acbuy's photos are on the .cn domain, not the .com one their site uses.
+    '.acbuy.com',
+    '.acbuy.cn',
     '.yupoo.com',
     // taobao/1688 product images. cbu01.alicdn.com 403s any request carrying a
     // replug24 Referer, so these have to come through the proxy, which sends none.
@@ -14,7 +22,7 @@ const ALLOWED_HOST_SUFFIXES = [
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
 
-function hostAllowed(hostname) {
+export function hostAllowed(hostname) {
     const h = (hostname || '').toLowerCase();
     if (!h) return false;
     return ALLOWED_HOST_SUFFIXES.some(suffix => h === suffix.slice(1) || h.endsWith(suffix));

@@ -1,4 +1,5 @@
 import { kakobuyEnabled, kakobuyItem, kakobuyQcGroups } from './_kakobuy.js';
+import { hostAllowed } from './qcimg.js';
 
 function jsonError(message, status) {
     return new Response(JSON.stringify({ error: message }), {
@@ -128,7 +129,20 @@ async function archived(env, sampleUrl) {
     } catch { return false; }
 }
 
+// Whether the photo's host answers is only half the question: our own proxy has an
+// allowlist, and a host missing from it is refused here no matter how healthy it is
+// upstream. Publishing such a photo means the page draws a tile, the browser gets a
+// 403, and the tile removes itself — a gallery that appears and then empties. Ask the
+// proxy's own rule before promising anything.
+function serveablePhoto(photo) {
+    try { return hostAllowed(new URL(photo.origin).hostname); } catch { return false; }
+}
+
 async function reachableSets(env, sets) {
+    sets = sets
+        .map(set => ({ ...set, photos: set.photos.filter(serveablePhoto) }))
+        .filter(set => set.photos.length);
+
     const sample = new Map();
     for (const set of sets) {
         for (const photo of set.photos) {
