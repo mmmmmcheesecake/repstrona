@@ -747,9 +747,13 @@ function parseYupooAlbums(html, base) {
 // is parsed with regexes in the same worker invocation — fifteen at once is three
 // megabytes of HTML and was already close enough to the resource ceiling to trip
 // `error code 1102`. So the shop is read a slice at a time and the catalogue asks for
-// the next one when the reader gets there. Shops that used to stop at 1800 items go as
-// deep as they actually are: one of them has over 5400.
-const YUPOO_PAGES_PER_BATCH = 5;
+// the next as the reader reaches the end of what it has. Shops that used to stop at
+// 1800 items go as deep as they actually are: one of them has over 5400.
+//
+// Three pages rather than five: a lighter call answers sooner, and since slices now
+// arrive as the reader scrolls rather than on a press, arriving sooner matters more
+// than arriving in bulk.
+const YUPOO_PAGES_PER_BATCH = 3;
 
 async function fetchYupooAlbums(yupooBaseUrl, batch = 0) {
     const base = yupooBaseUrl.replace(/\/+$/, '');

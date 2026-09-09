@@ -1122,6 +1122,13 @@ async function loadMoreShopProducts() {
         }
         if (!added) shopMoreAvailable.set(activeSeller, false);
         bumpProductsVersion();
+        // renderGrid below rebuilds the tiles; the button survives, so make sure it is
+        // still being watched and back to its resting label.
+        const btnAfter = document.getElementById('shopLoadMore');
+        if (btnAfter) {
+            btnAfter.textContent = T('sellers.more', 'Show more from this shop');
+            watchShopLoadMore(btnAfter);
+        }
         buildBrandTabs();
         buildModelTabs();
         renderGrid();
@@ -1129,9 +1136,24 @@ async function loadMoreShopProducts() {
     loadingMore = false;
 }
 
-// Sits under the grid of a shop that has more behind it. A button rather than an
-// endless scroll: each press is another five pages of somebody else's site, and the
-// reader should be the one asking for them.
+// Sits under the grid of a shop that has more behind it, and loads the next slice when
+// the reader reaches it. The button stays visible and clickable — it is the thing being
+// watched, so it doubles as the fallback where IntersectionObserver is missing and as
+// somewhere to show that loading is happening.
+let shopMoreObserver = null;
+
+function watchShopLoadMore(btn) {
+    if (!('IntersectionObserver' in window)) return;
+    if (!shopMoreObserver) {
+        shopMoreObserver = new IntersectionObserver(entries => {
+            // One slice at a time: loadMoreShopProducts guards on loadingMore, so a fast
+            // scroll cannot stack up requests against somebody else's site.
+            if (entries.some(e => e.isIntersecting)) loadMoreShopProducts();
+        }, { rootMargin: '400px' });
+    }
+    shopMoreObserver.observe(btn);
+}
+
 function renderShopLoadMore() {
     const existing = document.getElementById('shopLoadMore');
     // An active seller is the whole condition. Checking the category as well looked
@@ -1150,6 +1172,7 @@ function renderShopLoadMore() {
     btn.textContent = T('sellers.more', 'Show more from this shop');
     btn.addEventListener('click', loadMoreShopProducts);
     grid.parentNode.insertBefore(btn, grid.nextSibling);
+    watchShopLoadMore(btn);
 }
 
 function renderShopLoading() {
