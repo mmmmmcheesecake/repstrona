@@ -2166,17 +2166,24 @@ body.usfans-popup-open { overflow: hidden; }
     overflow: hidden;
 }
 
+/* Follows the reader down a seller's shop, which can run to a thousand items — the way
+   out should not be a thousand items back up. Sits under the navbar and the category
+   bar; its offset is measured rather than guessed, since those two are shorter on a
+   phone. Below them in the stack so it slides underneath rather than over. */
 .seller-back {
+    position: sticky;
+    top: 104px;
+    z-index: 98;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: none;
+    background: var(--bg);
     border: none;
     color: var(--text-muted);
     font: inherit;
     font-size: 0.78rem;
     letter-spacing: 0.02em;
-    padding: 4px 0;
+    padding: 6px 10px 6px 0;
     margin: 6px 0 10px;
     cursor: pointer;
     transition: color 0.12s;

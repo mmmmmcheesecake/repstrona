@@ -1383,6 +1383,24 @@ function fillTaobaoCovers(sellers, grid) {
     }
 }
 
+// The button sticks below whatever is already stuck to the top: the navbar always, the
+// main category bar when the layout keeps it there. Measured on the real elements, so
+// a shorter mobile navbar or a wrapped row of pills does not leave a gap or an overlap.
+function positionSellerBack(el) {
+    if (!el) return;
+    let offset = 0;
+    for (const sel of ['.navbar', '.cat-bar.cat-bar-main']) {
+        const node = document.querySelector(sel);
+        if (!node) continue;
+        if (getComputedStyle(node).position !== 'sticky') continue;
+        offset += node.getBoundingClientRect().height;
+    }
+    // A measurement of zero means there was nothing to measure — no layout yet, or the
+    // bars are not sticky at this width. Leave the stylesheet's fallback rather than
+    // pinning the button under the navbar where it cannot be seen.
+    if (offset > 0) el.style.top = `${Math.round(offset)}px`;
+}
+
 function ensureSellerBack() {
     let el = document.getElementById('sellerBack');
     if (el) return el;
@@ -1401,6 +1419,8 @@ function ensureSellerBack() {
         }
     });
     main.insertBefore(el, info);
+    positionSellerBack(el);
+    window.addEventListener('resize', () => positionSellerBack(el));
     return el;
 }
 
@@ -1412,6 +1432,7 @@ function updateSellerBack() {
         const label = s?.shopName || 'Sellers';
         el.textContent = `← ${T('sellers.back', 'All sellers')} · ${label}`;
         el.style.display = '';
+        positionSellerBack(el);
     } else {
         el.style.display = 'none';
     }
