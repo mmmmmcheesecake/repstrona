@@ -867,8 +867,12 @@ async function fetchYupooFirstPageMeta(base) {
         const html = await r.text();
         const albums = parseYupooAlbums(html, base);
         let cover = null;
-        if (albums.length) {
-            const firstCover = albums[0].cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
+        // Sellers pin their notices to the front of the shop, so the first album is
+        // often "NEW YUPOO" or a Discord banner — which is what the seller card ended
+        // up wearing. Take the first album that is actually goods.
+        const forCover = albums.find(a => !isSellerNotice(a.title)) || albums[0];
+        if (forCover) {
+            const firstCover = forCover.cover.replace(/\/small\.(jpg|jpeg|png|webp)$/, '/medium.$1');
             cover = proxyYupooImage(firstCover);
         }
         let maxPage = 1;
