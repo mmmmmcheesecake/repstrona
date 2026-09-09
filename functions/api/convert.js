@@ -111,9 +111,11 @@ function parseLink(raw, depth) {
     }
 
     // Agents that name the platform and the id in the query: cnfans, mulebuy, joyabuy,
-    // orientdig, lovegobuy, acbuy, joyagoo.
-    const named = firstParam(u.searchParams, ['platform', 'shop_type', 'shopType', 'source', 'shop']);
-    const id = firstParam(u.searchParams, ['id', 'goodsId', 'goods_id', 'offerId', 'itemId', 'itemID']);
+    // orientdig, lovegobuy, acbuy, joyagoo — and kakobuy, which spells them tp and tid.
+    // qcitems is no help for that one: asked to convert it, they hand back the kakobuy
+    // link itself as the "raw" address, so it has to be read here.
+    const named = firstParam(u.searchParams, ['platform', 'shop_type', 'shopType', 'source', 'shop', 'tp']);
+    const id = firstParam(u.searchParams, ['id', 'goodsId', 'goods_id', 'offerId', 'itemId', 'itemID', 'tid']);
     if (named && id) {
         const platform = PLATFORM_ALIAS[named.toLowerCase()];
         if (platform && ITEM_ID.test(id)) return { platform, id };
