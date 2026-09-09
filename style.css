@@ -284,6 +284,13 @@ button, input, select { font-family: inherit; color: inherit; }
     .hero-tiles { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .hero-tile-label { font-size: 0.72rem; letter-spacing: 0.04em; }
     .hero-tile { gap: 8px; }
+    /* Thumbs are not mouse pointers: these three sit at 25, 27 and 40 pixels on the
+       desktop layout, under the 44 that a finger wants. Only the padding grows — the
+       type stays where it is, so nothing reflows around them. */
+    .cart-coupon-btn { padding: 15px 16px; }
+    .seller-back { padding: 12px 12px 12px 0; }
+    .shop-load-more { padding: 15px 16px; }
+
 }
 @media (max-width: 480px) {
     .hero-headline { font-size: 1.4rem; }
