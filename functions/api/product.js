@@ -1,4 +1,3 @@
-import { kakobuyItem, kakobuyAutoComp } from './_kakobuy.js';
 function parseUsfans(rawUrl) {
     try {
         const u = new URL(rawUrl);
@@ -379,6 +378,23 @@ function kakobuyLink(raw) {
 // on an empty page — so those go to kakobuy, which takes the raw marketplace URL.
 // Same split as toUsfans() in produkt.js and usfansLinkFromInput() in qc.js; the three
 // have to stay in step.
+// The marketplace address a ref points at, before any agent is wrapped around it.
+// refToAgent hands out the buy link; this is what the data endpoints want.
+function isYupooAlbumUrl(raw) {
+    try { return /\.yupoo\.com$/i.test(new URL(raw).hostname); } catch { return false; }
+}
+
+function refToMarketplaceUrl(ref) {
+    if (!ref) return null;
+    switch (ref.source) {
+        case 'weidian': return `https://weidian.com/item.html?itemID=${ref.itemId}`;
+        case 'taobao': return `https://item.taobao.com/item.htm?id=${ref.itemId}`;
+        case 'tmall': return `https://detail.tmall.com/item.htm?id=${ref.itemId}`;
+        case '1688': return `https://detail.1688.com/offer/${ref.itemId}.html`;
+        default: return null;
+    }
+}
+
 function refToAgent(ref) {
     if (!ref) return null;
     if (ref.source === 'weidian') {
@@ -484,10 +500,10 @@ async function fetchYupooAlbumData(albumUrl) {
             photos.push(proxyImage(big));
         }
 
-        const agentUrl = refToAgent(extractAlbumItemRef(html));
+        const ref = extractAlbumItemRef(html);
 
-        return { images: photos.slice(0, 16), agentUrl };
-    } catch { return { images: [], agentUrl: null }; }
+        return { images: photos.slice(0, 16), agentUrl: refToAgent(ref), ref };
+    } catch { return { images: [], agentUrl: null, ref: null }; }
 }
 
 function emptyResult() {
@@ -539,31 +555,6 @@ async function readResponse(r) {
 }
 
 export async function onRequest(ctx) {
-    // Temporary: which kakobuy endpoint, if any, will price a single taobao item for
-    // us. Reports shapes and the price-looking fields, never the token. Comes out once
-    // it has answered.
-    const probeUrl = new URL(ctx.request.url).searchParams.get('kakoprobe');
-    if (probeUrl) {
-        const [item, auto] = await Promise.all([
-            kakobuyItem(ctx.env, probeUrl),
-            kakobuyAutoComp(ctx.env, probeUrl),
-        ]);
-        const shape = (res) => ({
-            ok: res.ok,
-            msg: res.msg,
-            keys: res.data && typeof res.data === 'object' ? Object.keys(res.data).slice(0, 25) : null,
-            priceish: res.data && typeof res.data === 'object'
-                ? Object.fromEntries(Object.entries(res.data)
-                    .filter(([k]) => /price|cur_|money|amount/i.test(k))
-                    .slice(0, 10))
-                : null,
-        });
-        return new Response(JSON.stringify({ item: shape(item), autoComp: shape(auto) }, null, 2), {
-            headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-        });
-    }
-
-
     const params = new URL(ctx.request.url).searchParams;
     const url = params.get('url');
     const full = params.get('full') === '1';
@@ -572,28 +563,47 @@ export async function onRequest(ctx) {
     let result = null;
     let upstreamErrorResponse = null;
 
-    if (url) {
+    // The catalogue enriches a tile by its link, and a seller tile's link is the album
+    // itself. Without this the call came back "unsupported url" and every seller tile
+    // went unpriced and un-enriched.
+    const albumUrl = yupoo || (isYupooAlbumUrl(url) ? url : null);
+
+    if (url && !isYupooAlbumUrl(url)) {
         const upstream = await resolveByUrl(url, full);
         if (upstream && upstream.status >= 200 && upstream.status < 300) {
             result = await readResponse(upstream);
-        } else if (upstream && !yupoo) {
+        } else if (upstream && !albumUrl) {
             return upstream;
-        } else if (!upstream && !yupoo) {
+        } else if (!upstream && !albumUrl) {
             return jsonError('unsupported url', 400);
         } else {
             upstreamErrorResponse = upstream;
         }
-    } else if (!yupoo) {
+    } else if (!albumUrl) {
         return jsonError('missing url', 400);
     }
 
-    if (yupoo) {
-        const { images: yupooImgs, agentUrl } = await fetchYupooAlbumData(yupoo);
+    if (albumUrl) {
+        const { images: yupooImgs, agentUrl, ref } = await fetchYupooAlbumData(albumUrl);
         if (!result) result = emptyResult();
         const merged = [...new Set([...yupooImgs, ...(result.images || [])])];
         result.images = merged.slice(0, 20);
         if (!result.image && result.images.length) result.image = result.images[0];
         if (agentUrl) result.agentUrl = agentUrl;
+
+        // The album says which marketplace item it mirrors, and that item has a price
+        // and a title — a seller whose album titles carry no price showed none at all
+        // until now, though the listing behind it was priced all along. The album's own
+        // photos stay in front: they are the seller's, and better than the shop's.
+        if (ref && (result.priceUsd == null || !result.title)) {
+            const priced = await readResponse(await resolveByUrl(refToMarketplaceUrl(ref), full));
+            if (priced) {
+                if (result.priceUsd == null) result.priceUsd = priced.priceUsd;
+                if (!result.title) result.title = priced.title;
+                if (!result.shopName) result.shopName = priced.shopName;
+                if (result.weightG == null) result.weightG = priced.weightG;
+            }
+        }
     }
 
     if (!result) {
