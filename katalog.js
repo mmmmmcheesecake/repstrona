@@ -641,23 +641,35 @@ async function loadTaobaoShopFromBrowser(shopKey, shopName) {
     return out;
 }
 
+// A shop is read a slice at a time — five yupoo pages, or six kakobuy ones — because
+// reading it whole was three megabytes of HTML in one worker call and capped the shop
+// at 1800 items. One of them has over 5400. The endpoint says in a header whether
+// another slice exists.
+const shopMoreAvailable = new Map();
+const shopBatchesLoaded = new Map();
+
 const shopFetchCache = new Map();
-async function loadShopProducts(shopId) {
-    if (shopFetchCache.has(shopId)) return shopFetchCache.get(shopId);
+async function loadShopProducts(shopId, batch = 0) {
+    const key = `${shopId}#${batch}`;
+    if (shopFetchCache.has(key)) return shopFetchCache.get(key);
     const promise = (async () => {
         const isTaobao = /^tb-\d+$/.test(shopId);
         try {
-            const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}&v=2`);
+            const r = await fetch(`/api/sheet?shop=${encodeURIComponent(shopId)}&batch=${batch}&v=3`);
             if (r.ok) {
+                shopMoreAvailable.set(shopId, r.headers.get('x-shop-has-more') === '1');
                 const data = await r.json();
                 if (Array.isArray(data) && data.length) return data.map(mapApiProduct);
+                if (batch > 0) return [];
                 if (!isTaobao) throw new Error('Bad shop response');
             } else if (!isTaobao) {
                 throw new Error(`HTTP ${r.status}`);
             }
         } catch (e) {
+            if (batch > 0) return [];
             if (!isTaobao) throw e;
         }
+        if (batch > 0) return [];
         const shopName = uniqueSellers().find(s => s.shopId === shopId)?.shopName || null;
 
         // Listing a shop costs six paced calls against an endpoint that bans bursts, so
@@ -670,11 +682,11 @@ async function loadShopProducts(shopId) {
         writeStoredJson(`tbshop:${shopId}`, products);
         return products;
     })();
-    shopFetchCache.set(shopId, promise);
+    shopFetchCache.set(key, promise);
     try {
         return await promise;
     } catch (e) {
-        shopFetchCache.delete(shopId);
+        shopFetchCache.delete(key);
         throw e;
     }
 }
@@ -1089,6 +1101,57 @@ async function selectSeller(shopId, opts = {}) {
     if (isMobile()) scrollToProducts();
 }
 
+let loadingMore = false;
+
+async function loadMoreShopProducts() {
+    if (loadingMore || !activeSeller) return;
+    if (!shopMoreAvailable.get(activeSeller)) return;
+
+    loadingMore = true;
+    const btn = document.getElementById('shopLoadMore');
+    if (btn) btn.textContent = T('sellers.loading', 'Loading…');
+
+    const next = (shopBatchesLoaded.get(activeSeller) || 0) + 1;
+    try {
+        const products = await loadShopProducts(activeSeller, next);
+        shopBatchesLoaded.set(activeSeller, next);
+        const known = new Set(allProducts.map(p => p.link));
+        let added = 0;
+        for (const p of products) {
+            if (p.link && !known.has(p.link)) { allProducts.push(p); known.add(p.link); added++; }
+        }
+        if (!added) shopMoreAvailable.set(activeSeller, false);
+        bumpProductsVersion();
+        buildBrandTabs();
+        buildModelTabs();
+        renderGrid();
+    } catch { shopMoreAvailable.set(activeSeller, false); }
+    loadingMore = false;
+}
+
+// Sits under the grid of a shop that has more behind it. A button rather than an
+// endless scroll: each press is another five pages of somebody else's site, and the
+// reader should be the one asking for them.
+function renderShopLoadMore() {
+    const existing = document.getElementById('shopLoadMore');
+    // An active seller is the whole condition. Checking the category as well looked
+    // tidier but breaks on a back-button restore, where the shop is reopened without
+    // the category being set again.
+    const wanted = Boolean(activeSeller && shopMoreAvailable.get(activeSeller));
+    if (!wanted) { if (existing) existing.remove(); return; }
+    if (existing) { existing.textContent = T('sellers.more', 'Show more from this shop'); return; }
+
+    const grid = document.getElementById('productsGrid');
+    if (!grid || !grid.parentNode) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'shopLoadMore';
+    btn.className = 'shop-load-more';
+    btn.textContent = T('sellers.more', 'Show more from this shop');
+    btn.addEventListener('click', loadMoreShopProducts);
+    grid.parentNode.insertBefore(btn, grid.nextSibling);
+}
+
 function renderShopLoading() {
     updateSellerBack();
     const grid = document.getElementById('productsGrid');
@@ -1473,6 +1536,7 @@ function renderGrid() {
 
     empty.style.display = 'none';
     grid.style.display = 'grid';
+    renderShopLoadMore();
 
     const initial = items.slice(0, RENDER_INITIAL);
     grid.innerHTML = initial.map(cardHTML).join('');
@@ -1493,6 +1557,8 @@ function renderGrid() {
         };
         scheduleIdle(mountNext);
     }
+
+    renderShopLoadMore();
 }
 
 function showError(msg) {

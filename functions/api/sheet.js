@@ -743,11 +743,20 @@ function parseYupooAlbums(html, base) {
     return out;
 }
 
-async function fetchYupooAlbums(yupooBaseUrl) {
+// A yupoo gallery page holds 120 albums and weighs about 200 KB, and every one of them
+// is parsed with regexes in the same worker invocation — fifteen at once is three
+// megabytes of HTML and was already close enough to the resource ceiling to trip
+// `error code 1102`. So the shop is read a slice at a time and the catalogue asks for
+// the next one when the reader gets there. Shops that used to stop at 1800 items go as
+// deep as they actually are: one of them has over 5400.
+const YUPOO_PAGES_PER_BATCH = 5;
+
+async function fetchYupooAlbums(yupooBaseUrl, batch = 0) {
     const base = yupooBaseUrl.replace(/\/+$/, '');
-    const MAX_PAGES = 15;
+    const firstPage = batch * YUPOO_PAGES_PER_BATCH + 1;
+    const lastPage = firstPage + YUPOO_PAGES_PER_BATCH - 1;
     const fetches = [];
-    for (let p = 1; p <= MAX_PAGES; p++) {
+    for (let p = firstPage; p <= lastPage; p++) {
         fetches.push(
             fetch(`${base}/albums?tab=gallery&page=${p}`, {
                 headers: { 'User-Agent': WEIDIAN_UA },
@@ -758,6 +767,8 @@ async function fetchYupooAlbums(yupooBaseUrl) {
         );
     }
     const pages = await Promise.all(fetches);
+    // A full slice means there is probably more behind it; a short one is the end.
+    const full = pages.every(pg => pg.status === 200);
     // 404 means the shop is really gone. Anything else that is not a 200 (rate limit,
     // 5xx, network error) is transient and must not be published — and cached — as an
     // empty shop, which is what made healthy shops show up dead for minutes at a time.
@@ -773,7 +784,7 @@ async function fetchYupooAlbums(yupooBaseUrl) {
             all.push(a);
         }
     }
-    return { albums: all, reachable };
+    return { albums: all, reachable, hasMore: full && all.length >= YUPOO_PAGES_PER_BATCH * 100 };
 }
 
 function normalizeForMatch(s) {
@@ -918,7 +929,10 @@ async function fetchWeidianItemsMeta(shopId) {
 // total at 1000 while paging well past it, so the count they give is not worth
 // repeating and we stop when a short page says the shop ran out.
 const TAOBAO_PAGE_SIZE = 20;
+// kakobuy pages twenty at a time. Six of those was a cautious first cut; the shops
+// themselves run to hundreds, so the catalogue asks for the next slice as it goes.
 const TAOBAO_MAX_PAGES = 6;
+const TAOBAO_PAGES_PER_BATCH = 6;
 const TAOBAO_PAGE_GAP_MS = 600;
 
 async function fetchTaobaoShopPage(shopId, pageNum) {
@@ -1113,11 +1127,13 @@ function kakobuyShopItemToProduct(item, shopId, shopName) {
     };
 }
 
-async function fetchKakobuyShop(env, shopId, shopName) {
+async function fetchKakobuyShop(env, shopId, shopName, batch = 0) {
     if (!kakobuyEnabled(env)) return [];
     const out = [];
+    const firstPage = batch * TAOBAO_PAGES_PER_BATCH + 1;
+    const lastPage = firstPage + TAOBAO_PAGES_PER_BATCH - 1;
 
-    for (let page = 1; page <= TAOBAO_MAX_PAGES; page++) {
+    for (let page = firstPage; page <= lastPage; page++) {
         const res = await fetchKakobuyShopPage(env, shopId, page);
         if (!res || !res.items.length) break;
 
@@ -1126,16 +1142,18 @@ async function fetchKakobuyShop(env, shopId, shopName) {
             if (product) out.push(product);
         }
         if (res.lastPage && page >= res.lastPage) break;
-        if (page < TAOBAO_MAX_PAGES) await sleep(KAKOBUY_PAGE_GAP_MS);
+        if (page < lastPage) await sleep(KAKOBUY_PAGE_GAP_MS);
     }
     return out;
 }
 
-async function fetchTaobaoShop(env, shopId, shopName) {
+async function fetchTaobaoShop(env, shopId, shopName, batch = 0) {
     // kakobuy answers us and usfans currently does not, but usfans has the English
     // titles, so it stays as the second attempt rather than being dropped.
-    const viaKakobuy = await fetchKakobuyShop(env, shopId, shopName);
+    const viaKakobuy = await fetchKakobuyShop(env, shopId, shopName, batch);
     if (viaKakobuy.length) return viaKakobuy;
+    // usfans only ever served the first slice; past that kakobuy is the whole story.
+    if (batch > 0) return [];
 
     const items = await fetchTaobaoShopItems(shopId);
     const out = [];
@@ -1251,11 +1269,11 @@ function fetchShopStub(env, shopId, extras) {
     return fetchWeidianStub(shopId, extras);
 }
 
-async function fetchYupooShop(subdomain) {
+async function fetchYupooShop(subdomain, batch = 0) {
     const base = `https://${subdomain}.x.yupoo.com`;
-    const { albums, reachable } = await fetchYupooAlbums(base);
-    if (!reachable) return { products: [], reachable: false };
-    if (!albums.length) return { products: [], reachable: true };
+    const { albums, reachable, hasMore } = await fetchYupooAlbums(base, batch);
+    if (!reachable) return { products: [], reachable: false, hasMore: false };
+    if (!albums.length) return { products: [], reachable: true, hasMore: false };
 
     const shopId = `yp-${subdomain}`;
     const shopName = subdomain;
@@ -1290,7 +1308,7 @@ async function fetchYupooShop(subdomain) {
             yupooAlbumUrl: a.url,
         });
     }
-    return { products: out, reachable: true };
+    return { products: out, reachable: true, hasMore };
 }
 
 function upstreamUnavailable() {
@@ -1304,13 +1322,17 @@ function upstreamUnavailable() {
     });
 }
 
-function jsonResponse(body, maxAge = 900) {
+function jsonResponse(body, maxAge = 900, extraHeaders) {
     return new Response(JSON.stringify(body), {
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
+            // The shop endpoint says in a header whether another slice exists, and a
+            // custom header is invisible to a cross-origin reader without this.
+            'Access-Control-Expose-Headers': 'x-shop-has-more',
             'Cache-Control': `public, max-age=${maxAge}`,
             'X-Content-Type-Options': 'nosniff',
+            ...(extraHeaders || {}),
         }
     });
 }
@@ -1409,6 +1431,9 @@ export async function onRequest(ctx) {
     const params = new URL(ctx.request.url).searchParams;
 
     const shopParam = params.get('shop');
+    // Which slice of a big shop is being asked for. Absent means the first, so every
+    // caller that predates this keeps working unchanged.
+    const shopBatch = Math.max(0, parseInt(params.get('batch') || '0', 10) || 0);
     if (shopParam) {
         if (/^\d+$/.test(shopParam)) {
             const products = await fetchWeidianShop(shopParam);
@@ -1416,19 +1441,27 @@ export async function onRequest(ctx) {
         }
         const ypMatch = shopParam.match(/^yp-([a-zA-Z0-9-]+)$/);
         if (ypMatch) {
-            const { products, reachable } = await fetchYupooShop(ypMatch[1]);
+            const { products, reachable, hasMore } = await fetchYupooShop(ypMatch[1], shopBatch);
             if (!reachable) return upstreamUnavailable();
-            return jsonResponse(products.map(compact), 300);
+            // The payload stays an array, as it has always been; whether more exists
+            // rides in a header, so nothing that reads this endpoint has to change.
+            return jsonResponse(products.map(compact), 300, { 'x-shop-has-more': hasMore ? '1' : '0' });
         }
         const tbMatch = shopParam.match(/^tb-(\d+)$/);
         if (tbMatch) {
             const shopId = tbMatch[1];
-            const products = await fetchTaobaoShop(ctx.env, shopId, params.get('name') || null);
+            const products = await fetchTaobaoShop(ctx.env, shopId, params.get('name') || null, shopBatch);
             if (products.length) {
                 const payload = products.map(compact);
-                ctx.waitUntil(storeTaobaoListing(shopId, payload));
-                return jsonResponse(payload, 1800);
+                // Only the first slice is worth keeping as the fallback copy: it is the
+                // one a visitor sees when everything upstream refuses.
+                if (shopBatch === 0) ctx.waitUntil(storeTaobaoListing(shopId, payload));
+                return jsonResponse(payload, 1800, {
+                    'x-shop-has-more': payload.length >= TAOBAO_PAGES_PER_BATCH * 20 ? '1' : '0',
+                });
             }
+            // Past the first slice an empty answer just means the shop ended.
+            if (shopBatch > 0) return jsonResponse([], 1800, { 'x-shop-has-more': '0' });
             // Their guard is on, or they answered with nothing. Yesterday's shop beats
             // no shop, and the browser fallback only runs when this comes back empty.
             const stale = await cachedTaobaoListing(shopId);
