@@ -1581,13 +1581,12 @@ function usfansQcCount(link) {
 }
 
 async function flagQc(p) {
-    // Taobao items are the one kind with nothing to ask about — no agent has QC for
-    // them, usfans photographs weidian orders only — and a taobao shop puts three
-    // hundred tiles on screen at once. Seller tiles link to a yupoo album, which the
-    // flag endpoint now resolves to the item it mirrors, so they are asked about like
-    // anything else.
+    // Everything with a link gets asked. Taobao items were skipped here on the grounds
+    // that nothing has QC for them — true of usfans, which photographs weidian orders
+    // only, but not of qcitems, which mirrors other agents' sets. Measured after the
+    // fact: of the 73 catalogue items linking straight to taobao or 1688, the first
+    // three carried 612, 19 and 34 photos, and not one of them could show a badge.
     if (!p.link || p.isShopStub || p.hasQc) return;
-    if (/usfans\.com\/product\/[12]\//i.test(p.link) || /(^|\.)taobao\.com\//i.test(p.link)) return;
 
     const cached = readQcFlag(p.link);
     if (cached !== undefined) {
