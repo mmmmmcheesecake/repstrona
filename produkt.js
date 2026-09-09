@@ -348,11 +348,26 @@ function buildOptions() {
     placeColorwaysForViewport();
 }
 
+// The back link is stuck below the navbar, and the navbar is shorter on a phone than
+// the stylesheet's fallback assumes. Measure it rather than guess, and leave the
+// fallback alone when there is nothing to measure yet.
+function positionBackLink() {
+    const link = document.querySelector('.back-link');
+    const bar = document.querySelector('.navbar');
+    if (!link || !bar) return;
+    if (getComputedStyle(bar).position !== 'sticky') return;
+    const h = bar.getBoundingClientRect().height;
+    if (h > 0) link.style.top = `${Math.round(h)}px`;
+}
+
 async function load() {
     if (!productUrl) {
         showError('Missing product URL.');
         return;
     }
+
+    positionBackLink();
+    window.addEventListener('resize', positionBackLink);
 
     const ref = ensureRef(productUrl);
     if (!ref) {

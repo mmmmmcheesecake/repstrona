@@ -289,6 +289,7 @@ button, input, select { font-family: inherit; color: inherit; }
        type stays where it is, so nothing reflows around them. */
     .cart-coupon-btn { padding: 15px 16px; }
     .seller-back { padding: 12px 12px 12px 0; }
+    .back-link { padding: 12px 12px 12px 0; }
     .shop-load-more { padding: 15px 16px; }
 
 }
@@ -1126,11 +1127,19 @@ button, input, select { font-family: inherit; color: inherit; }
     .qc-heading { font-size: 1.3rem; }
 }
 
+/* Follows the reader down a product page the way its counterpart follows them down a
+   seller's shop. Only the navbar is stuck above it here, so it sits higher than the
+   catalogue's; the offset is measured in produkt.js all the same. */
 .back-link {
+    position: sticky;
+    top: 64px;
+    z-index: 98;
     display: inline-block;
     margin-bottom: 28px;
+    padding: 6px 10px 6px 0;
     font-size: 0.76rem;
     color: var(--text-muted);
+    background: transparent;
     transition: color 0.12s;
     letter-spacing: 0.01em;
 }
@@ -2206,7 +2215,7 @@ body.usfans-popup-open { overflow: hidden; }
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: var(--bg);
+    background: transparent;
     border: none;
     color: var(--text-muted);
     font: inherit;
