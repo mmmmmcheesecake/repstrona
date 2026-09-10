@@ -278,6 +278,67 @@ if (document.readyState === 'loading') {
     bindDiscordLinks();
 }
 
+// ===== USAGE COUNTER =====
+// Counts the few things worth knowing — who arrives, which products get opened, and
+// which of those get taken to an agent — and nothing that identifies anybody. No
+// cookie, no stored id, no address kept; a row records what happened and when, and two
+// rows from the same person are indistinguishable from two people. Nothing reads these
+// numbers back over HTTP either: there is no stats endpoint to find, and the only way
+// out of the database is wrangler on the owner's own machine.
+const STAT_KINDS = new Set(['page', 'product', 'agent', 'coupon', 'discord']);
+
+function statHit(kind, data) {
+    if (!STAT_KINDS.has(kind)) return;
+    const d = data || {};
+    const body = JSON.stringify({
+        kind,
+        label: String(d.label != null ? d.label : location.pathname).slice(0, 200),
+        category: String(d.category || '').slice(0, 60),
+        seller: String(d.seller || '').slice(0, 80),
+    });
+    try {
+        // sendBeacon is the one that survives the page going away, which is what an
+        // outbound click can be. Its failure is silent and does not matter.
+        if (navigator.sendBeacon &&
+            navigator.sendBeacon('/api/hit', new Blob([body], { type: 'application/json' }))) return;
+    } catch {}
+    try {
+        fetch('/api/hit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            keepalive: true,
+        }).catch(() => {});
+    } catch {}
+}
+
+window.RePluGStats = { hit: statHit };
+
+function initStats() {
+    // The product page sends a richer event of its own; counting it here as well would
+    // only mean the same visit showing up twice under two names.
+    if (!/^\/produkt(\.html)?$/i.test(location.pathname)) {
+        statHit('page', { label: location.pathname });
+    }
+    // Capture phase, because the popup's own handler closes it and a bubbling listener
+    // would sometimes never run.
+    document.addEventListener('click', e => {
+        const t = e.target;
+        if (!t || !t.closest) return;
+        if (t.closest('.usfans-popup-cta') || t.closest('.usfans-link')) {
+            statHit('coupon', { label: t.closest('.usfans-popup-cta') ? 'popup' : 'nav' });
+        } else if (t.closest('#nav-discord, #buyCheaperDiscord, .discord-link')) {
+            statHit('discord', { label: location.pathname });
+        }
+    }, true);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStats);
+} else {
+    initStats();
+}
+
 // ===== USFANS WELCOME POPUP =====
 function shouldShowUsfansPopup() {
     const path = location.pathname;

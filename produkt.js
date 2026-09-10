@@ -149,6 +149,8 @@ const budgetUrl = params.get('budget') ? ensureRef(params.get('budget')) : null;
 const imageOverride = params.get('img') || '';
 const productCategory = params.get('cat') || '';
 const yupooAlbumUrl = safeHttpUrl(params.get('yupoo')) || '';
+// Filled in once the API names the shop; the counter reads it at click time.
+let statsSeller = '';
 
 // Image search passes the price off the card it was clicked from. Kept in its own
 // currency and converted at render time, because the rates load after this runs.
@@ -405,6 +407,19 @@ async function load() {
         showError(T('state.errorProduct', 'Failed to load product.'));
         return;
     }
+    // Counted on the way out, and only when the button actually leads somewhere: the
+    // pending and unavailable states carry no href, so there is nothing to count.
+    el('pdBuy').addEventListener('click', () => {
+        if (!el('pdBuy').hasAttribute('href')) return;
+        if (window.RePluGStats) {
+            window.RePluGStats.hit('agent', {
+                label: sheetName || document.title,
+                category: productCategory,
+                seller: statsSeller,
+            });
+        }
+    });
+
     // A yupoo album stays unclickable until the marketplace item behind it is known.
     const albumSourced = isYupooAlbum(productUrl);
     if (albumSourced) setBuyState(el('pdBuy'), 'pending');
@@ -471,6 +486,7 @@ async function load() {
             metaEl.appendChild(batch);
         }
         // Shop and weight are all the seller detail taobao/1688 items carry.
+        if (data.shopName) statsSeller = data.shopName;
         if (data.shopName) {
             metaEl.appendChild(metaPill(T('pd.shop', `Shop: ${data.shopName}`, { name: data.shopName })));
         }
@@ -507,6 +523,14 @@ async function load() {
 
         el('loadingState').style.display = 'none';
         el('productDetail').style.display = '';
+
+        if (window.RePluGStats) {
+            window.RePluGStats.hit('product', {
+                label: sheetName || data.title || 'Product',
+                category: productCategory,
+                seller: statsSeller,
+            });
+        }
     } catch (e) {
         console.error(e);
         showError(T('state.errorProduct', 'Failed to load product.'));
