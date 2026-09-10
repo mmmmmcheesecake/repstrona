@@ -312,6 +312,31 @@ function safeImageUrl(url) {
     return safeHttpUrl(url) || '';
 }
 
+// Every tile on this page draws at a few hundred pixels, and both image families hand
+// back the original: weidian's CDN serves 1920x1920 JPEGs around half a megabyte, and
+// the Alibaba OSS hosts are no better. Both will crop server-side first — geilicdn
+// takes ?w=, the OSS hosts take the same x-oss-process the QC gallery already asks for.
+// Measured on one catalogue photo: 568 KB whole, 41 KB at 400px, 96 KB at 640px.
+// Retina screens get the larger step, so the saving costs nothing visible.
+const OSS_IMAGE_HOSTS = ['media.usfans.com', '.kakobuy.com', '.kakobyy.com', 'oss.acbuy.com'];
+const RETINA = (typeof window !== 'undefined' && window.devicePixelRatio > 1.5);
+const TILE_IMAGE_WIDTH = RETINA ? 640 : 400;
+const HERO_IMAGE_WIDTH = RETINA ? 900 : 560;
+
+function scaledImageUrl(url, width) {
+    if (!url) return url;
+    let host;
+    try { host = new URL(url, location.href).hostname.toLowerCase(); } catch { return url; }
+    const sep = url.includes('?') ? '&' : '?';
+    if (host === 'si.geilicdn.com' || host.endsWith('.geilicdn.com')) {
+        return `${url}${sep}w=${width}`;
+    }
+    if (OSS_IMAGE_HOSTS.some(h => (h.startsWith('.') ? host.endsWith(h) : host === h))) {
+        return `${url}${sep}x-oss-process=image/resize,w_${width}`;
+    }
+    return url;
+}
+
 const HIGH_END_BRANDS = ['louis vuitton', 'lv ', 'gucci', 'dior', 'hermes', 'chanel', 'prada', 'balenciaga', 'fendi', 'burberry', 'saint laurent', 'ysl', 'givenchy', 'valentino', 'rick owens', 'lanvin', 'amiri'];
 
 function detectBrandModel(name, category = '') {
@@ -741,9 +766,10 @@ function getDisplayImage(p) {
 }
 
 function getCardImage(p) {
-    return [p.imageOverride, p.aiTileImage, p.liveImage, p.image]
+    const url = [p.imageOverride, p.aiTileImage, p.liveImage, p.image]
         .map(safeImageUrl)
         .find(Boolean) || '';
+    return scaledImageUrl(url, TILE_IMAGE_WIDTH);
 }
 
 const SNEAKER_BRAND_ORDER = [
@@ -948,8 +974,8 @@ function getTileRepr(tileId) {
 function findTileImage(tileId) {
     const repr = getTileRepr(tileId);
     if (!repr) return '';
-    if (repr.source === 'curated') return safeImageUrl(repr.product.tileImage);
-    return getDisplayImage(repr.product);
+    if (repr.source === 'curated') return scaledImageUrl(safeImageUrl(repr.product.tileImage), HERO_IMAGE_WIDTH);
+    return scaledImageUrl(getDisplayImage(repr.product), HERO_IMAGE_WIDTH);
 }
 
 async function eagerEnrichTileReprs() {
@@ -1356,7 +1382,7 @@ function cardHTML(p) {
 }
 
 function sellerCardHTML(s) {
-    const previewImg = s.cover || '';
+    const previewImg = scaledImageUrl(s.cover || '', TILE_IMAGE_WIDTH);
     const imgTag = previewImg
         ? `<img src="${escapeHtml(previewImg)}" alt="${escapeHtml(s.shopName)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
         : '';
@@ -1720,11 +1746,46 @@ async function flagQc(p) {
     }
 }
 
+// A tile's price and photo both arrive from one /api/product call that takes around
+// three seconds when the upstream answers at all, and roughly three catalogue items in
+// five are shop entries with no price in the sheet — for those, this call is the only
+// price the grid will ever show. The answer does not change over an afternoon, so keep
+// it the way flagQc already keeps its verdict: a copy in localStorage, so a second visit
+// and a scroll back up the grid both draw from disk instead of the wire.
+const ENRICH_TTL = 12 * 60 * 60 * 1000;
+
+function readEnrich(link) {
+    try {
+        const raw = localStorage.getItem(`enrich:${link}`);
+        if (!raw) return null;
+        const v = JSON.parse(raw);
+        if (!v.t || Date.now() - v.t > ENRICH_TTL) return null;
+        return v;
+    } catch { return null; }
+}
+
+// Private windows, blocked site data and a full quota all throw. The tile simply asks
+// again next time, which is what it did before this cache existed.
+function writeEnrich(link, priceUsd, image) {
+    if (priceUsd == null && !image) return;
+    try {
+        localStorage.setItem(`enrich:${link}`, JSON.stringify({ p: priceUsd, i: image, t: Date.now() }));
+    } catch {}
+}
+
 async function enrichProduct(p) {
     if (!p.link || p.isShopStub) return;
     const key = p.link;
     if (enrichCache.has(key)) {
         applyEnrichment(p, enrichCache.get(key));
+        return;
+    }
+    const stored = readEnrich(key);
+    if (stored) {
+        let changed = false;
+        if (stored.p != null && p.livePrice !== stored.p) { p.livePrice = stored.p; changed = true; }
+        if (stored.i && p.liveImage !== stored.i) { p.liveImage = stored.i; changed = true; }
+        if (changed) updateCard(p);
         return;
     }
     let promise = enrichPromises.get(key);
@@ -1790,6 +1851,7 @@ function applyEnrichment(p, data) {
         changed = true;
     }
     if (changed) updateCard(p);
+    writeEnrich(p.link, data.priceUsd != null ? data.priceUsd : null, pick || null);
 }
 
 function updateCard(p) {
