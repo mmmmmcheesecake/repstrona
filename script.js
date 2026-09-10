@@ -279,35 +279,10 @@ if (document.readyState === 'loading') {
 }
 
 // ===== USFANS WELCOME POPUP =====
-// How long the popup stays away once someone has answered it. Dismissing is a soft no
-// — the offer is worth asking again next week — but clicking through means they have
-// the coupons already, and showing it again reads as the site not paying attention.
-const USFANS_POPUP_KEY = 'usfansPopup:answered';
-const USFANS_DISMISS_DAYS = 7;
-const USFANS_CLAIMED_DAYS = 60;
-
-function usfansPopupAnswered() {
-    try {
-        const raw = localStorage.getItem(USFANS_POPUP_KEY);
-        if (!raw) return false;
-        const { until } = JSON.parse(raw);
-        return typeof until === 'number' && Date.now() < until;
-    } catch { return false; }
-}
-
-function rememberUsfansAnswer(days) {
-    // Private windows and blocked site data both throw; the popup simply asks again.
-    try {
-        localStorage.setItem(USFANS_POPUP_KEY,
-            JSON.stringify({ until: Date.now() + days * 24 * 60 * 60 * 1000 }));
-    } catch {}
-}
-
 function shouldShowUsfansPopup() {
     const path = location.pathname;
     const isHome = path === '/' || path === '' || /\/index\.html$/i.test(path);
     if (!isHome) return false;
-    if (usfansPopupAnswered()) return false;
 
     let navType = '';
     try {
@@ -355,12 +330,12 @@ function showUsfansPopup() {
         setTimeout(() => wrap.remove(), 200);
         document.removeEventListener('keydown', onKey);
     }
-    function onKey(e) { if (e.key === 'Escape') { rememberUsfansAnswer(USFANS_DISMISS_DAYS); close(); } }
+    function onKey(e) { if (e.key === 'Escape') close(); }
 
     wrap.addEventListener('click', e => {
         const t = e.target;
-        if (t.closest('.usfans-popup-cta')) { rememberUsfansAnswer(USFANS_CLAIMED_DAYS); close(); return; }
-        if (t.closest('[data-act="close"]')) { rememberUsfansAnswer(USFANS_DISMISS_DAYS); close(); }
+        if (t.closest('.usfans-popup-cta')) { close(); return; }
+        if (t.closest('[data-act="close"]')) close();
     });
     document.addEventListener('keydown', onKey);
 
