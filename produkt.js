@@ -96,6 +96,37 @@ function ensureRef(url) {
     return u.toString();
 }
 
+// Seller-category items arrive as yupoo album links, and an album is not something any
+// agent can open — the marketplace item it mirrors is, and only /api/product knows
+// which one that is. That call takes between four and ten seconds cold, and until it
+// answers the buy button used to carry the album URL itself: click inside that window,
+// which is most of the time someone spends deciding, and yupoo opens instead of the
+// agent. The QC page never had this problem because it builds its button from the
+// answer rather than before it, and shows none at all when nothing resolved.
+function isYupooAlbum(raw) {
+    try { return /\.yupoo\.com$/i.test(new URL(raw, window.location.href).hostname); } catch { return false; }
+}
+
+// An anchor with no href is not navigable, which is the point: the label says what is
+// happening and the click does nothing until there is somewhere real to send it.
+function setBuyState(el, state, href) {
+    el.classList.toggle('is-pending', state === 'pending');
+    el.classList.toggle('is-unavailable', state === 'unavailable');
+    if (state === 'ready') {
+        el.href = href;
+        el.removeAttribute('aria-disabled');
+        el.dataset.i18n = 'pd.buy';
+        el.textContent = T('pd.buy', 'Buy from agent →');
+        return;
+    }
+    el.removeAttribute('href');
+    el.setAttribute('aria-disabled', 'true');
+    const key = state === 'pending' ? 'pd.buyResolving' : 'pd.buyUnavailable';
+    const fallback = state === 'pending' ? 'Finding agent link…' : 'No agent link for this album';
+    el.dataset.i18n = key;
+    el.textContent = T(key, fallback);
+}
+
 function safeHttpUrl(url) {
     if (!url || typeof url !== 'string') return null;
     try {
@@ -374,7 +405,10 @@ async function load() {
         showError(T('state.errorProduct', 'Failed to load product.'));
         return;
     }
-    el('pdBuy').href = ref;
+    // A yupoo album stays unclickable until the marketplace item behind it is known.
+    const albumSourced = isYupooAlbum(productUrl);
+    if (albumSourced) setBuyState(el('pdBuy'), 'pending');
+    else el('pdBuy').href = ref;
     const qcBtn = el('pdQc');
     if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(productUrl)}`;
     if (budgetUrl) {
@@ -411,12 +445,15 @@ async function load() {
         if (data.agentUrl) {
             const safeAgent = safeHttpUrl(data.agentUrl);
             if (safeAgent) {
-                el('pdBuy').href = safeAgent;
+                if (albumSourced) setBuyState(el('pdBuy'), 'ready', safeAgent);
+                else el('pdBuy').href = safeAgent;
                 // Seller items are yupoo albums; QC only exists for the marketplace item
                 // the album mirrors, which is exactly what agentUrl resolves to — usfans
                 // for weidian, kakobuy for taobao and 1688.
                 if (qcBtn) qcBtn.href = `qc.html?url=${encodeURIComponent(safeAgent)}`;
             }
+        } else if (albumSourced) {
+            setBuyState(el('pdBuy'), 'unavailable');
         }
 
         // The heading already prefers the name we were handed — the sheet's, or the

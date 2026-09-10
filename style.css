@@ -1331,6 +1331,22 @@ button, input, select { font-family: inherit; color: inherit; }
     color: var(--text);
 }
 .card-btn.primary { background: var(--text); color: var(--bg); }
+
+/* The buy button while the agent link behind a yupoo album is still being resolved,
+   and after that search came back with nothing. Neither carries an href, so neither
+   is clickable; they differ only in whether waiting will change anything. */
+.card-btn.is-pending,
+.card-btn.is-unavailable {
+    cursor: default;
+    opacity: 0.55;
+}
+.card-btn.is-pending:hover,
+.card-btn.is-unavailable:hover { opacity: 0.55; }
+.card-btn.is-unavailable {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--hairline);
+}
 .card-btn.pd-qc {
     background: #265721;
     border-color: #265721;

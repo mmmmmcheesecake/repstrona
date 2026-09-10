@@ -481,7 +481,11 @@ async function fetchYupooAlbumData(albumUrl) {
                 'User-Agent': 'Mozilla/5.0 RePluG-Bot',
                 'Referer': `https://${u.hostname}/albums`,
             },
-            cf: { cacheTtl: 3600, cacheEverything: true },
+            // Only a good answer is worth keeping. cacheTtl kept the bad ones too, so a
+            // single 500 from yupoo — and they do happen — made the album unresolvable
+            // for an hour afterwards, which on the product page reads as an item with
+            // no agent link at all. Same split /api/qc already uses.
+            cf: { cacheTtlByStatus: { '200-299': 3600, '300-599': 0 }, cacheEverything: true },
         });
         if (!r.ok) return { images: [], agentUrl: null };
         const html = await r.text();
