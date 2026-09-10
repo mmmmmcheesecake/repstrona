@@ -1072,7 +1072,18 @@ function scrollToProducts() {
     setTimeout(apply, 80);
 }
 
+// Which category or brand someone reached for. Same question as a search, asked by
+// clicking instead of typing — and the two together are what the shop is being asked
+// for. "all" is the default nobody chose, so it is not worth a row.
+function logFilter(kindOfFilter, value) {
+    if (!value || value === 'all') return;
+    if (window.RePluGStats) {
+        window.RePluGStats.hit('filter', { label: String(value), category: kindOfFilter });
+    }
+}
+
 function selectCategory(cat) {
+    logFilter('category', cat);
     if (activeSeller && history.state && history.state.view === 'seller') {
         try { history.replaceState(null, ''); } catch {}
     }
@@ -1306,6 +1317,7 @@ function makeTab(label, value, active) {
 }
 
 function selectBrand(brand) {
+    logFilter('brand', brand);
     activeBrand = brand;
     activeModel = 'all';
     buildBrandTabs();
@@ -2109,10 +2121,62 @@ async function init() {
     }
 }
 
+// What people typed, and how many products came back for it. The empty ones are the
+// reason this exists: a search that returns nothing is somebody telling the shop what
+// it does not stock, and there is no other way to hear it.
+//
+// Logged on its own timer, well after the one that redraws the grid — otherwise
+// "chrome hearts" arrives as thirteen rows, one per keystroke. Waiting also means the
+// seller albums have usually finished loading, so the count recorded is the count the
+// visitor actually saw.
+let searchLogTimer = null;
+let lastLoggedSearch = '';
+
+// A product search is not a place anyone types their own details, but the field cannot
+// stop them, and this table is meant to hold nothing personal. Anything shaped like an
+// address or a long run of digits is dropped rather than stored.
+function loggableSearch(q) {
+    if (q.length < 2 || q.length > 80) return false;
+    if (/@/.test(q)) return false;
+    if (/\d{7,}/.test(q)) return false;
+    return true;
+}
+
+let pendingSearch = '';
+
+function flushSearch() {
+    const q = (pendingSearch || '').trim();
+    pendingSearch = '';
+    clearTimeout(searchLogTimer);
+    if (!loggableSearch(q) || q === lastLoggedSearch) return;
+    lastLoggedSearch = q;
+    if (window.RePluGStats) {
+        window.RePluGStats.hit('search', {
+            label: q,
+            category: activeCategory === 'all' ? '' : activeCategory,
+            num: getFiltered().length,
+        });
+    }
+}
+
+function logSearch(query) {
+    pendingSearch = query;
+    clearTimeout(searchLogTimer);
+    searchLogTimer = setTimeout(flushSearch, 1400);
+}
+
+// Someone who types a word and clicks the first result never sits still for the timer,
+// so waiting alone would have recorded the searches that failed and lost the ones that
+// worked — precisely backwards for a table meant to show what people want. pagehide
+// fires on the way to a product page and on closing the tab, and is the event that
+// still allows a beacon to leave.
+window.addEventListener('pagehide', flushSearch);
+
 let searchDebounceTimer = null;
 document.getElementById('searchInput').addEventListener('input', e => {
     const val = e.target.value.trim();
     clearTimeout(searchDebounceTimer);
+    logSearch(val);
     searchDebounceTimer = setTimeout(() => {
         searchQuery = val;
         renderGrid();

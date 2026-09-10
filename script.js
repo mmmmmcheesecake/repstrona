@@ -285,7 +285,7 @@ if (document.readyState === 'loading') {
 // rows from the same person are indistinguishable from two people. Nothing reads these
 // numbers back over HTTP either: there is no stats endpoint to find, and the only way
 // out of the database is wrangler on the owner's own machine.
-const STAT_KINDS = new Set(['page', 'product', 'agent', 'coupon', 'discord']);
+const STAT_KINDS = new Set(['page', 'product', 'agent', 'coupon', 'discord', 'search', 'filter']);
 
 function statHit(kind, data) {
     if (!STAT_KINDS.has(kind)) return;
@@ -295,6 +295,7 @@ function statHit(kind, data) {
         label: String(d.label != null ? d.label : location.pathname).slice(0, 200),
         category: String(d.category || '').slice(0, 60),
         seller: String(d.seller || '').slice(0, 80),
+        num: Number.isFinite(d.num) ? d.num : undefined,
     });
     try {
         // sendBeacon is the one that survives the page going away, which is what an

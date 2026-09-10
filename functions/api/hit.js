@@ -10,7 +10,7 @@
 // the numbers leave the database through wrangler, on the owner's machine, and an
 // endpoint that does not exist cannot be guessed, scraped or leaked.
 
-const KINDS = new Set(['page', 'product', 'agent', 'coupon', 'discord']);
+const KINDS = new Set(['page', 'product', 'agent', 'coupon', 'discord', 'search', 'filter']);
 
 // The table is created on the first request an isolate serves rather than by hand, so
 // binding the database is the only setup step. IF NOT EXISTS makes the repeat free.
@@ -27,10 +27,14 @@ async function ensureSchema(db) {
             label TEXT,
             category TEXT,
             seller TEXT,
-            country TEXT
+            country TEXT,
+            num INTEGER
         )`),
         db.prepare('CREATE INDEX IF NOT EXISTS idx_events_day_kind ON events(day, kind)'),
         db.prepare('CREATE INDEX IF NOT EXISTS idx_events_kind_label ON events(kind, label)'),
+        // What a search returned is the whole point of recording searches, so the
+        // question "which searches came back empty" gets its own index.
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_events_search_num ON events(kind, num)'),
     ]);
     schemaReady = true;
 }
@@ -81,7 +85,7 @@ export async function onRequest(ctx) {
     try {
         await ensureSchema(env.STATS);
         await env.STATS.prepare(
-            'INSERT INTO events (ts, day, kind, label, category, seller, country) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO events (ts, day, kind, label, category, seller, country, num) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
             now.getTime(),
             now.toISOString().slice(0, 10),
@@ -89,7 +93,8 @@ export async function onRequest(ctx) {
             clean(body?.label, 200),
             clean(body?.category, 60),
             clean(body?.seller, 80),
-            clean(request.cf?.country, 8)
+            clean(request.cf?.country, 8),
+            Number.isFinite(body?.num) ? Math.max(0, Math.min(1e6, Math.trunc(body.num))) : null
         ).run();
     } catch {
         // A missing table, a full database, a bad day at D1 — none of it is worth
