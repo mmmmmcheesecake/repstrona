@@ -1139,9 +1139,19 @@ button, input, select { font-family: inherit; color: inherit; }
     padding: 6px 10px 6px 0;
     font-size: 0.76rem;
     color: var(--text-muted);
-    background: transparent;
     transition: color 0.12s;
     letter-spacing: 0.01em;
+}
+
+/* Once stuck, both back buttons ride over the page, and on a phone a transparent one
+   printed "← Back" straight across the shop name beneath it. The shadow paints the page
+   colour the full width of the screen and the clip keeps it to the button's height, so
+   the strip reads as part of the header while only the words remain clickable. */
+.back-link,
+.seller-back {
+    background: var(--bg);
+    box-shadow: 0 0 0 100vmax var(--bg);
+    clip-path: inset(0 -100vmax);
 }
 .back-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
@@ -1393,6 +1403,37 @@ button, input, select { font-family: inherit; color: inherit; }
     font-size: 0.78rem;
     color: var(--text);
     letter-spacing: 0.02em;
+}
+
+/* Phones only — see setupStickyBuy in produkt.js. */
+.pd-sticky-buy { display: none; }
+@media (max-width: 768px) {
+    .pd-sticky-buy {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 140;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--bg);
+        border-top: 1px solid var(--hairline);
+    }
+    .pd-sticky-buy[hidden] { display: none; }
+    .pd-sticky-price {
+        font-family: 'Space Mono', monospace;
+        font-size: 1.05rem;
+        color: var(--text);
+        white-space: nowrap;
+    }
+    .pd-sticky-buy .card-btn {
+        justify-content: center;
+        padding: 12px 18px;
+        white-space: nowrap;
+    }
 }
 
 .cart-page {
@@ -2231,7 +2272,6 @@ body.usfans-popup-open { overflow: hidden; }
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: transparent;
     border: none;
     color: var(--text-muted);
     font: inherit;

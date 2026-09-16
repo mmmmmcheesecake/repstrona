@@ -381,6 +381,65 @@ function buildOptions() {
     placeColorwaysForViewport();
 }
 
+// Counted on the way out, and only when the button actually leads somewhere: the
+// pending and unavailable states carry no href, so there is nothing to count. `num` 1
+// marks a click from the phone's bottom bar, so its effect can be read apart.
+function countAgentClick(btn, num) {
+    if (!btn.hasAttribute('href')) return;
+    if (!window.RePluGStats) return;
+    const event = {
+        label: sheetName || document.title,
+        category: productCategory,
+        seller: statsSeller,
+    };
+    if (num) event.num = num;
+    window.RePluGStats.hit('agent', event);
+}
+
+// On a phone the buy button comes after the photo, the colourway grid, the name and
+// the sizes — about 800px of scrolling — and the first week's 65 product opens gave 3
+// agent clicks. The bar at the bottom keeps the price and the button in reach while the
+// real ones are off screen. It copies them rather than being driven alongside them, so
+// every state the button can be put in (pending, ready, unavailable, a new language)
+// reaches the bar without a second code path. Hidden on wider screens by the stylesheet.
+let updateStickyBuy = () => {};
+
+function setupStickyBuy() {
+    const bar = el('pdStickyBuy');
+    const btn = el('pdStickyBuyBtn');
+    const buy = el('pdBuy');
+    const price = el('pdPrice');
+    if (!bar || !btn || !buy || !price) return;
+
+    const copy = () => {
+        const href = buy.getAttribute('href');
+        if (href) btn.setAttribute('href', href);
+        else btn.removeAttribute('href');
+        btn.classList.toggle('is-pending', buy.classList.contains('is-pending'));
+        btn.classList.toggle('is-unavailable', buy.classList.contains('is-unavailable'));
+        btn.textContent = buy.textContent;
+        el('pdStickyPrice').textContent = price.textContent;
+    };
+    const watch = { attributes: true, childList: true, characterData: true, subtree: true };
+    new MutationObserver(copy).observe(buy, watch);
+    new MutationObserver(copy).observe(price, watch);
+    copy();
+
+    let buyOnScreen = false;
+    updateStickyBuy = () => {
+        bar.hidden = buyOnScreen || el('productDetail').style.display === 'none';
+    };
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(entries => {
+            buyOnScreen = entries[entries.length - 1].isIntersecting;
+            updateStickyBuy();
+        }).observe(buy);
+    }
+    updateStickyBuy();
+
+    btn.addEventListener('click', () => countAgentClick(btn, 1));
+}
+
 // The back link is stuck below the navbar, and the navbar is shorter on a phone than
 // the stylesheet's fallback assumes. Measure it rather than guess, and leave the
 // fallback alone when there is nothing to measure yet.
@@ -407,18 +466,8 @@ async function load() {
         showError(T('state.errorProduct', 'Failed to load product.'));
         return;
     }
-    // Counted on the way out, and only when the button actually leads somewhere: the
-    // pending and unavailable states carry no href, so there is nothing to count.
-    el('pdBuy').addEventListener('click', () => {
-        if (!el('pdBuy').hasAttribute('href')) return;
-        if (window.RePluGStats) {
-            window.RePluGStats.hit('agent', {
-                label: sheetName || document.title,
-                category: productCategory,
-                seller: statsSeller,
-            });
-        }
-    });
+    el('pdBuy').addEventListener('click', () => countAgentClick(el('pdBuy')));
+    setupStickyBuy();
 
     // A yupoo album stays unclickable until the marketplace item behind it is known.
     const albumSourced = isYupooAlbum(productUrl);
@@ -523,6 +572,7 @@ async function load() {
 
         el('loadingState').style.display = 'none';
         el('productDetail').style.display = '';
+        updateStickyBuy();
 
         if (window.RePluGStats) {
             window.RePluGStats.hit('product', {
