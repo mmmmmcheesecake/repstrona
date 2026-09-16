@@ -20,7 +20,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link rel="stylesheet" href="style.css?v=72">
+    <link rel="stylesheet" href="style.css?v=73">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -90,6 +90,11 @@
             <div class="products-grid" id="productsGrid" style="display:none"></div>
             <div class="empty-state" id="emptyState" style="display:none">
                 <p data-i18n="state.empty">🔍 No results. Try a different search or category.</p>
+                <p class="empty-hint" data-i18n="empty.hint">Not in the catalogue? Search with a photo, or tell us on Discord what you are looking for.</p>
+                <div class="empty-actions">
+                    <a href="image-search.html" class="card-btn primary" data-i18n="vs.byImage">Search by image</a>
+                    <a href="#" class="card-btn" data-discord="empty-search" data-i18n="empty.ask">Ask on Discord</a>
+                </div>
             </div>
         </div>
     </main>
@@ -106,8 +111,8 @@
         </svg>
     </button>
 
-    <script src="i18n.js?v=41"></script>
-    <script src="script.js?v=24"></script>
+    <script src="i18n.js?v=42"></script>
+    <script src="script.js?v=25"></script>
     <script src="currency.js?v=5"></script>
     <script src="cart.js?v=5"></script>
     <script src="search.js?v=3"></script>

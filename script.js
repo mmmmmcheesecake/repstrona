@@ -256,9 +256,13 @@ loadAll().catch(err => console.warn('Data loading error:', err));
 // the one that forgot — its navbar Discord button sat on href="#" and did nothing.
 // One place, every page, since script.js is on all of them. Opening in a new tab is
 // the point of an invite link: sending a shopper to Discord should not close the shop.
+// Any other link to the server is marked data-discord="<where it is>", which is also
+// the label its clicks are counted under.
+const DISCORD_LINKS = '#nav-discord, #buyCheaperDiscord, .discord-link, [data-discord]';
+
 function applyDiscordLinks(url) {
     if (!url) return;
-    document.querySelectorAll('#nav-discord, #buyCheaperDiscord, .discord-link').forEach(el => {
+    document.querySelectorAll(DISCORD_LINKS).forEach(el => {
         el.href = url;
         el.target = '_blank';
         el.rel = 'noopener';
@@ -328,8 +332,8 @@ function initStats() {
         if (!t || !t.closest) return;
         if (t.closest('.usfans-popup-cta') || t.closest('.usfans-link')) {
             statHit('coupon', { label: t.closest('.usfans-popup-cta') ? 'popup' : 'nav' });
-        } else if (t.closest('#nav-discord, #buyCheaperDiscord, .discord-link')) {
-            statHit('discord', { label: location.pathname });
+        } else if (t.closest(DISCORD_LINKS)) {
+            statHit('discord', { label: t.closest(DISCORD_LINKS).dataset.discord || location.pathname });
         }
     }, true);
 }

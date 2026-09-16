@@ -845,6 +845,23 @@ button, input, select { font-family: inherit; color: inherit; }
     font-size: 0.82rem;
 }
 
+/* An empty search was a dead end: somebody told the shop what they wanted and got a
+   sentence back. These are the two ways on from there. */
+.empty-hint {
+    margin: 10px auto 0;
+    max-width: 420px;
+    font-size: 0.74rem;
+    color: var(--text-subtle);
+    line-height: 1.5;
+}
+.empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 22px;
+}
+
 /* ===== FOOTER ===== */
 .footer {
     padding: 40px 0;
