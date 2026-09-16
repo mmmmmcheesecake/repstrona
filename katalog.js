@@ -1488,14 +1488,6 @@ function renderSellerTiles() {
     wireSellerCards(grid, sellers, selectSeller);
 }
 
-// Polish counts three ways — 1 sprzedawca, 3 sprzedawcy, 5 sprzedawców — and English
-// entries simply repeat the plural for the last two.
-function pluralForm(n) {
-    if (n === 1) return 'one';
-    const tens = n % 100, units = n % 10;
-    return units >= 2 && units <= 4 && (tens < 12 || tens > 14) ? 'few' : 'many';
-}
-
 function wireSellerCards(grid, sellers, open) {
     fillTaobaoCovers(sellers, grid);
     grid.querySelectorAll('.seller-card').forEach(el => {
@@ -1731,7 +1723,7 @@ function renderGrid() {
     let summary = T('results.count', `${items.length} products`, { n: items.length });
     if (sellers.length) {
         const n = sellers.length;
-        summary = T(`sellers.found.${pluralForm(n)}`, `${n} sellers`, { n }) + ' · ' + summary;
+        summary = T('sellers.found', `${n} sellers`, { n }) + ' · ' + summary;
     }
     const exactSomewhere = (items.length && !searchWasForgiven) || sellersExact;
     if (searchQuery && (items.length || sellers.length) && !exactSomewhere) {

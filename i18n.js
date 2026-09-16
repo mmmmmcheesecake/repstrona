@@ -33,6 +33,7 @@
             'vs.error': 'Search failed. Try another image.',
             'vs.needImage': 'Drop an image first.',
             'vs.results': '{n} matches',
+            'vs.results.one': '{n} match',
             'vs.byImage': 'Search by image',
             'vs.ch.weidian': 'Weidian',
             'vs.ch.taobao': 'Taobao',
@@ -57,6 +58,7 @@
             'footer.text': '© 2026 RePluG24 · replug24.com — For informational purposes only.',
             'tab.all': 'All',
             'results.count': '{n} products',
+            'results.count.one': '{n} product',
             'results.close': 'nothing matches “{q}” exactly, showing the closest',
             'pd.back': '← Back',
             'pd.outOfStock': 'Out of stock',
@@ -89,6 +91,7 @@
             'qc.badge': 'QC',
             'qc.badgeTitle': 'QC photos available',
             'qc.results': '{n} QC photos',
+            'qc.results.one': '{n} QC photo',
             'qc.source': 'Source: {name}',
             'qc.setName': 'QC Photos set #{n}',
             'qc.days': 'days',
@@ -162,13 +165,14 @@
             'cat.Other': 'Other',
             'cat.Sellers': 'Sellers',
             'sellers.count': '{n} sellers',
+            'sellers.count.one': '{n} seller',
             'sellers.items': '~{n} items',
+            'sellers.items.one': '~{n} item',
             'sellers.back': 'All sellers',
             'sellers.view': 'View shop →',
             'sellers.tag': 'Seller',
+            'sellers.found': '{n} sellers',
             'sellers.found.one': '{n} seller',
-            'sellers.found.few': '{n} sellers',
-            'sellers.found.many': '{n} sellers',
             'cat.Shorts/Skirts': 'Shorts/Skirts',
             'cat.Bags': 'Bags',
             'cat.Swimwear': 'Swimwear',
@@ -203,6 +207,8 @@
             'vs.error': 'Wyszukiwanie nie udało się. Spróbuj innego zdjęcia.',
             'vs.needImage': 'Najpierw wgraj zdjęcie.',
             'vs.results': 'Znaleziono {n} produktów',
+            'vs.results.one': 'Znaleziono {n} produkt',
+            'vs.results.few': 'Znaleziono {n} produkty',
             'vs.byImage': 'Szukaj po zdjęciu',
             'vs.ch.weidian': 'Weidian',
             'vs.ch.taobao': 'Taobao',
@@ -227,6 +233,8 @@
             'footer.text': '© 2026 RePluG24 · replug24.com — Wyłącznie w celach informacyjnych.',
             'tab.all': 'Wszystkie',
             'results.count': '{n} produktów',
+            'results.count.one': '{n} produkt',
+            'results.count.few': '{n} produkty',
             'results.close': 'nic nie pasuje dokładnie do „{q}”, pokazujemy najbliższe',
             'pd.back': '← Wróć',
             'pd.outOfStock': 'Brak w magazynie',
@@ -259,6 +267,8 @@
             'qc.badge': 'QC',
             'qc.badgeTitle': 'Są zdjęcia QC',
             'qc.results': 'Znaleziono {n} zdjęć QC',
+            'qc.results.one': 'Znaleziono {n} zdjęcie QC',
+            'qc.results.few': 'Znaleziono {n} zdjęcia QC',
             'qc.source': 'Źródło: {name}',
             'qc.setName': 'Zestaw zdjęć QC #{n}',
             'qc.days': 'dni',
@@ -332,13 +342,17 @@
             'cat.Other': 'Inne',
             'cat.Sellers': 'Sprzedawcy',
             'sellers.count': '{n} sklepów',
+            'sellers.count.one': '{n} sklep',
+            'sellers.count.few': '{n} sklepy',
             'sellers.items': '~{n} produktów',
+            'sellers.items.one': '~{n} produkt',
+            'sellers.items.few': '~{n} produkty',
             'sellers.back': 'Wszyscy sprzedawcy',
             'sellers.view': 'Wejdź do sklepu →',
             'sellers.tag': 'Sprzedawca',
+            'sellers.found': '{n} sprzedawców',
             'sellers.found.one': '{n} sprzedawca',
             'sellers.found.few': '{n} sprzedawcy',
-            'sellers.found.many': '{n} sprzedawców',
             'cat.Shorts/Skirts': 'Spodenki/Spódnice',
             'cat.Bags': 'Torebki',
             'cat.Swimwear': 'Stroje kąpielowe',
@@ -382,9 +396,26 @@
         listeners.forEach(fn => { try { fn(l); } catch (e) { console.warn(e); } });
     }
 
+    // Polish counts three ways — 1 produkt, 2 produkty, 5 produktów — and English two.
+    // A key used with a count {n} may carry ".one" and ".few" forms beside it; the plain
+    // key is the form for every other number (5 produktów, 0 products). Keys without
+    // those forms, like "Option {n}", are untouched.
+    function pluralSuffix(lang, n) {
+        if (n === 1) return 'one';
+        if (lang !== 'pl') return '';
+        const units = n % 10, tens = n % 100;
+        return units >= 2 && units <= 4 && (tens < 12 || tens > 14) ? 'few' : '';
+    }
+
     function t(key, vars) {
         const lang = getLang();
-        let s = (DICT[lang] && DICT[lang][key]) || (DICT[DEFAULT] && DICT[DEFAULT][key]) || key;
+        let s = null;
+        const count = vars ? Number(vars.n) : NaN;
+        if (Number.isInteger(count)) {
+            const suffix = pluralSuffix(lang, Math.abs(count));
+            if (suffix && DICT[lang]) s = DICT[lang][`${key}.${suffix}`] || null;
+        }
+        s = s || (DICT[lang] && DICT[lang][key]) || (DICT[DEFAULT] && DICT[DEFAULT][key]) || key;
         if (vars) {
             Object.keys(vars).forEach(k => {
                 s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);

@@ -720,6 +720,23 @@ function yupooBrandModel(name) {
     return { brand: 'Other', model: 'Other' };
 }
 
+// Album titles are read out of an HTML attribute, so they arrive escaped — huskyreps
+// showed "NOCTA CS Tee &#x27;Mineral&#x27;" and "A&amp;V" on 18 of its 353 tiles. One
+// pass, so an escaped escape ("&amp;#39;") comes out as the text it stood for.
+const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+function decodeHtmlEntities(s) {
+    return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code) => {
+        if (code[0] === '#') {
+            const n = code[1] === 'x' || code[1] === 'X'
+                ? parseInt(code.slice(2), 16)
+                : parseInt(code.slice(1), 10);
+            return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : whole;
+        }
+        return NAMED_ENTITIES[code.toLowerCase()] ?? whole;
+    });
+}
+
 function parseYupooAlbums(html, base) {
     const out = [];
     const re = /class="album__main"([\s\S]*?)<\/a>/g;
@@ -734,7 +751,7 @@ function parseYupooAlbums(html, base) {
         const id = hrefM[1];
         out.push({
             id,
-            title: titleM[1],
+            title: decodeHtmlEntities(titleM[1]),
             cover: imgM?.[1] || '',
             photoCount: photoCountM ? parseInt(photoCountM[1], 10) : null,
             url: `${base}/albums/${id}?uid=1`,
