@@ -849,15 +849,30 @@ function modelsForBrand(brand) {
     });
 }
 
+// Search forgives typos and Polish (search.js). A category is handed over as a tag so
+// "buty" can mean every sneaker, most of which never say "shoes" in the name.
+const productSearch = window.RePluGSearch.index(
+    p => `${p.name} ${p.batch}`,
+    p => ['#' + window.RePluGSearch.fold(p.category)]
+);
+const sellerSearch = window.RePluGSearch.index(
+    s => `${s.shopName || ''} ${s.description || ''}`
+);
+
+// Set by getFiltered: true when nothing matched the search as typed, so the results bar
+// can say the products shown are only close to it.
+let searchWasForgiven = false;
+
 function getFiltered() {
     let items = [...allProducts].filter(p => !p.isShopStub);
+    let searchRank = null;
+    searchWasForgiven = false;
     if (searchQuery) {
         if (activeSeller) items = items.filter(p => p.shopId === activeSeller);
-        const q = searchQuery.toLowerCase();
-        items = items.filter(p =>
-            p.name.toLowerCase().includes(q) ||
-            p.batch.toLowerCase().includes(q)
-        );
+        const found = productSearch.find(items, searchQuery);
+        items = found.items;
+        searchRank = found.rank;
+        searchWasForgiven = found.close;
     } else {
         if (activeCategory === HERO_OTHER) items = items.filter(p => !HERO_MAIN_IDS.includes(p.category));
         else if (activeCategory !== 'all') items = items.filter(p => p.category === activeCategory);
@@ -870,6 +885,11 @@ function getFiltered() {
     else if (sortMode === 'name-asc') items.sort((a, b) => a.name.localeCompare(b.name));
     else {
         items.sort((a, b) => {
+            // A search puts what matched as typed above what it had to guess at.
+            if (searchRank) {
+                const r = searchRank.get(a) - searchRank.get(b);
+                if (r) return r;
+            }
             // Featured items (sheet column N "featured_items") float to the top.
             if (a.featured !== b.featured) return a.featured ? -1 : 1;
             const ai = CATEGORIES.indexOf(a.category);
@@ -1425,13 +1445,7 @@ function renderSellerTiles() {
     if (back) back.style.display = 'none';
 
     let sellers = uniqueSellers();
-    if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        sellers = sellers.filter(s =>
-            (s.shopName || '').toLowerCase().includes(q) ||
-            (s.description || '').toLowerCase().includes(q)
-        );
-    }
+    if (searchQuery) sellers = sellerSearch.find(sellers, searchQuery).items;
 
     if (!sellers.length && !sellerStubsReady) {
         info.style.display = 'none';
@@ -1585,7 +1599,11 @@ function renderGrid() {
     const items = getFiltered();
     const myToken = ++renderToken;
 
-    count.textContent = T('results.count', `${items.length} products`, { n: items.length });
+    let summary = T('results.count', `${items.length} products`, { n: items.length });
+    if (searchWasForgiven && items.length) {
+        summary += ' · ' + T('results.close', `nothing matches "${searchQuery}" exactly, showing the closest`, { q: searchQuery });
+    }
+    count.textContent = summary;
     info.style.display = 'block';
 
     if (!items.length) {
