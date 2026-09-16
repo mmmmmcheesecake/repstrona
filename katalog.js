@@ -528,20 +528,66 @@ async function fetchProducts() {
     return data.map(mapApiProduct);
 }
 
+// The seller list is one request, and it used to be made once per page load and its
+// answer kept whatever it was: when that request failed — a phone dropping its
+// connection, an answer that never came — the Sellers tab read "0 sellers" until the
+// page was reloaded, which is exactly how it was reported. Now each attempt gives up
+// after 20 s, a failure is retried twice after a pause, and a list that still could not
+// be fetched is not remembered, so opening the tab again asks again.
+const SELLER_STUBS_TIMEOUT_MS = 20000;
+const SELLER_STUBS_RETRY_MS = [1500, 4000];
+
 let sellerStubsPromise = null;
 let sellerStubsReady = false;
+let sellerStubsFailed = false;
+
+async function requestSellerStubs() {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), SELLER_STUBS_TIMEOUT_MS) : null;
+    try {
+        const r = await fetch(
+            `/api/sheet?gender=${encodeURIComponent(GENDER)}&sellers=1&v=3`,
+            ctrl ? { signal: ctrl.signal } : undefined
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!Array.isArray(data)) throw new Error('seller list is not a list');
+        return data.map(mapApiProduct);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 function fetchSellerStubs() {
     if (sellerStubsPromise) return sellerStubsPromise;
+    sellerStubsReady = false;
+    sellerStubsFailed = false;
     sellerStubsPromise = (async () => {
-        try {
-            const r = await fetch(`/api/sheet?gender=${encodeURIComponent(GENDER)}&sellers=1&v=3`);
-            if (!r.ok) return [];
-            const data = await r.json();
-            if (!Array.isArray(data)) return [];
-            return data.map(mapApiProduct);
-        } catch { return []; }
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await requestSellerStubs();
+            } catch (e) {
+                if (attempt >= SELLER_STUBS_RETRY_MS.length) {
+                    console.warn('seller list unavailable', e);
+                    sellerStubsFailed = true;
+                    sellerStubsPromise = null;
+                    return [];
+                }
+                await new Promise(resolve => setTimeout(resolve, SELLER_STUBS_RETRY_MS[attempt]));
+            }
+        }
     })().then(stubs => { sellerStubsReady = true; return stubs; });
     return sellerStubsPromise;
+}
+
+// Opening the Sellers tab without any seller cards in hand asks for them — again, if the
+// last request came to nothing — and draws the tab once they arrive.
+function ensureSellerStubs() {
+    if (allProducts.some(p => p.isShopStub)) return;
+    fetchSellerStubs().then(stubs => {
+        mergeSellerStubs(stubs);
+        if (activeCategory === 'Sellers' && !activeSeller) renderGrid();
+    });
 }
 
 function mergeSellerStubs(stubs) {
@@ -1116,6 +1162,7 @@ function selectCategory(cat) {
     activeBrand = 'all';
     activeModel = 'all';
     activeSeller = null;
+    if (cat === 'Sellers') ensureSellerStubs();
     buildHeroTiles();
     buildCategoryPills();
     buildBrandTabs();
@@ -1461,8 +1508,20 @@ function renderSellerTiles() {
     const back = document.getElementById('sellerBack');
     if (back) back.style.display = 'none';
 
-    let sellers = uniqueSellers();
+    const allSellers = uniqueSellers();
+    let sellers = allSellers;
     if (searchQuery) sellers = sellerSearch.find(sellers, searchQuery).items;
+
+    // The list could not be fetched at all. Saying "no results" here, with buttons to
+    // search by photo, would blame the search for a connection problem.
+    if (!allSellers.length && sellerStubsFailed) {
+        if (loading) loading.style.display = 'none';
+        grid.style.display = 'none';
+        empty.style.display = 'none';
+        count.textContent = T('sellers.failed', 'Could not load the sellers. Tap “Sellers” to try again.');
+        info.style.display = 'block';
+        return;
+    }
 
     if (!sellers.length && !sellerStubsReady) {
         info.style.display = 'none';
