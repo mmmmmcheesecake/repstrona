@@ -9,9 +9,17 @@
     let rates = null;
     const listeners = [];
 
+    // Same rule as the language in i18n.js: until the visitor picks a currency, a browser
+    // that puts Polish first sees złoty, everyone else dollars.
+    function browserCurrency() {
+        const first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+        return String(first).toLowerCase().split('-')[0] === 'pl' ? 'PLN' : 'USD';
+    }
+
     function getCurrency() {
-        const v = localStorage.getItem(CUR_KEY);
-        return CURRENCIES.includes(v) ? v : 'USD';
+        let v = null;
+        try { v = localStorage.getItem(CUR_KEY); } catch {}
+        return CURRENCIES.includes(v) ? v : browserCurrency();
     }
 
     function setCurrency(c) {

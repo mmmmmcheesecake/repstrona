@@ -344,9 +344,25 @@
 
     const listeners = [];
 
+    // A visitor who has never picked a language gets the first one their browser asks for
+    // that the site has. Most visitors are Polish, and every one of them used to land on
+    // English and have to find the switch. Nothing is stored, so a choice made with the
+    // switch still wins.
+    function browserLang() {
+        const tags = navigator.languages && navigator.languages.length
+            ? navigator.languages
+            : [navigator.language || ''];
+        for (const tag of tags) {
+            const base = String(tag).toLowerCase().split('-')[0];
+            if (LANGS.includes(base)) return base;
+        }
+        return DEFAULT;
+    }
+
     function getLang() {
-        const v = localStorage.getItem(KEY);
-        return LANGS.includes(v) ? v : DEFAULT;
+        let v = null;
+        try { v = localStorage.getItem(KEY); } catch {}
+        return LANGS.includes(v) ? v : browserLang();
     }
 
     function setLang(l) {
