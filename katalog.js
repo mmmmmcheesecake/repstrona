@@ -1152,6 +1152,7 @@ async function selectSeller(shopId, opts = {}) {
             // was somehow both failed and still trying.
             const grid = document.getElementById('productsGrid');
             if (grid) grid.innerHTML = '';
+            gridRest = null;
             showError(T('sellers.error', 'Could not load this shop right now. Try again in a moment.'));
             return;
         }
@@ -1168,6 +1169,10 @@ let loadingMore = false;
 async function loadMoreShopProducts() {
     if (loadingMore || !activeSeller) return;
     if (!shopMoreAvailable.get(activeSeller)) return;
+    // The button sits under the grid, and while the grid is still being filled batch by
+    // batch it is near the reader long before the shop's first slice has been shown.
+    // fillGrid watches the button afresh once that slice is all in.
+    if (gridHasMore()) return;
 
     loadingMore = true;
     const btn = document.getElementById('shopLoadMore');
@@ -1213,6 +1218,9 @@ function watchShopLoadMore(btn) {
             if (entries.some(e => e.isIntersecting)) loadMoreShopProducts();
         }, { rootMargin: '400px' });
     }
+    // Watching again from scratch makes the observer report where the button is now,
+    // even when it has not moved in or out of range since it was first watched.
+    shopMoreObserver.unobserve(btn);
     shopMoreObserver.observe(btn);
 }
 
@@ -1244,6 +1252,7 @@ function renderShopLoading() {
     const info = document.getElementById('resultsInfo');
     if (info) info.style.display = 'none';
     if (empty) empty.style.display = 'none';
+    gridRest = null;
     if (grid) {
         grid.style.display = 'block';
         grid.innerHTML = `<div class="spinner" style="margin: 60px auto;"></div>`;
@@ -1633,10 +1642,73 @@ function updateSellerBack() {
 
 const RENDER_INITIAL = 60;
 const RENDER_BATCH = 80;
+// How far below the screen the grid is kept filled, so tiles are in place (and their
+// images on the way) before the reader scrolls to them.
+const GRID_AHEAD_PX = 1500;
 let renderToken = 0;
-const scheduleIdle = window.requestIdleCallback
-    ? (cb) => window.requestIdleCallback(cb, { timeout: 200 })
-    : (cb) => setTimeout(cb, 16);
+
+// The rest of the current listing, mounted a batch at a time as the reader nears the end
+// of what is there. It used to be mounted whole in idle time: "All" is about 6000 items,
+// and a phone showing four tiles was carrying 5972 cards in its document within seconds.
+// Anything that replaces the grid bumps renderToken, which retires this.
+let gridRest = null;
+
+function gridEnd() {
+    let end = document.getElementById('gridEnd');
+    if (end) return end;
+    const grid = document.getElementById('productsGrid');
+    if (!grid || !grid.parentNode) return null;
+    end = document.createElement('div');
+    end.id = 'gridEnd';
+    end.setAttribute('aria-hidden', 'true');
+    grid.parentNode.insertBefore(end, grid.nextSibling);
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(entries => {
+            if (entries[entries.length - 1].isIntersecting) fillGrid();
+        }, { rootMargin: `0px 0px ${GRID_AHEAD_PX}px 0px` }).observe(end);
+    }
+    return end;
+}
+
+function gridHasMore() {
+    return Boolean(gridRest && gridRest.token === renderToken && gridRest.next < gridRest.items.length);
+}
+
+function mountGridBatch() {
+    if (!gridHasMore()) return;
+    const grid = document.getElementById('productsGrid');
+    const chunk = gridRest.items.slice(gridRest.next, gridRest.next + RENDER_BATCH);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = chunk.map(cardHTML).join('');
+    const frag = document.createDocumentFragment();
+    while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+    grid.appendChild(frag);
+    gridRest.next += chunk.length;
+}
+
+// Mounts batches until the end of the grid is at least `y` pixels down the page. The
+// observer only speaks when the end crosses into range, so a batch that leaves it still
+// in range has to be followed by another here.
+function fillGrid(y) {
+    const end = gridEnd();
+    if (!end) return;
+    const wanted = (typeof y === 'number' ? y : window.scrollY) + window.innerHeight + GRID_AHEAD_PX;
+    while (gridHasMore() && end.getBoundingClientRect().top + window.scrollY < wanted) {
+        mountGridBatch();
+    }
+    if (!gridHasMore()) {
+        // Only now is the shop's "show more" button where it belongs; see loadMoreShopProducts.
+        const btn = document.getElementById('shopLoadMore');
+        if (btn) watchShopLoadMore(btn);
+    }
+}
+
+// Coming back from a product page to a spot far down the list: the grid has to be that
+// long before the scroll can land there.
+function scrollGridTo(y) {
+    fillGrid(y);
+    window.scrollTo(0, y);
+}
 
 function renderGrid() {
     const grid = document.getElementById('productsGrid');
@@ -1645,6 +1717,7 @@ function renderGrid() {
     const count = document.getElementById('resultsCount');
 
     updateSellerBack();
+    gridRest = null;
 
     if (activeCategory === 'Sellers' && !activeSeller) {
         renderSellerTiles();
@@ -1682,24 +1755,9 @@ function renderGrid() {
     grid.innerHTML = sellers.map(s => sellerCardHTML(s, true)).join('') + initial.map(cardHTML).join('');
     if (sellers.length) wireSellerCards(grid, sellers, openSellerFromSearch);
 
-    if (items.length > RENDER_INITIAL) {
-        let i = RENDER_INITIAL;
-        const mountNext = () => {
-            if (myToken !== renderToken) return;
-            const chunk = items.slice(i, i + RENDER_BATCH);
-            if (!chunk.length) return;
-            const tmp = document.createElement('div');
-            tmp.innerHTML = chunk.map(cardHTML).join('');
-            const frag = document.createDocumentFragment();
-            while (tmp.firstChild) frag.appendChild(tmp.firstChild);
-            grid.appendChild(frag);
-            i += RENDER_BATCH;
-            if (i < items.length) scheduleIdle(mountNext);
-        };
-        scheduleIdle(mountNext);
-    }
-
+    gridRest = { token: myToken, items, next: initial.length };
     renderShopLoadMore();
+    fillGrid();
 }
 
 function showError(msg) {
@@ -2111,7 +2169,7 @@ window.addEventListener('pageshow', e => {
     if (fly) fly.classList.remove('open');
     if (e.persisted) {
         const s = readCatalogState();
-        if (s && typeof s.scrollY === 'number') window.scrollTo(0, s.scrollY);
+        if (s && typeof s.scrollY === 'number') scrollGridTo(s.scrollY);
         // The JS state (and therefore the filtered grid) is preserved on bfcache
         // restore, but iOS clears the input — re-sync it over the next frames.
         syncSearchInputSoon();
@@ -2192,7 +2250,7 @@ async function init() {
                     buildModelTabs();
                     renderGrid();
                     if (returnState && typeof returnState.scrollY === 'number') {
-                        window.scrollTo(0, returnState.scrollY);
+                        scrollGridTo(returnState.scrollY);
                     }
                 } catch (e) { console.error(e); }
             }
@@ -2200,7 +2258,7 @@ async function init() {
 
         if (returnState && typeof returnState.scrollY === 'number') {
             const targetY = returnState.scrollY;
-            const tryScroll = () => window.scrollTo(0, targetY);
+            const tryScroll = () => scrollGridTo(targetY);
             tryScroll();
             requestAnimationFrame(tryScroll);
             setTimeout(tryScroll, 60);
