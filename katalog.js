@@ -855,8 +855,12 @@ const productSearch = window.RePluGSearch.index(
     p => `${p.name} ${p.batch}`,
     p => ['#' + window.RePluGSearch.fold(p.category)]
 );
+// Shares the products' vocabulary: forty sellers alone would make every word look like
+// a typo worth correcting.
 const sellerSearch = window.RePluGSearch.index(
-    s => `${s.shopName || ''} ${s.description || ''}`
+    s => `${s.shopName || ''} ${s.description || ''}`,
+    null,
+    productSearch
 );
 
 // Set by getFiltered: true when nothing matched the search as typed, so the results bar
@@ -1104,6 +1108,7 @@ function logFilter(kindOfFilter, value) {
 
 function selectCategory(cat) {
     logFilter('category', cat);
+    forgetSearchEntry();
     if (activeSeller && history.state && history.state.view === 'seller') {
         try { history.replaceState(null, ''); } catch {}
     }
@@ -1413,7 +1418,8 @@ function cardHTML(p) {
     </a>`;
 }
 
-function sellerCardHTML(s) {
+// `tagged` marks the card as a shop when it sits among product cards in search results.
+function sellerCardHTML(s, tagged) {
     const previewImg = scaledImageUrl(s.cover || '', TILE_IMAGE_WIDTH);
     const imgTag = previewImg
         ? `<img src="${escapeHtml(previewImg)}" alt="${escapeHtml(s.shopName)}" loading="lazy" onerror="this.parentNode.classList.add('no-img');this.remove()">`
@@ -1426,7 +1432,9 @@ function sellerCardHTML(s) {
         : '';
     return `
     <a class="product-card seller-card" role="button" tabindex="0" data-shop="${escapeHtml(s.shopId)}">
-        <div class="card-img ${!previewImg ? 'no-img' : ''}">${imgTag}</div>
+        <div class="card-img ${!previewImg ? 'no-img' : ''}">${imgTag}
+            ${tagged ? `<span class="card-batch">${escapeHtml(T('sellers.tag', 'Seller'))}</span>` : ''}
+        </div>
         <div class="card-body">
             <p class="card-name">${escapeHtml(s.shopName)}</p>
             ${descHtml}
@@ -1467,16 +1475,63 @@ function renderSellerTiles() {
 
     empty.style.display = 'none';
     grid.style.display = 'grid';
-    grid.innerHTML = sellers.map(sellerCardHTML).join('');
-    fillTaobaoCovers(sellers, grid);
+    grid.innerHTML = sellers.map(s => sellerCardHTML(s)).join('');
+    wireSellerCards(grid, sellers, selectSeller);
+}
 
+// Polish counts three ways — 1 sprzedawca, 3 sprzedawcy, 5 sprzedawców — and English
+// entries simply repeat the plural for the last two.
+function pluralForm(n) {
+    if (n === 1) return 'one';
+    const tens = n % 100, units = n % 10;
+    return units >= 2 && units <= 4 && (tens < 12 || tens > 14) ? 'few' : 'many';
+}
+
+function wireSellerCards(grid, sellers, open) {
+    fillTaobaoCovers(sellers, grid);
     grid.querySelectorAll('.seller-card').forEach(el => {
-        const go = () => selectSeller(el.dataset.shop);
+        const go = () => open(el.dataset.shop);
         el.addEventListener('click', go);
         el.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
         });
     });
+}
+
+// Sellers whose name or description has every word of the search, shown ahead of the
+// products. Someone typing "pengreps" is looking for the shop, and someone typing
+// "arcteryx" is well served by the seller whose whole page is Arc'teryx. A seller with
+// only some of the words is left out: "black cat" is no reason to show the sellers
+// that call themselves a "Huge Catalog".
+function sellersForSearch() {
+    if (!searchQuery || activeSeller) return { sellers: [], exact: false };
+    const found = sellerSearch.find(uniqueSellers(), searchQuery);
+    if (found.partial || !found.items.length) return { sellers: [], exact: false };
+    const sellers = found.items.slice().sort((a, b) => found.rank.get(a) - found.rank.get(b));
+    return { sellers, exact: sellers.some(s => found.rank.get(s) < 2) };
+}
+
+// The search is cleared on the way into the shop: its words were for finding the shop,
+// and kept as a filter they would empty it — "pengreps" is in no product name. It is
+// written into the history entry being left, so Back brings the results back.
+function openSellerFromSearch(shopId) {
+    flushSearch();
+    clearTimeout(searchDebounceTimer);
+    try { history.replaceState({ view: 'search', query: searchQuery, category: activeCategory }, ''); } catch {}
+    searchQuery = '';
+    syncSearchInput();
+    activeCategory = 'Sellers';
+    buildHeroTiles();
+    buildCategoryPills();
+    selectSeller(shopId);
+}
+
+// A remembered search belongs to the moment it was left. Once the visitor types or
+// browses somewhere else from here, Back should not resurrect it.
+function forgetSearchEntry() {
+    if (history.state && history.state.view === 'search') {
+        try { history.replaceState(null, ''); } catch {}
+    }
 }
 
 // The worker builds every other seller card with a cover, but a taobao one cannot: the
@@ -1597,16 +1652,22 @@ function renderGrid() {
     }
 
     const items = getFiltered();
+    const { sellers, exact: sellersExact } = sellersForSearch();
     const myToken = ++renderToken;
 
     let summary = T('results.count', `${items.length} products`, { n: items.length });
-    if (searchWasForgiven && items.length) {
+    if (sellers.length) {
+        const n = sellers.length;
+        summary = T(`sellers.found.${pluralForm(n)}`, `${n} sellers`, { n }) + ' · ' + summary;
+    }
+    const exactSomewhere = (items.length && !searchWasForgiven) || sellersExact;
+    if (searchQuery && (items.length || sellers.length) && !exactSomewhere) {
         summary += ' · ' + T('results.close', `nothing matches "${searchQuery}" exactly, showing the closest`, { q: searchQuery });
     }
     count.textContent = summary;
     info.style.display = 'block';
 
-    if (!items.length) {
+    if (!items.length && !sellers.length) {
         grid.style.display = 'none';
         grid.innerHTML = '';
         empty.style.display = 'block';
@@ -1618,7 +1679,8 @@ function renderGrid() {
     renderShopLoadMore();
 
     const initial = items.slice(0, RENDER_INITIAL);
-    grid.innerHTML = initial.map(cardHTML).join('');
+    grid.innerHTML = sellers.map(s => sellerCardHTML(s, true)).join('') + initial.map(cardHTML).join('');
+    if (sellers.length) wireSellerCards(grid, sellers, openSellerFromSearch);
 
     if (items.length > RENDER_INITIAL) {
         let i = RENDER_INITIAL;
@@ -2017,6 +2079,19 @@ window.addEventListener('popstate', e => {
             buildModelTabs();
             renderGrid();
         }
+    } else if (st && st.view === 'search') {
+        // Back out of a shop that was opened from search results.
+        activeCategory = st.category || 'all';
+        activeSeller = null;
+        activeBrand = 'all';
+        activeModel = 'all';
+        searchQuery = st.query || '';
+        syncSearchInput();
+        buildHeroTiles();
+        buildCategoryPills();
+        buildBrandTabs();
+        buildModelTabs();
+        renderGrid();
     } else if (activeSeller) {
         activeSeller = null;
         activeBrand = 'all';
@@ -2193,6 +2268,7 @@ window.addEventListener('pagehide', flushSearch);
 let searchDebounceTimer = null;
 document.getElementById('searchInput').addEventListener('input', e => {
     const val = e.target.value.trim();
+    forgetSearchEntry();
     clearTimeout(searchDebounceTimer);
     logSearch(val);
     searchDebounceTimer = setTimeout(() => {
